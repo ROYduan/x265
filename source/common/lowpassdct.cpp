@@ -18,13 +18,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "primitives.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 /* standard dct transformations */
 static dct_t* s_dct4x4;
@@ -111,8 +111,8 @@ static void lowPassDct32_c(const int16_t* src, int16_t* dst, intptr_t srcStride)
     dst[0] = static_cast<int16_t>(totalSum >> 3);
 }
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 void setupLowPassPrimitives_c(EncoderPrimitives& p)
 {

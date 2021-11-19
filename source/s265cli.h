@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265CLI_H
-#define X265CLI_H 1
+#ifndef S265CLI_H
+#define S265CLI_H 1
 
 #include "common.h"
 #include "param.h"
@@ -43,7 +43,7 @@
 #endif
 
 #ifdef __cplusplus
-namespace X265_NS {
+namespace S265_NS {
 #endif
 
 static const char short_options[] = "o:D:P:p:f:F:r:I:i:b:s:t:q:m:hwV?";
@@ -396,9 +396,9 @@ static const struct option long_options[] =
         FILE*       zoneFile;
         FILE*    dolbyVisionRpu;    /* File containing Dolby Vision BL RPU metadata */
         const char* reconPlayCmd;
-        const x265_api* api;
-        x265_param* param;
-        x265_vmaf_data* vmafData;
+        const s265_api* api;
+        s265_param* param;
+        s265_vmaf_data* vmafData;
         bool bProgress;
         bool bForceY4m;
         bool bDither;
@@ -440,7 +440,7 @@ static const struct option long_options[] =
             totalbytes = 0;
             bProgress = true;
             bForceY4m = false;
-            startTime = x265_mdate();
+            startTime = s265_mdate();
             prevUpdateTime = 0;
             bDither = false;
             isAbrLadderConfig = false;
@@ -458,10 +458,10 @@ static const struct option long_options[] =
         void destroy();
         void printStatus(uint32_t frameNum);
         bool parse(int argc, char **argv);
-        bool parseZoneParam(int argc, char **argv, x265_param* globalParam, int zonefileCount);
-        bool parseQPFile(x265_picture &pic_org);
+        bool parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount);
+        bool parseQPFile(s265_picture &pic_org);
         bool parseZoneFile();
-        int rpuParser(x265_picture * pic);
+        int rpuParser(s265_picture * pic);
     };
 #ifdef __cplusplus
 }

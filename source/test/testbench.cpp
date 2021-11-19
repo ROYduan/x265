@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -34,7 +34,7 @@
 #include "param.h"
 #include "cpu.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 const char* lumaPartStr[NUM_PU_SIZES] =
 {
@@ -72,7 +72,7 @@ const char* chromaPartStr422[NUM_PU_SIZES] =
     "32x48", "24x64", "32x16", " 8x64",
 };
 
-const char* const* chromaPartStr[X265_CSP_COUNT] =
+const char* const* chromaPartStr[S265_CSP_COUNT] =
 {
     lumaPartStr,
     chromaPartStr420,
@@ -82,7 +82,7 @@ const char* const* chromaPartStr[X265_CSP_COUNT] =
 
 void do_help()
 {
-    printf("x265 optimized primitive testbench\n\n");
+    printf("s265 optimized primitive testbench\n\n");
     printf("usage: TestBench [--cpuid CPU] [--testbench BENCH] [--help]\n\n");
     printf("       CPU is comma separated SIMD arch list, example: SSE4,AVX\n");
     printf("       BENCH is one of (pixel,transforms,interp,intrapred)\n\n");
@@ -98,7 +98,7 @@ IntraPredHarness HIPred;
 int main(int argc, char *argv[])
 {
     bool enableavx512 = true;
-    int cpuid = X265_NS::cpu_detect(enableavx512);
+    int cpuid = S265_NS::cpu_detect(enableavx512);
     const char *testname = 0;
 
     if (!(argc & 1))
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     }
 
     int seed = (int)time(NULL);
-    printf("Using random seed %X %dbit\n", seed, X265_DEPTH);
+    printf("Using random seed %X %dbit\n", seed, S265_DEPTH);
     srand(seed);
 
     // To disable classes of tests, simply comment them out in this list
@@ -163,18 +163,18 @@ int main(int argc, char *argv[])
         int flag;
     } test_arch[] =
     {
-        { "SSE2", X265_CPU_SSE2 },
-        { "SSE3", X265_CPU_SSE3 },
-        { "SSSE3", X265_CPU_SSSE3 },
-        { "SSE4", X265_CPU_SSE4 },
-        { "AVX", X265_CPU_AVX },
-        { "XOP", X265_CPU_XOP },
-        { "AVX2", X265_CPU_AVX2 },
-        { "BMI2", X265_CPU_AVX2 | X265_CPU_BMI1 | X265_CPU_BMI2 },
-        { "AVX512", X265_CPU_AVX512 },
-        { "ARMv6", X265_CPU_ARMV6 },
-        { "NEON", X265_CPU_NEON },
-        { "FastNeonMRC", X265_CPU_FAST_NEON_MRC },
+        { "SSE2", S265_CPU_SSE2 },
+        { "SSE3", S265_CPU_SSE3 },
+        { "SSSE3", S265_CPU_SSSE3 },
+        { "SSE4", S265_CPU_SSE4 },
+        { "AVX", S265_CPU_AVX },
+        { "XOP", S265_CPU_XOP },
+        { "AVX2", S265_CPU_AVX2 },
+        { "BMI2", S265_CPU_AVX2 | S265_CPU_BMI1 | S265_CPU_BMI2 },
+        { "AVX512", S265_CPU_AVX512 },
+        { "ARMv6", S265_CPU_ARMV6 },
+        { "NEON", S265_CPU_NEON },
+        { "FastNeonMRC", S265_CPU_FAST_NEON_MRC },
         { "", 0 },
     };
 
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         else
             continue;
 
-#if X265_ARCH_X86
+#if S265_ARCH_X86
         EncoderPrimitives vecprim;
         memset(&vecprim, 0, sizeof(vecprim));
         setupInstrinsicPrimitives(vecprim, test_arch[i].flag);
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
             if (!harness[h]->testCorrectness(cprim, vecprim))
             {
                 fflush(stdout);
-                fprintf(stderr, "\nx265: intrinsic primitive has failed. Go and fix that Right Now!\n");
+                fprintf(stderr, "\ns265: intrinsic primitive has failed. Go and fix that Right Now!\n");
                 return -1;
             }
         }
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
         EncoderPrimitives asmprim;
         memset(&asmprim, 0, sizeof(asmprim));
 
-#if X265_ARCH_ARM64
+#if S265_ARCH_ARM64
         /* Temporary workaround because luma_vsp assembly primitive has not been completed
          * but interp_8tap_hv_pp_cpu uses mixed C primitive and assembly primitive.
          * Otherwise, segment fault occurs. */
@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
             if (!harness[h]->testCorrectness(cprim, asmprim))
             {
                 fflush(stdout);
-                fprintf(stderr, "\nx265: asm primitive has failed. Go and fix that Right Now!\n");
+                fprintf(stderr, "\ns265: asm primitive has failed. Go and fix that Right Now!\n");
                 return -1;
             }
         }
@@ -236,11 +236,11 @@ int main(int argc, char *argv[])
 
     EncoderPrimitives optprim;
     memset(&optprim, 0, sizeof(optprim));
-#if X265_ARCH_X86
+#if S265_ARCH_X86
     setupInstrinsicPrimitives(optprim, cpuid);
 #endif
 
-#if X265_ARCH_ARM64
+#if S265_ARCH_ARM64
     /* Temporary workaround because luma_vsp assembly primitive has not been completed
      * but interp_8tap_hv_pp_cpu uses mixed C primitive and assembly primitive.
      * Otherwise, segment fault occurs. */

@@ -6,7 +6,7 @@ Preset Options
 Presets
 =======
 
-x265 has ten predefined :option:`--preset` options that optimize the
+s265 has ten predefined :option:`--preset` options that optimize the
 trade-off between encoding speed (encoded frames per second) and
 compression efficiency (quality per bit in the bitstream).  The default
 preset is medium.  It does a reasonably good job of finding the best
@@ -14,7 +14,7 @@ possible quality without spending excessive CPU cycles looking for the
 absolute most efficient way to achieve that quality.  When you use 
 faster presets, the encoder takes shortcuts to improve performance at 
 the expense of quality and compression efficiency.  When you use slower
-presets, x265 tests more encoding options, using more computations to  
+presets, s265 tests more encoding options, using more computations to  
 achieve the best quality at your selected bit rate (or in the case of
 --crf rate control, the lowest bit rate at the selected quality).
 
@@ -110,10 +110,10 @@ after the preset.
 
 	The *psnr* and *ssim* tune options disable all optimizations that
 	sacrafice metric scores for perceived visual quality (also known as
-	psycho-visual optimizations). By default x265 always tunes for
+	psycho-visual optimizations). By default s265 always tunes for
 	highest perceived visual quality but if one intends to measure an
 	encode using PSNR or SSIM for the purpose of benchmarking, we highly
-	recommend you configure x265 to tune for that particular metric.
+	recommend you configure s265 to tune for that particular metric.
 
 +--------------+-----------------------------------------------------+
 | --tune       | effect                                              |
@@ -199,10 +199,10 @@ Encoder latency is removed by:
     * :option:`--no-cutree`
     * :option:`--frame-threads` 1
 
-With all of these settings x265_encoder_encode() will run synchronously,
+With all of these settings s265_encoder_encode() will run synchronously,
 the picture passed as pic_in will be encoded and returned as NALs. These
 settings disable frame parallelism, which is an important component for
-x265 performance. If you can tolerate any latency on the encoder, you
+s265 performance. If you can tolerate any latency on the encoder, you
 can increase performance by increasing the number of frame threads. Each
 additional frame thread adds one frame of latency.
 

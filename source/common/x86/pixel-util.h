@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_PIXEL_UTIL_H
-#define X265_PIXEL_UTIL_H
+#ifndef S265_PIXEL_UTIL_H
+#define S265_PIXEL_UTIL_H
 
 #define DEFINE_UTILS(cpu) \
     FUNCDEF_TU_S2(void, getResidual, cpu, const pixel* fenc, const pixel* pred, int16_t* residual, intptr_t stride); \
@@ -64,4 +64,4 @@ uint32_t PFX(costCoeffNxN_avx2_bmi2(const uint16_t *scan, const coeff_t *coeff, 
 int  PFX(count_nonzero_16x16_avx512(const int16_t* quantCoeff));
 int  PFX(count_nonzero_32x32_avx512(const int16_t* quantCoeff));
 
-#endif // ifndef X265_PIXEL_UTIL_H
+#endif // ifndef S265_PIXEL_UTIL_H

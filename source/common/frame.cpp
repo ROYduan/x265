@@ -19,7 +19,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -27,7 +27,7 @@
 #include "picyuv.h"
 #include "framedata.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 Frame::Frame()
 {
@@ -66,7 +66,7 @@ Frame::Frame()
     m_isInsideWindow = 0;
 }
 
-bool Frame::create(x265_param *param, float* quantOffsets)
+bool Frame::create(s265_param *param, float* quantOffsets)
 {
     m_fencPic = new PicYuv;
     m_param = param;
@@ -98,13 +98,13 @@ bool Frame::create(x265_param *param, float* quantOffsets)
 
     if (param->bDynamicRefine)
     {
-        int size = m_param->maxCUDepth * X265_REFINE_INTER_LEVELS;
+        int size = m_param->maxCUDepth * S265_REFINE_INTER_LEVELS;
         CHECKED_MALLOC_ZERO(m_classifyRd, uint64_t, size);
         CHECKED_MALLOC_ZERO(m_classifyVariance, uint64_t, size);
         CHECKED_MALLOC_ZERO(m_classifyCount, uint32_t, size);
     }
 
-    if (param->rc.aqMode == X265_AQ_EDGE || (param->rc.zonefileCount && param->rc.aqMode != 0))
+    if (param->rc.aqMode == S265_AQ_EDGE || (param->rc.zonefileCount && param->rc.aqMode != 0))
     {
         uint32_t numCuInWidth = (param->sourceWidth + param->maxCUSize - 1) / param->maxCUSize;
         uint32_t numCuInHeight = (param->sourceHeight + param->maxCUSize - 1) / param->maxCUSize;
@@ -113,9 +113,9 @@ bool Frame::create(x265_param *param, float* quantOffsets)
         intptr_t m_stride = (numCuInWidth * param->maxCUSize) + (m_lumaMarginX << 1);
         int maxHeight = numCuInHeight * param->maxCUSize;
 
-        m_edgePic = X265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
-        m_gaussianPic = X265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
-        m_thetaPic = X265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
+        m_edgePic = S265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
+        m_gaussianPic = S265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
+        m_thetaPic = S265_MALLOC(pixel, m_stride * (maxHeight + (m_lumaMarginY * 2)));
     }
 
     if (param->recursionSkipMode == EDGE_BASED_RSKIP)
@@ -133,7 +133,7 @@ bool Frame::create(x265_param *param, float* quantOffsets)
 
     if (m_fencPic->create(param, !!m_param->bCopyPicToFrame) && m_lowres.create(param, m_fencPic, param->rc.qgSize))
     {
-        X265_CHECK((m_reconColCount == NULL), "m_reconColCount was initialized");
+        S265_CHECK((m_reconColCount == NULL), "m_reconColCount was initialized");
         m_numRows = (m_fencPic->m_picHeight + param->maxCUSize - 1)  / param->maxCUSize;
         m_reconRowFlag = new ThreadSafeInteger[m_numRows];
         m_reconColCount = new ThreadSafeInteger[m_numRows];
@@ -151,7 +151,7 @@ fail:
     return false;
 }
 
-bool Frame::allocEncodeData(x265_param *param, const SPS& sps)
+bool Frame::allocEncodeData(s265_param *param, const SPS& sps)
 {
     m_encData = new FrameData;
     m_reconPic = new PicYuv;
@@ -169,7 +169,7 @@ bool Frame::allocEncodeData(x265_param *param, const SPS& sps)
         m_reconPic->m_cuOffsetY = sps.cuOffsetY;
         m_reconPic->m_buOffsetY = sps.buOffsetY;
 
-        if (param->internalCsp != X265_CSP_I400)
+        if (param->internalCsp != S265_CSP_I400)
         {
             memset(m_reconPic->m_picOrg[1], 0, sizeof(pixel) * m_reconPic->m_strideC * (maxHeight >> m_reconPic->m_vChromaShift));
             memset(m_reconPic->m_picOrg[2], 0, sizeof(pixel) * m_reconPic->m_strideC * (maxHeight >> m_reconPic->m_vChromaShift));
@@ -245,48 +245,48 @@ void Frame::destroy()
         uint32_t numCUsInFrame = widthInCU * heightInCU;
         for (uint32_t i = 0; i < numCUsInFrame; i++)
         {
-            X265_FREE((*m_ctuInfo + i)->ctuInfo);
+            S265_FREE((*m_ctuInfo + i)->ctuInfo);
             (*m_ctuInfo + i)->ctuInfo = NULL;
-            X265_FREE(m_addOnDepth[i]);
+            S265_FREE(m_addOnDepth[i]);
             m_addOnDepth[i] = NULL;
-            X265_FREE(m_addOnCtuInfo[i]);
+            S265_FREE(m_addOnCtuInfo[i]);
             m_addOnCtuInfo[i] = NULL;
-            X265_FREE(m_addOnPrevChange[i]);
+            S265_FREE(m_addOnPrevChange[i]);
             m_addOnPrevChange[i] = NULL;
         }
-        X265_FREE(*m_ctuInfo);
+        S265_FREE(*m_ctuInfo);
         *m_ctuInfo = NULL;
-        X265_FREE(m_ctuInfo);
+        S265_FREE(m_ctuInfo);
         m_ctuInfo = NULL;
-        X265_FREE(m_prevCtuInfoChange);
+        S265_FREE(m_prevCtuInfoChange);
         m_prevCtuInfoChange = NULL;
-        X265_FREE(m_addOnDepth);
+        S265_FREE(m_addOnDepth);
         m_addOnDepth = NULL;
-        X265_FREE(m_addOnCtuInfo);
+        S265_FREE(m_addOnCtuInfo);
         m_addOnCtuInfo = NULL;
-        X265_FREE(m_addOnPrevChange);
+        S265_FREE(m_addOnPrevChange);
         m_addOnPrevChange = NULL;
     }
     m_lowres.destroy();
-    X265_FREE(m_rcData);
+    S265_FREE(m_rcData);
 
     if (m_param->bDynamicRefine)
     {
-        X265_FREE_ZERO(m_classifyRd);
-        X265_FREE_ZERO(m_classifyVariance);
-        X265_FREE_ZERO(m_classifyCount);
+        S265_FREE_ZERO(m_classifyRd);
+        S265_FREE_ZERO(m_classifyVariance);
+        S265_FREE_ZERO(m_classifyCount);
     }
 
-    if (m_param->rc.aqMode == X265_AQ_EDGE || (m_param->rc.zonefileCount && m_param->rc.aqMode != 0))
+    if (m_param->rc.aqMode == S265_AQ_EDGE || (m_param->rc.zonefileCount && m_param->rc.aqMode != 0))
     {
-        X265_FREE(m_edgePic);
-        X265_FREE(m_gaussianPic);
-        X265_FREE(m_thetaPic);
+        S265_FREE(m_edgePic);
+        S265_FREE(m_gaussianPic);
+        S265_FREE(m_thetaPic);
     }
 
     if (m_param->recursionSkipMode == EDGE_BASED_RSKIP)
     {
-        X265_FREE_ZERO(m_edgeBitPlane);
+        S265_FREE_ZERO(m_edgeBitPlane);
         m_edgeBitPic = NULL;
     }
 }

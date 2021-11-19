@@ -19,13 +19,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 
 #include "common.h"
 #include "primitives.h"
-#include "x265.h"
+#include "s265.h"
 #include "cpu.h"
 
 
@@ -48,9 +48,9 @@ extern "C" {
 #include "ipfilter8.h"
 }
 
-namespace X265_NS
+namespace S265_NS
 {
-// private x265 namespace
+// private s265 namespace
 
 
 template<int size>
@@ -70,7 +70,7 @@ void interp_8tap_hv_pp_cpu(const pixel *src, intptr_t srcStride, pixel *dst, int
  * Otherwise, segment fault occurs. */
 void setupAliasCPrimitives(EncoderPrimitives &cp, EncoderPrimitives &asmp, int cpuMask)
 {
-    if (cpuMask & X265_CPU_NEON)
+    if (cpuMask & S265_CPU_NEON)
     {
         asmp.pu[LUMA_8x4].luma_vsp   = cp.pu[LUMA_8x4].luma_vsp;
         asmp.pu[LUMA_8x8].luma_vsp   = cp.pu[LUMA_8x8].luma_vsp;
@@ -107,7 +107,7 @@ void setupAliasCPrimitives(EncoderPrimitives &cp, EncoderPrimitives &asmp, int c
 
 void setupAssemblyPrimitives(EncoderPrimitives &p, int cpuMask)
 {
-    if (cpuMask & X265_CPU_NEON)
+    if (cpuMask & S265_CPU_NEON)
     {
     	  // quant
         p.quant = PFX(quant_neon);
@@ -116,17 +116,17 @@ void setupAssemblyPrimitives(EncoderPrimitives &p, int cpuMask)
         p.pu[LUMA_4x8].satd   = PFX(pixel_satd_4x8_neon);
         p.pu[LUMA_4x16].satd  = PFX(pixel_satd_4x16_neon);
 
-        p.chroma[X265_CSP_I420].pu[CHROMA_420_4x8].satd    = PFX(pixel_satd_4x8_neon);
-        p.chroma[X265_CSP_I420].pu[CHROMA_420_4x16].satd   = PFX(pixel_satd_4x16_neon);
+        p.chroma[S265_CSP_I420].pu[CHROMA_420_4x8].satd    = PFX(pixel_satd_4x8_neon);
+        p.chroma[S265_CSP_I420].pu[CHROMA_420_4x16].satd   = PFX(pixel_satd_4x16_neon);
 
 
-        p.chroma[X265_CSP_I422].pu[CHROMA_422_4x8].satd    = PFX(pixel_satd_4x8_neon);
-        p.chroma[X265_CSP_I422].pu[CHROMA_422_4x16].satd   = PFX(pixel_satd_4x16_neon);
-        p.chroma[X265_CSP_I422].pu[CHROMA_422_4x32].satd   = PFX(pixel_satd_4x32_neon);
+        p.chroma[S265_CSP_I422].pu[CHROMA_422_4x8].satd    = PFX(pixel_satd_4x8_neon);
+        p.chroma[S265_CSP_I422].pu[CHROMA_422_4x16].satd   = PFX(pixel_satd_4x16_neon);
+        p.chroma[S265_CSP_I422].pu[CHROMA_422_4x32].satd   = PFX(pixel_satd_4x32_neon);
 
 #if defined(__APPLE__)
         p.pu[LUMA_12x16].satd = PFX(pixel_satd_12x16_neon);
-        p.chroma[X265_CSP_I420].pu[CHROMA_420_12x16].satd  = PFX(pixel_satd_12x16_neon);
+        p.chroma[S265_CSP_I420].pu[CHROMA_420_12x16].satd  = PFX(pixel_satd_12x16_neon);
 #endif // defined(__APPLE__)
 
 
@@ -228,4 +228,4 @@ void setupAssemblyPrimitives(EncoderPrimitives &p, int cpuMask)
         setupIntraPrimitives_neon(p);
     }
 }
-} // namespace X265_NS
+} // namespace S265_NS

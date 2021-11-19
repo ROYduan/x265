@@ -19,15 +19,15 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_DEBLOCK_H
-#define X265_DEBLOCK_H
+#ifndef S265_DEBLOCK_H
+#define S265_DEBLOCK_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class CUData;
@@ -61,4 +61,4 @@ protected:
     static const uint8_t s_betaTable[52];
 };
 }
-#endif // ifndef X265_DEBLOCK_H
+#endif // ifndef S265_DEBLOCK_H

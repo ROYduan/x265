@@ -19,14 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "picyuv.h"
 #include "lowres.h"
 #include "mv.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 bool PicQPAdaptationLayer::create(uint32_t width, uint32_t height, uint32_t partWidth, uint32_t partHeight, uint32_t numAQPartInWidthExt, uint32_t numAQPartInHeightExt)
 {
@@ -47,7 +47,7 @@ fail:
     return false;
 }
 
-bool Lowres::create(x265_param* param, PicYuv *origPic, uint32_t qgSize)
+bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
 {
     isLowres = true;
     bframes = param->bframes;
@@ -59,8 +59,8 @@ bool Lowres::create(x265_param* param, PicYuv *origPic, uint32_t qgSize)
     lumaStride = width + 2 * origPic->m_lumaMarginX;
     if (lumaStride & 31)
         lumaStride += 32 - (lumaStride & 31);
-    maxBlocksInRow = (width + X265_LOWRES_CU_SIZE - 1) >> X265_LOWRES_CU_BITS;
-    maxBlocksInCol = (lines + X265_LOWRES_CU_SIZE - 1) >> X265_LOWRES_CU_BITS;
+    maxBlocksInRow = (width + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
+    maxBlocksInCol = (lines + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
     maxBlocksInRowFullRes = maxBlocksInRow * 2;
     maxBlocksInColFullRes = maxBlocksInCol * 2;
     int cuCount = maxBlocksInRow * maxBlocksInCol;
@@ -68,8 +68,8 @@ bool Lowres::create(x265_param* param, PicYuv *origPic, uint32_t qgSize)
     isHMELowres = param->bEnableHME ? 1 : 0;
 
     /* rounding the width to multiple of lowres CU size */
-    width = maxBlocksInRow * X265_LOWRES_CU_SIZE;
-    lines = maxBlocksInCol * X265_LOWRES_CU_SIZE;
+    width = maxBlocksInRow * S265_LOWRES_CU_SIZE;
+    lines = maxBlocksInCol * S265_LOWRES_CU_SIZE;
 
     size_t planesize = lumaStride * (lines + 2 * origPic->m_lumaMarginY);
     size_t padoffset = lumaStride * origPic->m_lumaMarginY + origPic->m_lumaMarginX;
@@ -180,8 +180,8 @@ bool Lowres::create(x265_param* param, PicYuv *origPic, uint32_t qgSize)
         CHECKED_MALLOC(lowresMvCosts[1][i], int32_t, cuCount);
         if (bEnableHME)
         {
-            int maxBlocksInRowLowerRes = ((width/2) + X265_LOWRES_CU_SIZE - 1) >> X265_LOWRES_CU_BITS;
-            int maxBlocksInColLowerRes = ((lines/2) + X265_LOWRES_CU_SIZE - 1) >> X265_LOWRES_CU_BITS;
+            int maxBlocksInRowLowerRes = ((width/2) + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
+            int maxBlocksInColLowerRes = ((lines/2) + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
             int cuCountLowerRes = maxBlocksInRowLowerRes * maxBlocksInColLowerRes;
             CHECKED_MALLOC(lowerResMvs[0][i], MV, cuCountLowerRes);
             CHECKED_MALLOC(lowerResMvs[1][i], MV, cuCountLowerRes);
@@ -198,43 +198,43 @@ fail:
 
 void Lowres::destroy()
 {
-    X265_FREE(buffer[0]);
+    S265_FREE(buffer[0]);
     if(bEnableHME)
-        X265_FREE(lowerResBuffer[0]);
-    X265_FREE(intraCost);
-    X265_FREE(intraMode);
+        S265_FREE(lowerResBuffer[0]);
+    S265_FREE(intraCost);
+    S265_FREE(intraMode);
 
     for (int i = 0; i < bframes + 2; i++)
     {
         for (int j = 0; j < bframes + 2; j++)
         {
-            X265_FREE(rowSatds[i][j]);
-            X265_FREE(lowresCosts[i][j]);
+            S265_FREE(rowSatds[i][j]);
+            S265_FREE(lowresCosts[i][j]);
         }
     }
 
     for (int i = 0; i < bframes + 2; i++)
     {
-        X265_FREE(lowresMvs[0][i]);
-        X265_FREE(lowresMvs[1][i]);
-        X265_FREE(lowresMvCosts[0][i]);
-        X265_FREE(lowresMvCosts[1][i]);
+        S265_FREE(lowresMvs[0][i]);
+        S265_FREE(lowresMvs[1][i]);
+        S265_FREE(lowresMvCosts[0][i]);
+        S265_FREE(lowresMvCosts[1][i]);
         if (bEnableHME)
         {
-            X265_FREE(lowerResMvs[0][i]);
-            X265_FREE(lowerResMvs[1][i]);
-            X265_FREE(lowerResMvCosts[0][i]);
-            X265_FREE(lowerResMvCosts[1][i]);
+            S265_FREE(lowerResMvs[0][i]);
+            S265_FREE(lowerResMvs[1][i]);
+            S265_FREE(lowerResMvCosts[0][i]);
+            S265_FREE(lowerResMvCosts[1][i]);
         }
     }
-    X265_FREE(qpAqOffset);
-    X265_FREE(invQscaleFactor);
-    X265_FREE(qpCuTreeOffset);
-    X265_FREE(propagateCost);
-    X265_FREE(invQscaleFactor8x8);
-    X265_FREE(edgeInclined);
-    X265_FREE(qpAqMotionOffset);
-    X265_FREE(blockVariance);
+    S265_FREE(qpAqOffset);
+    S265_FREE(invQscaleFactor);
+    S265_FREE(qpCuTreeOffset);
+    S265_FREE(propagateCost);
+    S265_FREE(invQscaleFactor8x8);
+    S265_FREE(edgeInclined);
+    S265_FREE(qpAqMotionOffset);
+    S265_FREE(blockVariance);
     if (maxAQDepth > 0)
     {
         for (uint32_t d = 0; d < 4; d++)
@@ -244,12 +244,12 @@ void Lowres::destroy()
             if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])
                 continue;
 
-            X265_FREE(pAQLayer[d].dActivity);
-            X265_FREE(pAQLayer[d].dQpOffset);
-            X265_FREE(pAQLayer[d].dCuTreeOffset);
+            S265_FREE(pAQLayer[d].dActivity);
+            S265_FREE(pAQLayer[d].dQpOffset);
+            S265_FREE(pAQLayer[d].dCuTreeOffset);
 
             if (pAQLayer[d].bQpSize == true)
-                X265_FREE(pAQLayer[d].dCuTreeOffset8x8);
+                S265_FREE(pAQLayer[d].dCuTreeOffset8x8);
         }
 
         delete[] pAQLayer;
@@ -287,8 +287,8 @@ void Lowres::init(PicYuv *origPic, int poc)
     for (int i = 0; i < bframes + 2; i++)
         intraMbs[i] = 0;
     if (origPic->m_param->rc.vbvBufferSize)
-        for (int i = 0; i < X265_LOOKAHEAD_MAX + 1; i++)
-            plannedType[i] = X265_TYPE_AUTO;
+        for (int i = 0; i < S265_LOOKAHEAD_MAX + 1; i++)
+            plannedType[i] = S265_TYPE_AUTO;
 
     /* downscale and generate 4 hpel planes for lookahead */
     primitives.frameInitLowres(origPic->m_picOrg[0],

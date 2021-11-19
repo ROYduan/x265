@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
 #include "ringmem.h"
@@ -28,18 +28,18 @@
 #endif ////< _WIN32
 
 #ifdef _WIN32
-#define X265_SHARED_MEM_NAME                    "Local\\_x265_shr_mem_"
-#define X265_SEMAPHORE_RINGMEM_WRITER_NAME	    "_x265_semW_"
-#define X265_SEMAPHORE_RINGMEM_READER_NAME	    "_x265_semR_"
+#define S265_SHARED_MEM_NAME                    "Local\\_s265_shr_mem_"
+#define S265_SEMAPHORE_RINGMEM_WRITER_NAME	    "_s265_semW_"
+#define S265_SEMAPHORE_RINGMEM_READER_NAME	    "_s265_semR_"
 #else /* POSIX / pthreads */
-#define X265_SHARED_MEM_NAME                    "/tmp/_x265_shr_mem_"
-#define X265_SEMAPHORE_RINGMEM_WRITER_NAME	    "/tmp/_x265_semW_"
-#define X265_SEMAPHORE_RINGMEM_READER_NAME	    "/tmp/_x265_semR_"
+#define S265_SHARED_MEM_NAME                    "/tmp/_s265_shr_mem_"
+#define S265_SEMAPHORE_RINGMEM_WRITER_NAME	    "/tmp/_s265_semW_"
+#define S265_SEMAPHORE_RINGMEM_READER_NAME	    "/tmp/_s265_semR_"
 #endif
 
 #define RINGMEM_ALLIGNMENT                       64
 
-namespace X265_NS {
+namespace S265_NS {
     RingMem::RingMem() 
         : m_initialized(false)
         , m_protectRW(false)
@@ -126,7 +126,7 @@ namespace X265_NS {
             char nameBuf[MAX_SHR_NAME_LEN] = { 0 };
 
             ///< shared memory name
-            snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", X265_SHARED_MEM_NAME, name);
+            snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", S265_SHARED_MEM_NAME, name);
 
             ///< create or open shared memory
             bool newCreated = false;
@@ -227,7 +227,7 @@ namespace X265_NS {
                 }
 
                 ///< shared memory name
-                snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", X265_SEMAPHORE_RINGMEM_WRITER_NAME, name);
+                snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", S265_SEMAPHORE_RINGMEM_WRITER_NAME, name);
                 if (!m_writeSem->create(nameBuf, m_itemCnt, m_itemCnt))
                 {
                     release();
@@ -242,7 +242,7 @@ namespace X265_NS {
                 }
 
                 ///< shared memory name
-                snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", X265_SEMAPHORE_RINGMEM_READER_NAME, name);
+                snprintf(nameBuf, sizeof(nameBuf) - 1, "%s%s", S265_SEMAPHORE_RINGMEM_READER_NAME, name);
                 if (!m_readSem->create(nameBuf, 0, m_itemCnt))
                 {
                     release();

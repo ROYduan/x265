@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -60,7 +60,7 @@ inline int64_t estSaoDist(int32_t count, int32_t offset, int32_t offsetOrg)
 } // end anonymous namespace
 
 
-namespace X265_NS {
+namespace S265_NS {
 
 const uint32_t SAO::s_eoTable[NUM_EDGETYPE] =
 {
@@ -91,7 +91,7 @@ SAO::SAO()
     m_depthSaoRate = NULL;
 }
 
-bool SAO::create(x265_param* param, int initCommon)
+bool SAO::create(s265_param* param, int initCommon)
 {
     m_param = param;
     m_chromaFormat = param->internalCsp;
@@ -101,11 +101,11 @@ bool SAO::create(x265_param* param, int initCommon)
     m_numCuInWidth =  (m_param->sourceWidth + m_param->maxCUSize - 1) / m_param->maxCUSize;
     m_numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
 
-    const pixel maxY = (1 << X265_DEPTH) - 1;
+    const pixel maxY = (1 << S265_DEPTH) - 1;
     const pixel rangeExt = maxY >> 1;
     int numCtu = m_numCuInWidth * m_numCuInHeight;
 
-    for (int i = 0; i < (param->internalCsp != X265_CSP_I400 ? 3 : 1); i++)
+    for (int i = 0; i < (param->internalCsp != S265_CSP_I400 ? 3 : 1); i++)
     {
         CHECKED_MALLOC(m_tmpL1[i], pixel, m_param->maxCUSize + 1);
         CHECKED_MALLOC(m_tmpL2[i], pixel, m_param->maxCUSize + 1);
@@ -166,11 +166,11 @@ fail:
 
 void SAO::createFromRootNode(SAO* root)
 {
-    X265_CHECK(m_countPreDblk == NULL, "duplicate initialize on m_countPreDblk");
-    X265_CHECK(m_offsetOrgPreDblk == NULL, "duplicate initialize on m_offsetOrgPreDblk");
-    X265_CHECK(m_depthSaoRate == NULL, "duplicate initialize on m_depthSaoRate");
-    X265_CHECK(m_clipTableBase == NULL, "duplicate initialize on m_clipTableBase");
-    X265_CHECK(m_clipTable == NULL, "duplicate initialize on m_clipTable");
+    S265_CHECK(m_countPreDblk == NULL, "duplicate initialize on m_countPreDblk");
+    S265_CHECK(m_offsetOrgPreDblk == NULL, "duplicate initialize on m_offsetOrgPreDblk");
+    S265_CHECK(m_depthSaoRate == NULL, "duplicate initialize on m_depthSaoRate");
+    S265_CHECK(m_clipTableBase == NULL, "duplicate initialize on m_clipTableBase");
+    S265_CHECK(m_clipTable == NULL, "duplicate initialize on m_clipTable");
 
     m_countPreDblk = root->m_countPreDblk;
     m_offsetOrgPreDblk = root->m_offsetOrgPreDblk;
@@ -185,19 +185,19 @@ void SAO::destroy(int destoryCommon)
     {
         if (m_tmpL1[i])
         {
-            X265_FREE(m_tmpL1[i]);
+            S265_FREE(m_tmpL1[i]);
             m_tmpL1[i] = NULL;
         }
 
         if (m_tmpL2[i])
         {
-            X265_FREE(m_tmpL2[i]);
+            S265_FREE(m_tmpL2[i]);
             m_tmpL2[i] = NULL;
         }
 
         if (m_tmpU[i])
         {
-            X265_FREE(m_tmpU[i] - 1);
+            S265_FREE(m_tmpU[i] - 1);
             m_tmpU[i] = NULL;
         }
     }
@@ -206,18 +206,18 @@ void SAO::destroy(int destoryCommon)
     {
         if (m_param->bSaoNonDeblocked)
         {
-            X265_FREE_ZERO(m_countPreDblk);
-            X265_FREE_ZERO(m_offsetOrgPreDblk);
+            S265_FREE_ZERO(m_countPreDblk);
+            S265_FREE_ZERO(m_offsetOrgPreDblk);
         }
-        X265_FREE_ZERO(m_depthSaoRate);
-        X265_FREE_ZERO(m_clipTableBase);
+        S265_FREE_ZERO(m_depthSaoRate);
+        S265_FREE_ZERO(m_clipTableBase);
     }
 }
 
 /* allocate memory for SAO parameters */
 void SAO::allocSaoParam(SAOParam* saoParam) const
 {
-    int planes = (m_param->internalCsp != X265_CSP_I400) ? 3 : 1;
+    int planes = (m_param->internalCsp != S265_CSP_I400) ? 3 : 1;
     saoParam->numCuInWidth  = m_numCuInWidth;
 
     for (int i = 0; i < planes; i++)
@@ -255,7 +255,7 @@ void SAO::startSlice(Frame* frame, Entropy& initState)
     }
 
     saoParam->bSaoFlag[0] = true;
-    saoParam->bSaoFlag[1] = m_param->internalCsp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400;
+    saoParam->bSaoFlag[1] = m_param->internalCsp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400;
 
     m_numNoSao[0] = 0; // Luma
     m_numNoSao[1] = 0; // Chroma
@@ -290,7 +290,7 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
     // NOTE: Careful! the picHeight for Equal operator only, so I may safe to hack it
     if (lastRowInSlice)
     {
-        picHeight = x265_min(picHeight, (tpely + ctuHeight));
+        picHeight = s265_min(picHeight, (tpely + ctuHeight));
     }
 
     if (plane)
@@ -302,8 +302,8 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
         lpelx     >>= m_hChromaShift;
         tpely     >>= m_vChromaShift;
     }
-    uint32_t rpelx = x265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = x265_min(tpely + ctuHeight, picHeight);
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
     ctuWidth  = rpelx - lpelx;
     ctuHeight = bpely - tpely;
 
@@ -553,11 +553,11 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
         if (ctuWidth & 15)
         {
             #define SAO_BO_BITS 5
-            const int boShift = X265_DEPTH - SAO_BO_BITS;
+            const int boShift = S265_DEPTH - SAO_BO_BITS;
 
             for (int y = 0; y < ctuHeight; y++, rec += stride)
                 for (int x = 0; x < ctuWidth; x++)
-                    rec[x] = x265_clip(rec[x] + offsetBo[rec[x] >> boShift]);
+                    rec[x] = s265_clip(rec[x] + offsetBo[rec[x] >> boShift]);
         }
         else
             primitives.saoCuOrgB0(rec, offsetBo, ctuWidth, ctuHeight, stride);
@@ -761,8 +761,8 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
         lpelx     >>= m_hChromaShift;
         tpely     >>= m_vChromaShift;
     }
-    uint32_t rpelx = x265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = x265_min(tpely + ctuHeight, picHeight);
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
     ctuWidth  = rpelx - lpelx;
     ctuHeight = bpely - tpely;
 
@@ -789,7 +789,7 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     if ((lpelx + ctuWidth <  picWidth) & (tpely + ctuHeight < picHeight))
     {
         // WARNING: *) May read beyond bound on video than ctuWidth or ctuHeight is NOT multiple of cuSize
-        X265_CHECK((ctuWidth == ctuHeight) || (m_chromaFormat != X265_CSP_I420), "video size check failure\n");
+        S265_CHECK((ctuWidth == ctuHeight) || (m_chromaFormat != S265_CSP_I420), "video size check failure\n");
         if (plane)
             primitives.chroma[m_chromaFormat].cu[m_param->maxLog2CUSize - 2].sub_ps(diff, MAX_CU_SIZE, fenc0, rec0, stride, stride);
         else
@@ -939,11 +939,11 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
     // NOTE: Careful! the picHeight for Equal operator only, so I may safe to hack it
     if (lastRowInSlice)
     {
-        picHeight = x265_min(picHeight, (tpely + ctuHeight));
+        picHeight = s265_min(picHeight, (tpely + ctuHeight));
     }
 
-    uint32_t rpelx = x265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = x265_min(tpely + ctuHeight, picHeight);
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
     ctuWidth  = rpelx - lpelx;
     ctuHeight = bpely - tpely;
 
@@ -960,13 +960,13 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
     int32_t _upBuff1[MAX_CU_SIZE + 2], *upBuff1 = _upBuff1 + 1;
     int32_t _upBufft[MAX_CU_SIZE + 2], *upBufft = _upBufft + 1;
 
-    const int boShift = X265_DEPTH - SAO_BO_BITS;
+    const int boShift = S265_DEPTH - SAO_BO_BITS;
 
     memset(m_countPreDblk[addr], 0, sizeof(PerPlane));
     memset(m_offsetOrgPreDblk[addr], 0, sizeof(PerPlane));
 
     int plane_offset = 0;
-    for (int plane = 0; plane < (frame->m_param->internalCsp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400? NUM_PLANE : 1); plane++)
+    for (int plane = 0; plane < (frame->m_param->internalCsp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400? NUM_PLANE : 1); plane++)
     {
         if (plane == 1)
         {
@@ -1210,7 +1210,7 @@ void SAO::rdoSaoUnitRowEnd(const SAOParam* saoParam, int numctus)
         m_depthSaoRate[0 * SAO_DEPTHRATE_SIZE + m_refDepth] = 1.0;
     else
     {
-        X265_CHECK(m_numNoSao[0] <= numctus, "m_numNoSao check failure!");
+        S265_CHECK(m_numNoSao[0] <= numctus, "m_numNoSao check failure!");
         m_depthSaoRate[0 * SAO_DEPTHRATE_SIZE + m_refDepth] = m_numNoSao[0] / ((double)numctus);
     }
 
@@ -1230,22 +1230,22 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
     int64_t lambda[2] = { 0 };
 
     int qpCb = qp + slice->m_pps->chromaQpOffset[0] + slice->m_chromaQpOffset[0];
-    if (m_param->internalCsp == X265_CSP_I420)
-        qpCb = x265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int)g_chromaScale[x265_clip3(QP_MIN, QP_MAX_MAX, qpCb)]);
+    if (m_param->internalCsp == S265_CSP_I420)
+        qpCb = s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int)g_chromaScale[s265_clip3(QP_MIN, QP_MAX_MAX, qpCb)]);
     else
-        qpCb = x265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, qpCb);
-    lambda[0] = (int64_t)floor(256.0 * x265_lambda2_tab[qp]);
-    lambda[1] = (int64_t)floor(256.0 * x265_lambda2_tab[qpCb]); // Use Cb QP for SAO chroma
+        qpCb = s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, qpCb);
+    lambda[0] = (int64_t)floor(256.0 * s265_lambda2_tab[qp]);
+    lambda[1] = (int64_t)floor(256.0 * s265_lambda2_tab[qpCb]); // Use Cb QP for SAO chroma
 
     const bool allowMerge[2] = {(idxX != 0), (rowBaseAddr != 0)}; // left, up
 
     const int addrMerge[2] = {(idxX ? addr - 1 : -1), (rowBaseAddr ? addr - m_numCuInWidth : -1)};// left, up
 
-    bool chroma = m_param->internalCsp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400;
+    bool chroma = m_param->internalCsp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400;
     int planes = chroma ? 3 : 1;
 
     // reset stats Y, Cb, Cr
-    X265_CHECK(sizeof(PerPlane) == (sizeof(int32_t) * (NUM_PLANE * MAX_NUM_SAO_TYPE * MAX_NUM_SAO_CLASS)), "Found Padding space in struct PerPlane");
+    S265_CHECK(sizeof(PerPlane) == (sizeof(int32_t) * (NUM_PLANE * MAX_NUM_SAO_TYPE * MAX_NUM_SAO_CLASS)), "Found Padding space in struct PerPlane");
 
     // TODO: Confirm the address space is continuous
     if (m_param->bSaoNonDeblocked)
@@ -1404,12 +1404,12 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
                 if (count)
                 {
                     offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
-                    offsetOut = x265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
+                    offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
 
                     if (classIdx < 3) 
-                        offsetOut = X265_MAX(offsetOut, 0);
+                        offsetOut = S265_MAX(offsetOut, 0);
                     else
-                        offsetOut = X265_MIN(offsetOut, 0);
+                        offsetOut = S265_MIN(offsetOut, 0);
                 }
             }
         }
@@ -1426,7 +1426,7 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
             if (count)
             {
                 offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
-                offsetOut = x265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
+                offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
             }
         }
     }
@@ -1434,13 +1434,13 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
 
 inline int64_t SAO::calcSaoRdoCost(int64_t distortion, uint32_t bits, int64_t lambda)
 {
-#if X265_DEPTH < 10
-        X265_CHECK(bits <= (INT64_MAX - 128) / lambda,
-                   "calcRdCost wrap detected dist: " X265_LL ", bits %u, lambda: " X265_LL "\n",
+#if S265_DEPTH < 10
+        S265_CHECK(bits <= (INT64_MAX - 128) / lambda,
+                   "calcRdCost wrap detected dist: " S265_LL ", bits %u, lambda: " S265_LL "\n",
                    distortion, bits, lambda);
 #else
-        X265_CHECK(bits <= (INT64_MAX - 128) / lambda,
-                   "calcRdCost wrap detected dist: " X265_LL ", bits %u, lambda: " X265_LL "\n",
+        S265_CHECK(bits <= (INT64_MAX - 128) / lambda,
+                   "calcRdCost wrap detected dist: " S265_LL ", bits %u, lambda: " S265_LL "\n",
                    distortion, bits, lambda);
 #endif
         return distortion + ((bits * lambda + 128) >> 8);
@@ -1599,7 +1599,7 @@ void SAO::saoLumaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t& r
     m_entropyCoder.codeSaoOffset(*lclCtuParam, 0);
     m_entropyCoder.store(m_rdContexts.temp);
 
-    if (m_param->internalCsp == X265_CSP_I400)
+    if (m_param->internalCsp == S265_CSP_I400)
     {
         bestCost = rateDist + m_entropyCoder.getNumberOfWrittenBits();
     }
@@ -1758,10 +1758,10 @@ void SAO::saoChromaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t&
     }
 }
 
-// NOTE: must put in namespace X265_NS since we need class SAO
+// NOTE: must put in namespace S265_NS since we need class SAO
 void saoCuStatsBO_c(const int16_t *diff, const pixel *rec, intptr_t stride, int endX, int endY, int32_t *stats, int32_t *count)
 {
-    const int boShift = X265_DEPTH - SAO_BO_BITS;
+    const int boShift = S265_DEPTH - SAO_BO_BITS;
 
     for (int y = 0; y < endY; y++)
     {
@@ -1782,7 +1782,7 @@ void saoCuStatsE0_c(const int16_t *diff, const pixel *rec, intptr_t stride, int 
     int32_t tmp_stats[SAO::NUM_EDGETYPE];
     int32_t tmp_count[SAO::NUM_EDGETYPE];
 
-    X265_CHECK(endX <= MAX_CU_SIZE, "endX too big\n");
+    S265_CHECK(endX <= MAX_CU_SIZE, "endX too big\n");
 
     memset(tmp_stats, 0, sizeof(tmp_stats));
     memset(tmp_count, 0, sizeof(tmp_count));
@@ -1793,11 +1793,11 @@ void saoCuStatsE0_c(const int16_t *diff, const pixel *rec, intptr_t stride, int 
         for (int x = 0; x < endX; x++)
         {
             int signRight = signOf2(rec[x], rec[x + 1]);
-            X265_CHECK(signRight == signOf(rec[x] - rec[x + 1]), "signDown check failure\n");
+            S265_CHECK(signRight == signOf(rec[x] - rec[x + 1]), "signDown check failure\n");
             uint32_t edgeType = signRight + signLeft + 2;
             signLeft = -signRight;
 
-            X265_CHECK(edgeType <= 4, "edgeType check failure\n");
+            S265_CHECK(edgeType <= 4, "edgeType check failure\n");
             tmp_stats[edgeType] += diff[x];
             tmp_count[edgeType]++;
         }
@@ -1815,8 +1815,8 @@ void saoCuStatsE0_c(const int16_t *diff, const pixel *rec, intptr_t stride, int 
 
 void saoCuStatsE1_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8_t *upBuff1, int endX, int endY, int32_t *stats, int32_t *count)
 {
-    X265_CHECK(endX <= MAX_CU_SIZE, "endX check failure\n");
-    X265_CHECK(endY <= MAX_CU_SIZE, "endY check failure\n");
+    S265_CHECK(endX <= MAX_CU_SIZE, "endX check failure\n");
+    S265_CHECK(endY <= MAX_CU_SIZE, "endY check failure\n");
 
     int32_t tmp_stats[SAO::NUM_EDGETYPE];
     int32_t tmp_count[SAO::NUM_EDGETYPE];
@@ -1824,17 +1824,17 @@ void saoCuStatsE1_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8
     memset(tmp_stats, 0, sizeof(tmp_stats));
     memset(tmp_count, 0, sizeof(tmp_count));
 
-    X265_CHECK(endX * endY <= (4096 - 16), "Assembly of saoE1 may overflow with this block size\n");
+    S265_CHECK(endX * endY <= (4096 - 16), "Assembly of saoE1 may overflow with this block size\n");
     for (int y = 0; y < endY; y++)
     {
         for (int x = 0; x < endX; x++)
         {
             int signDown = signOf2(rec[x], rec[x + stride]);
-            X265_CHECK(signDown == signOf(rec[x] - rec[x + stride]), "signDown check failure\n");
+            S265_CHECK(signDown == signOf(rec[x] - rec[x + stride]), "signDown check failure\n");
             uint32_t edgeType = signDown + upBuff1[x] + 2;
             upBuff1[x] = (int8_t)(-signDown);
 
-            X265_CHECK(edgeType <= 4, "edgeType check failure\n");
+            S265_CHECK(edgeType <= 4, "edgeType check failure\n");
             tmp_stats[edgeType] += diff[x];
             tmp_count[edgeType]++;
         }
@@ -1851,8 +1851,8 @@ void saoCuStatsE1_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8
 
 void saoCuStatsE2_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8_t *upBuff1, int8_t *upBufft, int endX, int endY, int32_t *stats, int32_t *count)
 {
-    X265_CHECK(endX < MAX_CU_SIZE, "endX check failure\n");
-    X265_CHECK(endY < MAX_CU_SIZE, "endY check failure\n");
+    S265_CHECK(endX < MAX_CU_SIZE, "endX check failure\n");
+    S265_CHECK(endY < MAX_CU_SIZE, "endY check failure\n");
 
     int32_t tmp_stats[SAO::NUM_EDGETYPE];
     int32_t tmp_count[SAO::NUM_EDGETYPE];
@@ -1866,7 +1866,7 @@ void saoCuStatsE2_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8
         for (int x = 0; x < endX; x++)
         {
             int signDown = signOf2(rec[x], rec[x + stride + 1]);
-            X265_CHECK(signDown == signOf(rec[x] - rec[x + stride + 1]), "signDown check failure\n");
+            S265_CHECK(signDown == signOf(rec[x] - rec[x + stride + 1]), "signDown check failure\n");
             uint32_t edgeType = signDown + upBuff1[x] + 2;
             upBufft[x + 1] = (int8_t)(-signDown);
             tmp_stats[edgeType] += diff[x];
@@ -1888,8 +1888,8 @@ void saoCuStatsE2_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8
 
 void saoCuStatsE3_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8_t *upBuff1, int endX, int endY, int32_t *stats, int32_t *count)
 {
-    X265_CHECK(endX < MAX_CU_SIZE, "endX check failure\n");
-    X265_CHECK(endY < MAX_CU_SIZE, "endY check failure\n");
+    S265_CHECK(endX < MAX_CU_SIZE, "endX check failure\n");
+    S265_CHECK(endY < MAX_CU_SIZE, "endY check failure\n");
 
     int32_t tmp_stats[SAO::NUM_EDGETYPE];
     int32_t tmp_count[SAO::NUM_EDGETYPE];
@@ -1902,8 +1902,8 @@ void saoCuStatsE3_c(const int16_t *diff, const pixel *rec, intptr_t stride, int8
         for (int x = 0; x < endX; x++)
         {
             int signDown = signOf2(rec[x], rec[x + stride - 1]);
-            X265_CHECK(signDown == signOf(rec[x] - rec[x + stride - 1]), "signDown check failure\n");
-            X265_CHECK(abs(upBuff1[x]) <= 1, "upBuffer1 check failure\n");
+            S265_CHECK(signDown == signOf(rec[x] - rec[x + stride - 1]), "signDown check failure\n");
+            S265_CHECK(abs(upBuff1[x]) <= 1, "upBuffer1 check failure\n");
 
             uint32_t edgeType = signDown + upBuff1[x] + 2;
             upBuff1[x - 1] = (int8_t)(-signDown);

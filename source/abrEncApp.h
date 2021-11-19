@@ -20,18 +20,18 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #ifndef ABR_ENCODE_H
 #define ABR_ENCODE_H
 
-#include "x265.h"
+#include "s265.h"
 #include "scaler.h"
 #include "threading.h"
-#include "x265cli.h"
+#include "s265cli.h"
 
-namespace X265_NS {
+namespace S265_NS {
     // private namespace
 
     class PassEncoder;
@@ -46,8 +46,8 @@ namespace X265_NS {
         uint32_t           m_queueSize;
         ThreadSafeInteger  m_numActiveEncodes;
 
-        x265_picture       ***m_inputPicBuffer; //[numEncodes][queueSize]
-        x265_analysis_data **m_analysisBuffer; //[numEncodes][queueSize]
+        s265_picture       ***m_inputPicBuffer; //[numEncodes][queueSize]
+        s265_analysis_data **m_analysisBuffer; //[numEncodes][queueSize]
         int                **m_readFlag;
 
         ThreadSafeInteger  *m_picWriteCnt;
@@ -69,9 +69,9 @@ namespace X265_NS {
     public:
 
         uint32_t m_id;
-        x265_param *m_param;
+        s265_param *m_param;
         AbrEncoder *m_parent;
-        x265_encoder *m_encoder;
+        s265_encoder *m_encoder;
         Reader *m_reader;
         Scaler *m_scaler;
         bool m_inputOver;
@@ -80,10 +80,10 @@ namespace X265_NS {
         int m_lastIdx;
         uint32_t m_outputNalsCount;
 
-        x265_picture **m_inputPicBuffer;
-        x265_analysis_data **m_analysisBuffer;
-        x265_nal **m_outputNals;
-        x265_picture **m_outputRecon;
+        s265_picture **m_inputPicBuffer;
+        s265_analysis_data **m_analysisBuffer;
+        s265_nal **m_outputNals;
+        s265_picture **m_outputRecon;
 
         CLIOptions m_cliopt;
         InputFile* m_input;
@@ -99,9 +99,9 @@ namespace X265_NS {
         void setReuseLevel();
 
         void startThreads();
-        void copyInfo(x265_analysis_data *src);
+        void copyInfo(s265_analysis_data *src);
 
-        bool readPicture(x265_picture*);
+        bool readPicture(s265_picture*);
         void destroy();
 
     private:
@@ -124,7 +124,7 @@ namespace X265_NS {
         ScalerFilterManager* m_filterManager;
 
         Scaler(int threadId, int threadNum, int id, VideoDesc *src, VideoDesc * dst, PassEncoder *parentEnc);
-        bool scalePic(x265_picture *destination, x265_picture *source);
+        bool scalePic(s265_picture *destination, s265_picture *source);
         void threadMain();
         void destroy()
         {

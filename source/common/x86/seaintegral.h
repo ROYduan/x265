@@ -20,11 +20,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_SEAINTEGRAL_H
-#define X265_SEAINTEGRAL_H
+#ifndef S265_SEAINTEGRAL_H
+#define S265_SEAINTEGRAL_H
 
 void PFX(integral4v_avx2)(uint32_t *sum, intptr_t stride);
 void PFX(integral8v_avx2)(uint32_t *sum, intptr_t stride);
@@ -39,4 +39,4 @@ void PFX(integral16h_avx2)(uint32_t *sum, pixel *pix, intptr_t stride);
 void PFX(integral24h_avx2)(uint32_t *sum, pixel *pix, intptr_t stride);
 void PFX(integral32h_avx2)(uint32_t *sum, pixel *pix, intptr_t stride);
 
-#endif //X265_SEAINTEGRAL_H
+#endif //S265_SEAINTEGRAL_H

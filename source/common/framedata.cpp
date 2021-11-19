@@ -18,20 +18,20 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "framedata.h"
 #include "picyuv.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 FrameData::FrameData()
 {
     memset(this, 0, sizeof(*this));
 }
 
-bool FrameData::create(const x265_param& param, const SPS& sps, int csp)
+bool FrameData::create(const s265_param& param, const SPS& sps, int csp)
 {
     m_param = &param;
     m_slice  = new Slice;
@@ -99,17 +99,17 @@ void FrameData::destroy()
 
     if (m_param->bDynamicRefine)
     {
-        X265_FREE(m_cuMemPool.dynRefineRdBlock);
-        X265_FREE(m_cuMemPool.dynRefCntBlock);
-        X265_FREE(m_cuMemPool.dynRefVarBlock);
+        S265_FREE(m_cuMemPool.dynRefineRdBlock);
+        S265_FREE(m_cuMemPool.dynRefCntBlock);
+        S265_FREE(m_cuMemPool.dynRefVarBlock);
     }
-    X265_FREE(m_cuStat);
-    X265_FREE(m_rowStat);
+    S265_FREE(m_cuStat);
+    S265_FREE(m_rowStat);
     for (int i = 0; i < INTEGRAL_PLANE_NUM; i++)
     {
         if (m_meBuffer[i] != NULL)
         {
-            X265_FREE(m_meBuffer[i]);
+            S265_FREE(m_meBuffer[i]);
             m_meBuffer[i] = NULL;
         }
     }

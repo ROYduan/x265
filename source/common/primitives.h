@@ -26,17 +26,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_PRIMITIVES_H
-#define X265_PRIMITIVES_H
+#ifndef S265_PRIMITIVES_H
+#define S265_PRIMITIVES_H
 
 #include "common.h"
 #include "cpu.h"
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 enum LumaPU
 {
@@ -425,7 +425,7 @@ struct EncoderPrimitives
         cu[NUM_CU_SIZES];
 
     }
-    chroma[X265_CSP_COUNT];
+    chroma[S265_CSP_COUNT];
 };
 
 /* This copy of the table is what gets used by the encoder */
@@ -434,19 +434,19 @@ extern EncoderPrimitives primitives;
 /* Returns a LumaPU enum for the given size, always expected to return a valid enum */
 inline int partitionFromSizes(int width, int height)
 {
-    X265_CHECK(((width | height) & ~(4 | 8 | 16 | 32 | 64)) == 0, "Invalid block width/height\n");
+    S265_CHECK(((width | height) & ~(4 | 8 | 16 | 32 | 64)) == 0, "Invalid block width/height\n");
     extern const uint8_t lumaPartitionMapTable[];
     int w = (width >> 2) - 1;
     int h = (height >> 2) - 1;
     int part = (int)lumaPartitionMapTable[(w << 4) + h];
-    X265_CHECK(part != 255, "Invalid block width %d height %d\n", width, height);
+    S265_CHECK(part != 255, "Invalid block width %d height %d\n", width, height);
     return part;
 }
 
 /* Computes the size of the LumaPU for a given LumaPU enum */
 inline void sizesFromPartition(int part, int *width, int *height)
 {
-    X265_CHECK(part >= 0 && part <= 24, "Invalid part %d \n", part);
+    S265_CHECK(part >= 0 && part <= 24, "Invalid part %d \n", part);
     extern const uint8_t lumaPartitionMapTable[];
     int index = 0;
     for (int i = 0; i < 256;i++)
@@ -461,7 +461,7 @@ inline void sizesFromPartition(int part, int *width, int *height)
 
 inline int partitionFromLog2Size(int log2Size)
 {
-    X265_CHECK(2 <= log2Size && log2Size <= 6, "Invalid block size\n");
+    S265_CHECK(2 <= log2Size && log2Size <= 6, "Invalid block size\n");
     return log2Size - 2;
 }
 
@@ -469,7 +469,7 @@ void setupCPrimitives(EncoderPrimitives &p);
 void setupInstrinsicPrimitives(EncoderPrimitives &p, int cpuMask);
 void setupAssemblyPrimitives(EncoderPrimitives &p, int cpuMask);
 void setupAliasPrimitives(EncoderPrimitives &p);
-#if X265_ARCH_ARM64
+#if S265_ARCH_ARM64
 void setupAliasCPrimitives(EncoderPrimitives &cp, EncoderPrimitives &asmp, int cpuMask);
 #endif
 #if HAVE_ALTIVEC
@@ -486,10 +486,10 @@ extern const char* PFX(version_str);
 extern const char* PFX(build_info_str);
 #endif
 
-#if ENABLE_ASSEMBLY && X265_ARCH_ARM64
+#if ENABLE_ASSEMBLY && S265_ARCH_ARM64
 extern "C" {
 #include "aarch64/pixel-util.h"
 }
 #endif
 
-#endif // ifndef X265_PRIMITIVES_H
+#endif // ifndef S265_PRIMITIVES_H

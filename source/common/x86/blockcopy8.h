@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_BLOCKCOPY8_H
-#define X265_BLOCKCOPY8_H
+#ifndef S265_BLOCKCOPY8_H
+#define S265_BLOCKCOPY8_H
 
 FUNCDEF_TU_S(void, cpy2Dto1D_shl, sse2, int16_t* dst, const int16_t* src, intptr_t srcStride, int shift);
 FUNCDEF_TU_S(void, cpy2Dto1D_shl, sse4, int16_t* dst, const int16_t* src, intptr_t srcStride, int shift);
@@ -72,4 +72,4 @@ FUNCDEF_PU(void, blockcopy_ps, sse4, int16_t* dst, intptr_t dstStride, const pix
 FUNCDEF_PU(void, blockcopy_ps, avx2, int16_t* dst, intptr_t dstStride, const pixel* src, intptr_t srcStride);
 FUNCDEF_PU(void, blockcopy_ps, avx512, int16_t* dst, intptr_t dstStride, const pixel* src, intptr_t srcStride);
 
-#endif // ifndef X265_I386_PIXEL_H
+#endif // ifndef S265_I386_PIXEL_H

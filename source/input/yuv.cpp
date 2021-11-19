@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 #define _FILE_OFFSET_BITS 64
 #define _LARGEFILE_SOURCE
@@ -37,7 +37,7 @@
 #endif
 #endif
 
-using namespace X265_NS;
+using namespace S265_NS;
 using namespace std;
 
 YUVInput::YUVInput(InputFileInfo& info)
@@ -54,16 +54,16 @@ YUVInput::YUVInput(InputFileInfo& info)
 
     uint32_t pixelbytes = depth > 8 ? 2 : 1;
     framesize = 0;
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
     {
-        uint32_t w = width >> x265_cli_csps[colorSpace].width[i];
-        uint32_t h = height >> x265_cli_csps[colorSpace].height[i];
+        uint32_t w = width >> s265_cli_csps[colorSpace].width[i];
+        uint32_t h = height >> s265_cli_csps[colorSpace].height[i];
         framesize += w * h * pixelbytes;
     }
 
     if (width == 0 || height == 0 || info.fpsNum == 0 || info.fpsDenom == 0)
     {
-        x265_log(NULL, X265_LOG_ERROR, "yuv: width, height, and FPS must be specified\n");
+        s265_log(NULL, S265_LOG_ERROR, "yuv: width, height, and FPS must be specified\n");
         return;
     }
     if (!strcmp(info.filename, "-"))
@@ -74,7 +74,7 @@ YUVInput::YUVInput(InputFileInfo& info)
 #endif
     }
     else
-        ifs = x265_fopen(info.filename, "rb");
+        ifs = s265_fopen(info.filename, "rb");
     if (ifs && !ferror(ifs))
         threadActive = true;
     else
@@ -87,10 +87,10 @@ YUVInput::YUVInput(InputFileInfo& info)
 
     for (uint32_t i = 0; i < QUEUE_SIZE; i++)
     {
-        buf[i] = X265_MALLOC(char, framesize);
+        buf[i] = S265_MALLOC(char, framesize);
         if (buf[i] == NULL)
         {
-            x265_log(NULL, X265_LOG_ERROR, "yuv: buffer allocation failure, aborting\n");
+            s265_log(NULL, S265_LOG_ERROR, "yuv: buffer allocation failure, aborting\n");
             threadActive = false;
             return;
         }
@@ -125,7 +125,7 @@ YUVInput::~YUVInput()
     if (ifs && ifs != stdin)
         fclose(ifs);
     for (int i = 0; i < QUEUE_SIZE; i++)
-        X265_FREE(buf[i]);
+        S265_FREE(buf[i]);
 }
 
 void YUVInput::release()
@@ -180,7 +180,7 @@ bool YUVInput::populateFrameQueue()
         return false;
 }
 
-bool YUVInput::readPicture(x265_picture& pic)
+bool YUVInput::readPicture(s265_picture& pic)
 {
     int read = readCount.get();
     int written = writeCount.get();
@@ -206,11 +206,11 @@ bool YUVInput::readPicture(x265_picture& pic)
         pic.height = height;
         pic.width = width;
         pic.stride[0] = width * pixelbytes;
-        pic.stride[1] = pic.stride[0] >> x265_cli_csps[colorSpace].width[1];
-        pic.stride[2] = pic.stride[0] >> x265_cli_csps[colorSpace].width[2];
+        pic.stride[1] = pic.stride[0] >> s265_cli_csps[colorSpace].width[1];
+        pic.stride[2] = pic.stride[0] >> s265_cli_csps[colorSpace].width[2];
         pic.planes[0] = buf[read % QUEUE_SIZE];
         pic.planes[1] = (char*)pic.planes[0] + pic.stride[0] * height;
-        pic.planes[2] = (char*)pic.planes[1] + pic.stride[1] * (height >> x265_cli_csps[colorSpace].height[1]);
+        pic.planes[2] = (char*)pic.planes[1] + pic.stride[1] * (height >> s265_cli_csps[colorSpace].height[1]);
         readCount.incr();
         return true;
     }

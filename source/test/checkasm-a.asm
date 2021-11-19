@@ -23,7 +23,7 @@
 ;* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 ;*
 ;* This program is also available under a commercial proprietary license.
-;* For more information, contact us at license @ x265.com.
+;* For more information, contact us at license @ s265.com.
 ;*****************************************************************************
 
 %include "x86inc.asm"
@@ -59,14 +59,14 @@ SECTION .text
 
 cextern_naked puts
 
-; max number of args used by any x265 asm function.
+; max number of args used by any s265 asm function.
 ; (max_args % 4) must equal 3 for stack alignment
 %define max_args 15
 
 %if ARCH_X86_64
 
 ;-----------------------------------------------------------------------------
-; void x265_checkasm_stack_clobber( uint64_t clobber, ... )
+; void s265_checkasm_stack_clobber( uint64_t clobber, ... )
 ;-----------------------------------------------------------------------------
 cglobal checkasm_stack_clobber, 1,2
     ; Clobber the stack with junk below the stack pointer
@@ -87,7 +87,7 @@ cglobal checkasm_stack_clobber, 1,2
 %endif
 
 ;-----------------------------------------------------------------------------
-; intptr_t x265_checkasm_call( intptr_t (*func)(), int *ok, ... )
+; intptr_t s265_checkasm_call( intptr_t (*func)(), int *ok, ... )
 ;-----------------------------------------------------------------------------
 cglobal checkasm_call_float
 INIT_XMM
@@ -177,7 +177,7 @@ cglobal checkasm_call, 2,15,16,max_args*8+8
 %define n6 dword 0x33627ba7
 
 ;-----------------------------------------------------------------------------
-; intptr_t x265_checkasm_call( intptr_t (*func)(), int *ok, ... )
+; intptr_t s265_checkasm_call( intptr_t (*func)(), int *ok, ... )
 ;-----------------------------------------------------------------------------
 cglobal checkasm_call_float
 cglobal checkasm_call, 1,7
@@ -214,7 +214,7 @@ cglobal checkasm_call, 1,7
 %endif ; ARCH_X86_64
 
 ;-----------------------------------------------------------------------------
-; int x265_stack_pagealign( int (*func)(), int align )
+; int s265_stack_pagealign( int (*func)(), int align )
 ;-----------------------------------------------------------------------------
 cglobal stack_pagealign, 2,2
     movsxdifnidn r1, r1d

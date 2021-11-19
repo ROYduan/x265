@@ -19,14 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "pixelharness.h"
 #include "primitives.h"
 #include "entropy.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 PixelHarness::PixelHarness()
 {
@@ -303,7 +303,7 @@ bool PixelHarness::check_weightp(weightp_sp_t ref, weightp_sp_t opt)
     int round = shift ? (1 << (shift - 1)) : 0;
     int offset = (rand() % 256) - 128;
     intptr_t stride = 64;
-    const int correction = (IF_INTERNAL_PREC - X265_DEPTH);
+    const int correction = (IF_INTERNAL_PREC - S265_DEPTH);
 
     for (int i = 0; i < ITERS; i++)
     {
@@ -334,8 +334,8 @@ bool PixelHarness::check_weightp(weightp_pp_t ref, weightp_pp_t opt)
     int j = 0;
     bool enableavx512 = true;
     int width = 16 * (rand() % 4 + 1);
-    int cpuid = X265_NS::cpu_detect(enableavx512);
-    if (cpuid & X265_CPU_AVX512)
+    int cpuid = S265_NS::cpu_detect(enableavx512);
+    if (cpuid & S265_CPU_AVX512)
         width = 32 * (rand() % 2 + 1);
     int height = 8;
     int w0 = rand() % 128;
@@ -343,7 +343,7 @@ bool PixelHarness::check_weightp(weightp_pp_t ref, weightp_pp_t opt)
     int round = shift ? (1 << (shift - 1)) : 0;
     int offset = (rand() % 256) - 128;
     intptr_t stride = 64;
-    const int correction = (IF_INTERNAL_PREC - X265_DEPTH);
+    const int correction = (IF_INTERNAL_PREC - S265_DEPTH);
     for (int i = 0; i < ITERS; i++)
     {
         int index = i % TEST_CASES;
@@ -1508,13 +1508,13 @@ bool PixelHarness::check_planecopy_sp(planecopy_sp_t ref, planecopy_sp_t opt)
     {
         int index = i % TEST_CASES;
 
-        checked(opt, ushort_test_buff[index] + j, srcStride, opt_dest, dstStride, width, height, (int)8, (uint16_t)((1 << X265_DEPTH) - 1));
-        ref(ushort_test_buff[index] + j, srcStride, ref_dest, dstStride, width, height, (int)8, (uint16_t)((1 << X265_DEPTH) - 1));
+        checked(opt, ushort_test_buff[index] + j, srcStride, opt_dest, dstStride, width, height, (int)8, (uint16_t)((1 << S265_DEPTH) - 1));
+        ref(ushort_test_buff[index] + j, srcStride, ref_dest, dstStride, width, height, (int)8, (uint16_t)((1 << S265_DEPTH) - 1));
 
         if (memcmp(ref_dest, opt_dest, dstStride * height * sizeof(pixel)))
         {
             memcpy(opt_dest, ref_dest, sizeof(ref_dest));
-            opt(ushort_test_buff[index] + j, srcStride, opt_dest, dstStride, width, height, (int)8, (uint16_t)((1 << X265_DEPTH) - 1));
+            opt(ushort_test_buff[index] + j, srcStride, opt_dest, dstStride, width, height, (int)8, (uint16_t)((1 << S265_DEPTH) - 1));
             return false;
         }
 
@@ -2274,7 +2274,7 @@ bool PixelHarness::check_ssimDist(ssimDistortion_t ref, ssimDistortion_t opt)
 {
     uint32_t srcStride[5] = { 4, 8, 16, 32, 64 };
     intptr_t dstStride[5] = { 4, 8, 16, 32, 64 };
-    int shift = X265_DEPTH - 8;
+    int shift = S265_DEPTH - 8;
     uint64_t opt_dest1 = 0, ref_dest1 = 0, opt_dest2 = 0, ref_dest2 = 0;
     int j = 0;
 
@@ -2298,7 +2298,7 @@ bool PixelHarness::check_ssimDist(ssimDistortion_t ref, ssimDistortion_t opt)
 
 bool PixelHarness::check_normFact(normFactor_t ref, normFactor_t opt, int block)
 {
-    int shift = X265_DEPTH - 8;
+    int shift = S265_DEPTH - 8;
     uint64_t opt_dest = 0, ref_dest = 0;
     int j = 0;
     int blockSize = 4 << block;
@@ -2476,13 +2476,13 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
         }
     }
 
-    for (int i = 0; i < X265_CSP_COUNT; i++)
+    for (int i = 0; i < S265_CSP_COUNT; i++)
     {
         if (opt.chroma[i].pu[part].copy_pp)
         {
             if (!check_copy_pp(ref.chroma[i].pu[part].copy_pp, opt.chroma[i].pu[part].copy_pp))
             {
-                printf("chroma_copy_pp[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                printf("chroma_copy_pp[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                 return false;
             }
         }
@@ -2490,7 +2490,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
         {
             if (!check_addAvg(ref.chroma[i].pu[part].addAvg[NONALIGNED], opt.chroma[i].pu[part].addAvg[NONALIGNED]))
             {
-                printf("chroma_addAvg[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                printf("chroma_addAvg[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                 return false;
             }
         }
@@ -2498,7 +2498,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
         {
             if (!check_addAvg_aligned(ref.chroma[i].pu[part].addAvg[ALIGNED], opt.chroma[i].pu[part].addAvg[ALIGNED]))
             {
-                printf("chroma_addAvg_aligned[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                printf("chroma_addAvg_aligned[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                 return false;
             }
         }
@@ -2506,7 +2506,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
         {
             if (!check_pixelcmp(ref.chroma[i].pu[part].satd, opt.chroma[i].pu[part].satd))
             {
-                printf("chroma_satd[%s][%s] failed!\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                printf("chroma_satd[%s][%s] failed!\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                 return false;
             }
         }
@@ -2516,7 +2516,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_pixel_sse(ref.chroma[i].cu[part].sse_pp, opt.chroma[i].cu[part].sse_pp))
                 {
-                    printf("chroma_sse_pp[%s][%s]: failed!\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_sse_pp[%s][%s]: failed!\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2524,7 +2524,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_pixel_sub_ps(ref.chroma[i].cu[part].sub_ps, opt.chroma[i].cu[part].sub_ps))
                 {
-                    printf("chroma_sub_ps[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_sub_ps[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2532,7 +2532,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_pixel_add_ps(ref.chroma[i].cu[part].add_ps[NONALIGNED], opt.chroma[i].cu[part].add_ps[NONALIGNED]))
                 {
-                    printf("chroma_add_ps[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_add_ps[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2540,7 +2540,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_pixel_add_ps_aligned(ref.chroma[i].cu[part].add_ps[ALIGNED], opt.chroma[i].cu[part].add_ps[ALIGNED]))
                 {
-                    printf("chroma_add_ps_aligned[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_add_ps_aligned[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2548,7 +2548,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_copy_sp(ref.chroma[i].cu[part].copy_sp, opt.chroma[i].cu[part].copy_sp))
                 {
-                    printf("chroma_copy_sp[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_copy_sp[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2556,7 +2556,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_copy_ps(ref.chroma[i].cu[part].copy_ps, opt.chroma[i].cu[part].copy_ps))
                 {
-                    printf("chroma_copy_ps[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_copy_ps[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2564,7 +2564,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_copy_ss(ref.chroma[i].cu[part].copy_ss, opt.chroma[i].cu[part].copy_ss))
                 {
-                    printf("chroma_copy_ss[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_copy_ss[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -2572,7 +2572,7 @@ bool PixelHarness::testPU(int part, const EncoderPrimitives& ref, const EncoderP
             {
                 if (!check_pixelcmp(ref.chroma[i].cu[part].sa8d, opt.chroma[i].cu[part].sa8d))
                 {
-                    printf("chroma_sa8d[%s][%s] failed\n", x265_source_csp_names[i], chromaPartStr[i][part]);
+                    printf("chroma_sa8d[%s][%s] failed\n", s265_source_csp_names[i], chromaPartStr[i][part]);
                     return false;
                 }
             }
@@ -3271,68 +3271,68 @@ void PixelHarness::measurePartition(int part, const EncoderPrimitives& ref, cons
         }
     }
 
-    for (int i = 0; i < X265_CSP_COUNT; i++)
+    for (int i = 0; i < S265_CSP_COUNT; i++)
     {
         if (opt.chroma[i].pu[part].copy_pp)
         {
-            HEADER("[%s] copy_pp[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+            HEADER("[%s] copy_pp[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
             REPORT_SPEEDUP(opt.chroma[i].pu[part].copy_pp, ref.chroma[i].pu[part].copy_pp, pbuf1, 64, pbuf2, 128);
         }
         if (opt.chroma[i].pu[part].addAvg[NONALIGNED])
         {
-            HEADER("[%s]  addAvg[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+            HEADER("[%s]  addAvg[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
             REPORT_SPEEDUP(opt.chroma[i].pu[part].addAvg[NONALIGNED], ref.chroma[i].pu[part].addAvg[NONALIGNED], sbuf1, sbuf2, pbuf1, STRIDE, STRIDE, STRIDE);
         }
         if (opt.chroma[i].pu[part].addAvg[ALIGNED])
         {
-            HEADER("[%s]  addAvg_aligned[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+            HEADER("[%s]  addAvg_aligned[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
             REPORT_SPEEDUP(opt.chroma[i].pu[part].addAvg[ALIGNED], ref.chroma[i].pu[part].addAvg[ALIGNED], sbuf1, sbuf2, pbuf1, STRIDE, STRIDE, STRIDE);
         }
         if (opt.chroma[i].pu[part].satd)
         {
-            HEADER("[%s] satd[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+            HEADER("[%s] satd[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
             REPORT_SPEEDUP(opt.chroma[i].pu[part].satd, ref.chroma[i].pu[part].satd, pbuf1, STRIDE, fref, STRIDE);
         }
         if (part < NUM_CU_SIZES)
         {
             if (opt.chroma[i].cu[part].copy_ss)
             {
-                HEADER("[%s] copy_ss[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s] copy_ss[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].copy_ss, ref.chroma[i].cu[part].copy_ss, sbuf1, 64, sbuf2, 128);
             }
             if (opt.chroma[i].cu[part].copy_ps)
             {
-                HEADER("[%s] copy_ps[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s] copy_ps[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].copy_ps, ref.chroma[i].cu[part].copy_ps, sbuf1, 64, pbuf1, 128);
             }
             if (opt.chroma[i].cu[part].copy_sp)
             {
-                HEADER("[%s] copy_sp[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s] copy_sp[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].copy_sp, ref.chroma[i].cu[part].copy_sp, pbuf1, 64, sbuf3, 128);
             }
             if (opt.chroma[i].cu[part].sse_pp)
             {
-                HEADER("[%s] sse_pp[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s] sse_pp[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].sse_pp, ref.chroma[i].cu[part].sse_pp, pbuf1, STRIDE, fref, STRIDE);
             }
             if (opt.chroma[i].cu[part].sub_ps)
             {
-                HEADER("[%s]  sub_ps[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s]  sub_ps[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].sub_ps, ref.chroma[i].cu[part].sub_ps, (int16_t*)pbuf1, FENC_STRIDE, pbuf2, pbuf1, STRIDE, STRIDE);
             }
             if (opt.chroma[i].cu[part].add_ps[NONALIGNED])
             {
-                HEADER("[%s]  add_ps[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s]  add_ps[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].add_ps[NONALIGNED], ref.chroma[i].cu[part].add_ps[NONALIGNED], pbuf1, FENC_STRIDE, pbuf2, sbuf1, STRIDE, STRIDE);
             }
             if (opt.chroma[i].cu[part].add_ps[ALIGNED])
             {
-                HEADER("[%s]  add_ps_aligned[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s]  add_ps_aligned[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].add_ps[ALIGNED], ref.chroma[i].cu[part].add_ps[ALIGNED], pbuf1, FENC_STRIDE, pbuf2, sbuf1, STRIDE, STRIDE);
             }
             if (opt.chroma[i].cu[part].sa8d)
             {
-                HEADER("[%s] sa8d[%s]", x265_source_csp_names[i], chromaPartStr[i][part]);
+                HEADER("[%s] sa8d[%s]", s265_source_csp_names[i], chromaPartStr[i][part]);
                 REPORT_SPEEDUP(opt.chroma[i].cu[part].sa8d, ref.chroma[i].cu[part].sa8d, pbuf1, STRIDE, pbuf2, STRIDE);
             }
         }
@@ -3427,8 +3427,8 @@ void PixelHarness::measureSpeed(const EncoderPrimitives& ref, const EncoderPrimi
         if ((i < BLOCK_64x64) && opt.cu[i].cpy2Dto1D_shl)
         {
             HEADER("cpy2Dto1D_shl[%dx%d]", 4 << i, 4 << i);
-            const int shift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - (i + 2);
-            REPORT_SPEEDUP(opt.cu[i].cpy2Dto1D_shl, ref.cu[i].cpy2Dto1D_shl, sbuf1, sbuf2, STRIDE, X265_MAX(0, shift));
+            const int shift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - (i + 2);
+            REPORT_SPEEDUP(opt.cu[i].cpy2Dto1D_shl, ref.cu[i].cpy2Dto1D_shl, sbuf1, sbuf2, STRIDE, S265_MAX(0, shift));
         }
 
         if ((i < BLOCK_64x64) && opt.cu[i].cpy2Dto1D_shr)
@@ -3468,7 +3468,7 @@ void PixelHarness::measureSpeed(const EncoderPrimitives& ref, const EncoderPrimi
         if (opt.cu[i].ssimDist)
         {
             uint64_t dst1 = 0, dst2 = 0;
-            int shift = X265_DEPTH - 8;
+            int shift = S265_DEPTH - 8;
             printf("ssimDist[%dx%d]", 4 << i, 4 << i);
             REPORT_SPEEDUP(opt.cu[i].ssimDist, ref.cu[i].ssimDist, pixel_test_buff[0], 32, pixel_test_buff[5], 64, &dst1, shift, &dst2);
         }
@@ -3812,7 +3812,7 @@ void PixelHarness::measureSpeed(const EncoderPrimitives& ref, const EncoderPrimi
         {
             uint64_t dst = 0;
             int blockSize = 4 << i;
-            int shift = X265_DEPTH - 8;
+            int shift = S265_DEPTH - 8;
             printf("normFact[%dx%d]", blockSize, blockSize);
             REPORT_SPEEDUP(opt.cu[i].normFact, ref.cu[i].normFact, pixel_test_buff[0], blockSize, shift, &dst);
         }

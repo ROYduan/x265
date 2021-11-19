@@ -18,7 +18,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -26,9 +26,9 @@
 #include "slice.h"
 #include "sei.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
-/* x265's identifying GUID */
+/* s265's identifying GUID */
 const uint8_t SEIuserDataUnregistered::m_uuid_iso_iec_11578[16] = {
     0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDB,
     0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E
@@ -45,7 +45,7 @@ void SEI::writeSEImessages(Bitstream& bs, const SPS& sps, NalUnitType nalUnitTyp
     m_bitIf = &counter;
     writeSEI(sps);
     /* count the size of the payload and return the size in bits */
-    X265_CHECK(0 == (counter.getNumberOfWrittenBits() & 7), "payload unaligned\n");
+    S265_CHECK(0 == (counter.getNumberOfWrittenBits() & 7), "payload unaligned\n");
     uint32_t payloadData = counter.getNumberOfWrittenBits() >> 3;
 
     // set bitstream

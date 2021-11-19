@@ -18,18 +18,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_LOWRES_H
-#define X265_LOWRES_H
+#ifndef S265_LOWRES_H
+#define S265_LOWRES_H
 
 #include "primitives.h"
 #include "common.h"
 #include "picyuv.h"
 #include "mv.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 struct ReferencePlanes
@@ -183,17 +183,17 @@ struct Lowres : public ReferencePlanes
     double ipCostRatio;
 
     /* lookahead output data */
-    int64_t   costEst[X265_BFRAME_MAX + 2][X265_BFRAME_MAX + 2];
-    int64_t   costEstAq[X265_BFRAME_MAX + 2][X265_BFRAME_MAX + 2];
-    int32_t*  rowSatds[X265_BFRAME_MAX + 2][X265_BFRAME_MAX + 2];
-    int       intraMbs[X265_BFRAME_MAX + 2];
+    int64_t   costEst[S265_BFRAME_MAX + 2][S265_BFRAME_MAX + 2];
+    int64_t   costEstAq[S265_BFRAME_MAX + 2][S265_BFRAME_MAX + 2];
+    int32_t*  rowSatds[S265_BFRAME_MAX + 2][S265_BFRAME_MAX + 2];
+    int       intraMbs[S265_BFRAME_MAX + 2];
     int32_t*  intraCost;
     uint8_t*  intraMode;
     int64_t   satdCost;
     uint16_t* lowresCostForRc;
-    uint16_t* lowresCosts[X265_BFRAME_MAX + 2][X265_BFRAME_MAX + 2];
-    int32_t*  lowresMvCosts[2][X265_BFRAME_MAX + 2];
-    MV*       lowresMvs[2][X265_BFRAME_MAX + 2];
+    uint16_t* lowresCosts[S265_BFRAME_MAX + 2][S265_BFRAME_MAX + 2];
+    int32_t*  lowresMvCosts[2][S265_BFRAME_MAX + 2];
+    MV*       lowresMvs[2][S265_BFRAME_MAX + 2];
     uint32_t  maxBlocksInRow;
     uint32_t  maxBlocksInCol;
     uint32_t  maxBlocksInRowFullRes;
@@ -201,12 +201,12 @@ struct Lowres : public ReferencePlanes
 
     /* Hierarchical Motion Estimation */
     bool      bEnableHME;
-    int32_t*  lowerResMvCosts[2][X265_BFRAME_MAX + 2];
-    MV*       lowerResMvs[2][X265_BFRAME_MAX + 2];
+    int32_t*  lowerResMvCosts[2][S265_BFRAME_MAX + 2];
+    MV*       lowerResMvs[2][S265_BFRAME_MAX + 2];
 
     /* used for vbvLookahead */
-    int       plannedType[X265_LOOKAHEAD_MAX + 1];
-    int64_t   plannedSatd[X265_LOOKAHEAD_MAX + 1];
+    int       plannedType[S265_LOOKAHEAD_MAX + 1];
+    int64_t   plannedSatd[S265_LOOKAHEAD_MAX + 1];
     int       indB;
     int       bframes;
 
@@ -232,18 +232,18 @@ struct Lowres : public ReferencePlanes
     uint32_t m_qgSize;
     
     uint16_t* propagateCost;
-    double    weightedCostDelta[X265_BFRAME_MAX + 2];
-    ReferencePlanes weightedRef[X265_BFRAME_MAX + 2];
+    double    weightedCostDelta[S265_BFRAME_MAX + 2];
+    ReferencePlanes weightedRef[S265_BFRAME_MAX + 2];
     /* For hist-based scenecut */
     bool   m_bIsMaxThres;
     double interPCostPercDiff;
     double intraCostPercDiff;
     bool   m_bIsHardScenecut;
 
-    bool create(x265_param* param, PicYuv *origPic, uint32_t qgSize);
+    bool create(s265_param* param, PicYuv *origPic, uint32_t qgSize);
     void destroy();
     void init(PicYuv *origPic, int poc);
 };
 }
 
-#endif // ifndef X265_LOWRES_H
+#endif // ifndef S265_LOWRES_H

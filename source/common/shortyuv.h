@@ -1,5 +1,5 @@
 /*****************************************************************************
- * x265: ShortYUV class for short sized YUV-style frames
+ * s265: ShortYUV class for short sized YUV-style frames
  *****************************************************************************
  * Copyright (C) 2013-2020 MulticoreWare, Inc
  *
@@ -20,15 +20,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
-#ifndef X265_SHORTYUV_H
-#define X265_SHORTYUV_H
+#ifndef S265_SHORTYUV_H
+#define S265_SHORTYUV_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class Yuv;
@@ -90,4 +90,4 @@ public:
 };
 }
 
-#endif // ifndef X265_SHORTYUV_H
+#endif // ifndef S265_SHORTYUV_H

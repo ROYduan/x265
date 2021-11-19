@@ -1,10 +1,10 @@
 #include "common.h"
-#include "x265.h"
+#include "s265.h"
 #include "arm64-utils.h"
 #include <arm_neon.h>
 
 #define COPY_16(d,s) *(uint8x16_t *)(d) = *(uint8x16_t *)(s)
-namespace X265_NS
+namespace S265_NS
 {
 
 

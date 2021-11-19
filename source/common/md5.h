@@ -22,13 +22,13 @@
  * For more information, contact us at chenm003@163.com.
  *****************************************************************************/
 
-#ifndef X265_MD5_H
-#define X265_MD5_H
+#ifndef S265_MD5_H
+#define S265_MD5_H
 
 #include "common.h"
 
-namespace X265_NS {
-//private x265 namespace
+namespace S265_NS {
+//private s265 namespace
 
 typedef struct MD5Context
 {
@@ -76,4 +76,4 @@ private:
 };
 }
 
-#endif // ifndef X265_MD5_H
+#endif // ifndef S265_MD5_H

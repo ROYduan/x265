@@ -16,7 +16,7 @@ Note: MSVC12 requires cmake 2.8.11 or later
    http://yasm.tortall.net/Download.html and copy the EXE into
    C:\Windows or somewhere else in your %PATH% that a 32-bit app (cmake)
    can find it. If it is not in the path, you must manually tell cmake
-   where to find it.  Note: you do not need the vsyasm packages, x265
+   where to find it.  Note: you do not need the vsyasm packages, s265
    does not use them.  You only need the yasm executable itself.
 
    On Linux, the packaged yasm may be older than 1.2, in which case
@@ -27,9 +27,9 @@ Note: MSVC12 requires cmake 2.8.11 or later
 
    -- Found Yasm 1.3.0 to build assembly primitives
 
-   Now build the encoder and run x265 -V:
+   Now build the encoder and run s265 -V:
 
-   x265 [info]: using cpu capabilities: MMX, SSE2, ...
+   s265 [info]: using cpu capabilities: MMX, SSE2, ...
 
    If cpu capabilities line says 'none!', then the encoder was built
    without yasm.
@@ -45,9 +45,9 @@ Note: MSVC12 requires cmake 2.8.11 or later
 
    -- Found Nasm 2.13 to build assembly primitives
 
-   Now build the encoder and run x265 -V:
+   Now build the encoder and run s265 -V:
 
-   x265 [info]: using cpu capabilities: MMX, SSE2, ...
+   s265 [info]: using cpu capabilities: MMX, SSE2, ...
 
    If cpu capabilities line says 'none!', then the encoder was built
    without nasm and will be considerably slower for performance.
@@ -65,7 +65,7 @@ Note: MSVC12 requires cmake 2.8.11 or later
 = Build Instructions Linux =
 
 1. Use cmake to generate Makefiles: cmake ../source
-2. Build x265:                      make
+2. Build s265:                      make
 
   Or use our shell script which runs cmake then opens the curses GUI to
   configure build options
@@ -79,12 +79,12 @@ Note: MSVC12 requires cmake 2.8.11 or later
 We recommend you use one of the make-solutions.bat files in the appropriate
 build/ sub-folder for your preferred compiler.  They will open the cmake-gui
 to configure build options, click configure until no more red options remain,
-then click generate and exit.  There should now be an x265.sln file in the
+then click generate and exit.  There should now be an s265.sln file in the
 same folder, open this in Visual Studio and build it.
 
 = Version number considerations =
 
-Note that cmake will update X265_VERSION each time cmake runs, if you are
+Note that cmake will update S265_VERSION each time cmake runs, if you are
 building out of a Mercurial source repository.  If you are building out of
 a release source package, the version will not change.  If Mercurial is not
 found, the version will be "unknown".

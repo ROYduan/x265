@@ -18,13 +18,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "slice.h"
 #include "threading.h"
-#include "x265.h"
+#include "s265.h"
 
 #if _WIN32
 #include <sys/types.h>
@@ -35,13 +35,13 @@
 #include <sys/time.h>
 #endif
 
-namespace X265_NS {
+namespace S265_NS {
 
 #if CHECKED_BUILD || _DEBUG
 int g_checkFailures;
 #endif
 
-int64_t x265_mdate(void)
+int64_t s265_mdate(void)
 {
 #if _WIN32
     struct timeb tb;
@@ -54,7 +54,7 @@ int64_t x265_mdate(void)
 #endif
 }
 
-#define X265_ALIGNBYTES 64
+#define S265_ALIGNBYTES 64
 
 #if _WIN32
 #if defined(__MINGW32__) && !defined(__MINGW64_VERSION_MAJOR)
@@ -63,28 +63,28 @@ int64_t x265_mdate(void)
 #include "malloc.h"
 #endif
 
-void *x265_malloc(size_t size)
+void *s265_malloc(size_t size)
 {
-    return _aligned_malloc(size, X265_ALIGNBYTES);
+    return _aligned_malloc(size, S265_ALIGNBYTES);
 }
 
-void x265_free(void *ptr)
+void s265_free(void *ptr)
 {
     if (ptr) _aligned_free(ptr);
 }
 
 #else // if _WIN32
-void *x265_malloc(size_t size)
+void *s265_malloc(size_t size)
 {
     void *ptr;
 
-    if (posix_memalign((void**)&ptr, X265_ALIGNBYTES, size) == 0)
+    if (posix_memalign((void**)&ptr, S265_ALIGNBYTES, size) == 0)
         return ptr;
     else
         return NULL;
 }
 
-void x265_free(void *ptr)
+void s265_free(void *ptr)
 {
     if (ptr) free(ptr);
 }
@@ -93,16 +93,16 @@ void x265_free(void *ptr)
 
 /* Not a general-purpose function; multiplies input by -1/6 to convert
  * qp to qscale. */
-int x265_exp2fix8(double x)
+int s265_exp2fix8(double x)
 {
     int i = (int)(x * (-64.f / 6.f) + 512.5f);
 
     if (i < 0) return 0;
     if (i > 1023) return 0xffff;
-    return (x265_exp2_lut[i & 63] + 256) << (i >> 6) >> 8;
+    return (s265_exp2_lut[i & 63] + 256) << (i >> 6) >> 8;
 }
 
-void general_log(const x265_param* param, const char* caller, int level, const char* fmt, ...)
+void general_log(const s265_param* param, const char* caller, int level, const char* fmt, ...)
 {
     if (param && level > param->logLevel)
         return;
@@ -112,19 +112,19 @@ void general_log(const x265_param* param, const char* caller, int level, const c
     const char* log_level;
     switch (level)
     {
-    case X265_LOG_ERROR:
+    case S265_LOG_ERROR:
         log_level = "error";
         break;
-    case X265_LOG_WARNING:
+    case S265_LOG_WARNING:
         log_level = "warning";
         break;
-    case X265_LOG_INFO:
+    case S265_LOG_INFO:
         log_level = "info";
         break;
-    case X265_LOG_DEBUG:
+    case S265_LOG_DEBUG:
         log_level = "debug";
         break;
-    case X265_LOG_FULL:
+    case S265_LOG_FULL:
         log_level = "full";
         break;
     default:
@@ -144,7 +144,7 @@ void general_log(const x265_param* param, const char* caller, int level, const c
 #if _WIN32
 /* For Unicode filenames in Windows we convert UTF-8 strings to UTF-16 and we use _w functions.
  * For other OS we do not make any changes. */
-void general_log_file(const x265_param* param, const char* caller, int level, const char* fmt, ...)
+void general_log_file(const s265_param* param, const char* caller, int level, const char* fmt, ...)
 {
     if (param && level > param->logLevel)
         return;
@@ -154,19 +154,19 @@ void general_log_file(const x265_param* param, const char* caller, int level, co
     const char* log_level;
     switch (level)
     {
-    case X265_LOG_ERROR:
+    case S265_LOG_ERROR:
         log_level = "error";
         break;
-    case X265_LOG_WARNING:
+    case S265_LOG_WARNING:
         log_level = "warning";
         break;
-    case X265_LOG_INFO:
+    case S265_LOG_INFO:
         log_level = "info";
         break;
-    case X265_LOG_DEBUG:
+    case S265_LOG_DEBUG:
         log_level = "debug";
         break;
-    case X265_LOG_FULL:
+    case S265_LOG_FULL:
         log_level = "full";
         break;
     default:
@@ -194,7 +194,7 @@ void general_log_file(const x265_param* param, const char* caller, int level, co
         fputs(buffer, stderr);
 }
 
-FILE* x265_fopen(const char* fileName, const char* mode)
+FILE* s265_fopen(const char* fileName, const char* mode)
 {
     wchar_t buf_utf16[MAX_PATH * 2], mode_utf16[16];
 
@@ -206,7 +206,7 @@ FILE* x265_fopen(const char* fileName, const char* mode)
     return NULL;
 }
 
-int x265_unlink(const char* fileName)
+int s265_unlink(const char* fileName)
 {
     wchar_t buf_utf16[MAX_PATH * 2];
 
@@ -216,7 +216,7 @@ int x265_unlink(const char* fileName)
     return -1;
 }
 
-int x265_rename(const char* oldName, const char* newName)
+int s265_rename(const char* oldName, const char* newName)
 {
     wchar_t old_utf16[MAX_PATH * 2], new_utf16[MAX_PATH * 2];
 
@@ -229,7 +229,7 @@ int x265_rename(const char* oldName, const char* newName)
 }
 #endif
 
-double x265_ssim2dB(double ssim)
+double s265_ssim2dB(double ssim)
 {
     double inv_ssim = 1 - ssim;
 
@@ -241,24 +241,24 @@ double x265_ssim2dB(double ssim)
 
 /* The qscale - qp conversion is specified in the standards.
  * Approx qscale increases by 12%  with every qp increment */
-double x265_qScale2qp(double qScale)
+double s265_qScale2qp(double qScale)
 {
-    return 12.0 + 6.0 * (double)X265_LOG2(qScale / 0.85);
+    return 12.0 + 6.0 * (double)S265_LOG2(qScale / 0.85);
 }
 
-double x265_qp2qScale(double qp)
+double s265_qp2qScale(double qp)
 {
     return 0.85 * pow(2.0, (qp - 12.0) / 6.0);
 }
 
-uint32_t x265_picturePlaneSize(int csp, int width, int height, int plane)
+uint32_t s265_picturePlaneSize(int csp, int width, int height, int plane)
 {
-    uint32_t size = (uint32_t)(width >> x265_cli_csps[csp].width[plane]) * (height >> x265_cli_csps[csp].height[plane]);
+    uint32_t size = (uint32_t)(width >> s265_cli_csps[csp].width[plane]) * (height >> s265_cli_csps[csp].height[plane]);
 
     return size;
 }
 
-char* x265_slurp_file(const char *filename)
+char* s265_slurp_file(const char *filename)
 {
     if (!filename)
         return NULL;
@@ -267,10 +267,10 @@ char* x265_slurp_file(const char *filename)
     size_t fSize;
     char *buf = NULL;
 
-    FILE *fh = x265_fopen(filename, "rb");
+    FILE *fh = s265_fopen(filename, "rb");
     if (!fh)
     {
-        x265_log_file(NULL, X265_LOG_ERROR, "unable to open file %s\n", filename);
+        s265_log_file(NULL, S265_LOG_ERROR, "unable to open file %s\n", filename);
         return NULL;
     }
 
@@ -280,10 +280,10 @@ char* x265_slurp_file(const char *filename)
     if (bError)
         goto error;
 
-    buf = X265_MALLOC(char, fSize + 2);
+    buf = S265_MALLOC(char, fSize + 2);
     if (!buf)
     {
-        x265_log(NULL, X265_LOG_ERROR, "unable to allocate memory\n");
+        s265_log(NULL, S265_LOG_ERROR, "unable to allocate memory\n");
         goto error;
     }
 
@@ -295,8 +295,8 @@ char* x265_slurp_file(const char *filename)
 
     if (bError)
     {
-        x265_log(NULL, X265_LOG_ERROR, "unable to read the file\n");
-        X265_FREE(buf);
+        s265_log(NULL, S265_LOG_ERROR, "unable to read the file\n");
+        S265_FREE(buf);
         buf = NULL;
     }
     return buf;

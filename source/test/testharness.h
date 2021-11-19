@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #ifndef _TESTHARNESS_H_
@@ -38,10 +38,10 @@
 #define SHORT_MIN -32767
 #define UNSIGNED_SHORT_MAX 65535
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 extern const char* lumaPartStr[NUM_PU_SIZES];
-extern const char* const* chromaPartStr[X265_CSP_COUNT];
+extern const char* const* chromaPartStr[S265_CSP_COUNT];
 
 class TestHarness
 {
@@ -79,15 +79,15 @@ static inline uint32_t __rdtsc(void)
 {
     uint32_t a = 0;
 
-#if X265_ARCH_X86
+#if S265_ARCH_X86
     asm volatile("rdtsc" : "=a" (a) ::"edx");
-#elif X265_ARCH_ARM
+#elif S265_ARCH_ARM
     // TOD-DO: verify following inline asm to get cpu Timestamp Counter for ARM arch
     // asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(a));
 
     // TO-DO: replace clock() function with appropriate ARM cpu instructions
     a = clock();
-#elif  X265_ARCH_ARM64
+#elif  S265_ARCH_ARM64
     asm volatile("mrs %0, cntvct_el0" : "=r"(a));
 #endif
     return a;
@@ -123,7 +123,7 @@ static inline uint32_t __rdtsc(void)
             uint32_t t1 = (uint32_t)__rdtsc() - t0; \
             if (t1 * refruns <= refcycles * 4 && ti > 0) { refcycles += t1; refruns++; } \
         } \
-        x265_emms(); \
+        s265_emms(); \
         float optperf = (10.0f * cycles / runs) / 4; \
         float refperf = (10.0f * refcycles / refruns) / 4; \
         printf("\t%3.2fx ", refperf / optperf); \
@@ -131,14 +131,14 @@ static inline uint32_t __rdtsc(void)
     }
 
 extern "C" {
-#if X265_ARCH_X86
+#if S265_ARCH_X86
 int PFX(stack_pagealign)(int (*func)(), int align);
 
 /* detect when callee-saved regs aren't saved
  * needs an explicit asm check because it only sometimes crashes in normal use. */
 intptr_t PFX(checkasm_call)(intptr_t (*func)(), int *ok, ...);
 float PFX(checkasm_call_float)(float (*func)(), int *ok, ...);
-#elif (X265_ARCH_ARM == 0 && X265_ARCH_ARM64 == 0)
+#elif (S265_ARCH_ARM == 0 && S265_ARCH_ARM64 == 0)
 #define PFX(stack_pagealign)(func, align) func()
 #endif
 
@@ -146,7 +146,7 @@ float PFX(checkasm_call_float)(float (*func)(), int *ok, ...);
 
 /* Evil hack: detect incorrect assumptions that 32-bit ints are zero-extended to 64-bit.
  * This is done by clobbering the stack with junk around the stack pointer and calling the
- * assembly function through x265_checkasm_call with added dummy arguments which forces all
+ * assembly function through s265_checkasm_call with added dummy arguments which forces all
  * real arguments to be passed on the stack and not in registers. For 32-bit argument the
  * upper half of the 64-bit register location on the stack will now contain junk. Note that
  * this is dependent on compiler behavior and that interrupts etc. at the wrong time may

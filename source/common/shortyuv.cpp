@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
 #include "common.h"
@@ -26,9 +26,9 @@
 #include "shortyuv.h"
 #include "primitives.h"
 
-#include "x265.h"
+#include "s265.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 ShortYuv::ShortYuv()
 {
@@ -45,11 +45,11 @@ bool ShortYuv::create(uint32_t size, int csp)
     m_vChromaShift = CHROMA_V_SHIFT(csp);
     size_t sizeL = size * size;
 
-    if (csp != X265_CSP_I400)
+    if (csp != S265_CSP_I400)
     {
         m_csize = size >> m_hChromaShift;
         size_t sizeC = sizeL >> (m_hChromaShift + m_vChromaShift);
-        X265_CHECK((sizeC & 15) == 0, "invalid size");
+        S265_CHECK((sizeC & 15) == 0, "invalid size");
 
         CHECKED_MALLOC(m_buf[0], int16_t, sizeL + sizeC * 2);
         m_buf[1] = m_buf[0] + sizeL;
@@ -68,7 +68,7 @@ fail:
 
 void ShortYuv::destroy()
 {
-    X265_FREE(m_buf[0]);
+    S265_FREE(m_buf[0]);
 }
 
 void ShortYuv::clear()
@@ -82,7 +82,7 @@ void ShortYuv::subtract(const Yuv& srcYuv0, const Yuv& srcYuv1, uint32_t log2Siz
 {
     const int sizeIdx = log2Size - 2;
     primitives.cu[sizeIdx].sub_ps(m_buf[0], m_size, srcYuv0.m_buf[0], srcYuv1.m_buf[0], srcYuv0.m_size, srcYuv1.m_size);
-    if (m_csp != X265_CSP_I400 && picCsp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400 && picCsp != S265_CSP_I400)
     {
         primitives.chroma[m_csp].cu[sizeIdx].sub_ps(m_buf[1], m_csize, srcYuv0.m_buf[1], srcYuv1.m_buf[1], srcYuv0.m_csize, srcYuv1.m_csize);
         primitives.chroma[m_csp].cu[sizeIdx].sub_ps(m_buf[2], m_csize, srcYuv0.m_buf[2], srcYuv1.m_buf[2], srcYuv0.m_csize, srcYuv1.m_csize);

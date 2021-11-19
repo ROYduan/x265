@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_COMMON_H
-#define X265_COMMON_H
+#ifndef S265_COMMON_H
+#define S265_COMMON_H
 
 #include <algorithm>
 #include <climits>
@@ -40,7 +40,7 @@
 #include <memory.h>
 #include <assert.h>
 
-#include "x265.h"
+#include "s265.h"
 
 #if ENABLE_PPA && ENABLE_VTUNE
 #error "PPA and VTUNE cannot both be enabled. Disable one of them."
@@ -93,9 +93,9 @@
 #if HAVE_INT_TYPES_H
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
-#define X265_LL "%" PRIu64
+#define S265_LL "%" PRIu64
 #else
-#define X265_LL "%lld"
+#define S265_LL "%lld"
 #endif
 
 #if _DEBUG && defined(_MSC_VER)
@@ -109,10 +109,10 @@
 /* If compiled with CHECKED_BUILD perform run-time checks and log any that
  * fail, both to stderr and to a file */
 #if CHECKED_BUILD || _DEBUG
-namespace X265_NS { extern int g_checkFailures; }
-#define X265_CHECK(expr, ...) if (!(expr)) { \
-    x265_log(NULL, X265_LOG_ERROR, __VA_ARGS__); \
-    FILE *fp = fopen("x265_check_failures.txt", "a"); \
+namespace S265_NS { extern int g_checkFailures; }
+#define S265_CHECK(expr, ...) if (!(expr)) { \
+    s265_log(NULL, S265_LOG_ERROR, __VA_ARGS__); \
+    FILE *fp = fopen("s265_check_failures.txt", "a"); \
     if (fp) { fprintf(fp, "%s:%d\n", __FILE__, __LINE__); fprintf(fp, __VA_ARGS__); fclose(fp); } \
     g_checkFailures++; DEBUG_BREAK(); \
 }
@@ -120,7 +120,7 @@ namespace X265_NS { extern int g_checkFailures; }
 #pragma warning(disable: 4127) // some checks have constant conditions
 #endif
 #else
-#define X265_CHECK(expr, ...)
+#define S265_CHECK(expr, ...)
 #endif
 
 #if HIGH_BIT_DEPTH
@@ -141,7 +141,7 @@ typedef int32_t  ssum2_t; // Signed sum
 #define HISTOGRAM_BINS 256
 #endif // if HIGH_BIT_DEPTH
 
-#if X265_DEPTH < 10
+#if S265_DEPTH < 10
 typedef uint32_t sse_t;
 #else
 typedef uint64_t sse_t;
@@ -165,21 +165,21 @@ typedef uint64_t sse_t;
 
 
 template<typename T>
-inline T x265_min(T a, T b) { return a < b ? a : b; }
+inline T s265_min(T a, T b) { return a < b ? a : b; }
 
 template<typename T>
-inline T x265_max(T a, T b) { return a > b ? a : b; }
+inline T s265_max(T a, T b) { return a > b ? a : b; }
 
 template<typename T>
-inline T x265_clip3(T minVal, T maxVal, T a) { return x265_min(x265_max(minVal, a), maxVal); }
+inline T s265_clip3(T minVal, T maxVal, T a) { return s265_min(s265_max(minVal, a), maxVal); }
 
 template<typename T> /* clip to pixel range, 0..255 or 0..1023 */
-inline pixel x265_clip(T x) { return (pixel)x265_min<T>(T((1 << X265_DEPTH) - 1), x265_max<T>(T(0), x)); }
+inline pixel s265_clip(T x) { return (pixel)s265_min<T>(T((1 << S265_DEPTH) - 1), s265_max<T>(T(0), x)); }
 
 typedef int16_t  coeff_t;      // transform coefficient
 
-#define X265_MIN(a, b) ((a) < (b) ? (a) : (b))
-#define X265_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define S265_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define S265_MAX(a, b) ((a) > (b) ? (a) : (b))
 #define COPY1_IF_LT(x, y) {if ((y) < (x)) (x) = (y);}
 #define COPY2_IF_LT(x, y, a, b) \
     if ((y) < (x)) \
@@ -202,51 +202,51 @@ typedef int16_t  coeff_t;      // transform coefficient
         (c) = (d); \
         (e) = (f); \
     }
-#define X265_MIN3(a, b, c) X265_MIN((a), X265_MIN((b), (c)))
-#define X265_MAX3(a, b, c) X265_MAX((a), X265_MAX((b), (c)))
-#define X265_MIN4(a, b, c, d) X265_MIN((a), X265_MIN3((b), (c), (d)))
-#define X265_MAX4(a, b, c, d) X265_MAX((a), X265_MAX3((b), (c), (d)))
-#define QP_BD_OFFSET (6 * (X265_DEPTH - 8))
+#define S265_MIN3(a, b, c) S265_MIN((a), S265_MIN((b), (c)))
+#define S265_MAX3(a, b, c) S265_MAX((a), S265_MAX((b), (c)))
+#define S265_MIN4(a, b, c, d) S265_MIN((a), S265_MIN3((b), (c), (d)))
+#define S265_MAX4(a, b, c, d) S265_MAX((a), S265_MAX3((b), (c), (d)))
+#define QP_BD_OFFSET (6 * (S265_DEPTH - 8))
 #define MAX_CHROMA_LAMBDA_OFFSET 36
 
 // arbitrary, but low because SATD scores are 1/4 normal
-#define X265_LOOKAHEAD_QP (12 + QP_BD_OFFSET)
+#define S265_LOOKAHEAD_QP (12 + QP_BD_OFFSET)
 
 // Use the same size blocks as x264.  Using larger blocks seems to give artificially
 // high cost estimates (intra and inter both suffer)
-#define X265_LOWRES_CU_SIZE   8
-#define X265_LOWRES_CU_BITS   3
+#define S265_LOWRES_CU_SIZE   8
+#define S265_LOWRES_CU_BITS   3
 
-#define X265_MALLOC(type, count)    (type*)x265_malloc(sizeof(type) * (count))
-#define X265_FREE(ptr)              x265_free(ptr)
-#define X265_FREE_ZERO(ptr)         x265_free(ptr); (ptr) = NULL
+#define S265_MALLOC(type, count)    (type*)s265_malloc(sizeof(type) * (count))
+#define S265_FREE(ptr)              s265_free(ptr)
+#define S265_FREE_ZERO(ptr)         s265_free(ptr); (ptr) = NULL
 #define CHECKED_MALLOC(var, type, count) \
     { \
-        var = (type*)x265_malloc(sizeof(type) * (count)); \
+        var = (type*)s265_malloc(sizeof(type) * (count)); \
         if (!var) \
         { \
-            x265_log(NULL, X265_LOG_ERROR, "malloc of size %d failed\n", sizeof(type) * (count)); \
+            s265_log(NULL, S265_LOG_ERROR, "malloc of size %d failed\n", sizeof(type) * (count)); \
             goto fail; \
         } \
     }
 #define CHECKED_MALLOC_ZERO(var, type, count) \
     { \
-        var = (type*)x265_malloc(sizeof(type) * (count)); \
+        var = (type*)s265_malloc(sizeof(type) * (count)); \
         if (var) \
             memset((void*)var, 0, sizeof(type) * (count)); \
         else \
         { \
-            x265_log(NULL, X265_LOG_ERROR, "malloc of size %d failed\n", sizeof(type) * (count)); \
+            s265_log(NULL, S265_LOG_ERROR, "malloc of size %d failed\n", sizeof(type) * (count)); \
             goto fail; \
         } \
     }
 
 #if defined(_MSC_VER)
-#define X265_LOG2F(x) (logf((float)(x)) * 1.44269504088896405f)
-#define X265_LOG2(x) (log((double)(x)) * 1.4426950408889640513713538072172)
+#define S265_LOG2F(x) (logf((float)(x)) * 1.44269504088896405f)
+#define S265_LOG2(x) (log((double)(x)) * 1.4426950408889640513713538072172)
 #else
-#define X265_LOG2F(x) log2f(x)
-#define X265_LOG2(x)  log2(x)
+#define S265_LOG2F(x) log2f(x)
+#define S265_LOG2(x)  log2(x)
 #endif
 
 #define NUM_CU_DEPTH            4                           // maximum number of CU depths
@@ -324,14 +324,14 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define AMVP_NUM_CANDS              2 // number of AMVP candidates
 #define MRG_MAX_NUM_CANDS           5 // max number of final merge candidates
 
-#define CHROMA_H_SHIFT(x) (x == X265_CSP_I420 || x == X265_CSP_I422)
-#define CHROMA_V_SHIFT(x) (x == X265_CSP_I420)
-#define X265_MAX_PRED_MODE_PER_CTU 85 * 2 * 8
+#define CHROMA_H_SHIFT(x) (x == S265_CSP_I420 || x == S265_CSP_I422)
+#define CHROMA_V_SHIFT(x) (x == S265_CSP_I420)
+#define S265_MAX_PRED_MODE_PER_CTU 85 * 2 * 8
 
 #define MAX_NUM_TR_COEFFS           MAX_TR_SIZE * MAX_TR_SIZE // Maximum number of transform coefficients, for a 32x32 transform
 #define MAX_NUM_TR_CATEGORIES       16                        // 32, 16, 8, 4 transform categories each for luma and chroma
 
-#define PIXEL_MAX ((1 << X265_DEPTH) - 1)
+#define PIXEL_MAX ((1 << S265_DEPTH) - 1)
 
 #define INTEGRAL_PLANE_NUM          12 // 12 integral planes for 32x32, 32x24, 32x8, 24x32, 16x16, 16x12, 16x4, 12x16, 8x32, 8x8, 4x16 and 4x4.
 
@@ -339,9 +339,9 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define START_CODE_OVERHEAD 3 
 #define FILLER_OVERHEAD (NAL_TYPE_OVERHEAD + START_CODE_OVERHEAD + 1)
 
-#define MAX_NUM_DYN_REFINE          (NUM_CU_DEPTH * X265_REFINE_INTER_LEVELS)
+#define MAX_NUM_DYN_REFINE          (NUM_CU_DEPTH * S265_REFINE_INTER_LEVELS)
 
-namespace X265_NS {
+namespace S265_NS {
 
 enum { SAO_NUM_OFFSET = 4 };
 
@@ -419,37 +419,37 @@ enum SignificanceMapContextType
 void extendPicBorder(pixel* recon, intptr_t stride, int width, int height, int marginX, int marginY);
 
 /* located in common.cpp */
-int64_t  x265_mdate(void);
-#define  x265_log(param, ...) general_log(param, "x265", __VA_ARGS__)
-#define  x265_log_file(param, ...) general_log_file(param, "x265", __VA_ARGS__)
-void     general_log(const x265_param* param, const char* caller, int level, const char* fmt, ...);
+int64_t  s265_mdate(void);
+#define  s265_log(param, ...) general_log(param, "s265", __VA_ARGS__)
+#define  s265_log_file(param, ...) general_log_file(param, "s265", __VA_ARGS__)
+void     general_log(const s265_param* param, const char* caller, int level, const char* fmt, ...);
 #if _WIN32
-void     general_log_file(const x265_param* param, const char* caller, int level, const char* fmt, ...);
-FILE*    x265_fopen(const char* fileName, const char* mode);
-int      x265_unlink(const char* fileName);
-int      x265_rename(const char* oldName, const char* newName);
+void     general_log_file(const s265_param* param, const char* caller, int level, const char* fmt, ...);
+FILE*    s265_fopen(const char* fileName, const char* mode);
+int      s265_unlink(const char* fileName);
+int      s265_rename(const char* oldName, const char* newName);
 #else
 #define  general_log_file(param, caller, level, fmt, ...) general_log(param, caller, level, fmt, __VA_ARGS__)
-#define  x265_fopen(fileName, mode) fopen(fileName, mode)
-#define  x265_unlink(fileName) unlink(fileName)
-#define  x265_rename(oldName, newName) rename(oldName, newName)
+#define  s265_fopen(fileName, mode) fopen(fileName, mode)
+#define  s265_unlink(fileName) unlink(fileName)
+#define  s265_rename(oldName, newName) rename(oldName, newName)
 #endif
-int      x265_exp2fix8(double x);
+int      s265_exp2fix8(double x);
 
-double   x265_ssim2dB(double ssim);
-double   x265_qScale2qp(double qScale);
-double   x265_qp2qScale(double qp);
-uint32_t x265_picturePlaneSize(int csp, int width, int height, int plane);
+double   s265_ssim2dB(double ssim);
+double   s265_qScale2qp(double qScale);
+double   s265_qp2qScale(double qp);
+uint32_t s265_picturePlaneSize(int csp, int width, int height, int plane);
 
-void*    x265_malloc(size_t size);
-void     x265_free(void *ptr);
-char*    x265_slurp_file(const char *filename);
+void*    s265_malloc(size_t size);
+void     s265_free(void *ptr);
+char*    s265_slurp_file(const char *filename);
 
 /* located in primitives.cpp */
-void     x265_setup_primitives(x265_param* param);
-void     x265_report_simd(x265_param* param);
+void     s265_setup_primitives(s265_param* param);
+void     s265_report_simd(s265_param* param);
 }
 
 #include "constants.h"
 
-#endif // ifndef X265_COMMON_H
+#endif // ifndef S265_COMMON_H

@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -30,7 +30,7 @@
 #include "cudata.h"
 #define MAX_MV 1 << 14
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 /* for all bcast* and copy* functions, dst and src are aligned to MIN(size, 32) */
 
@@ -103,8 +103,8 @@ inline bool lessThanRow(int addr, int val)
 
 inline MV scaleMv(MV mv, int scale)
 {
-    int mvx = x265_clip3(-32768, 32767, (scale * mv.x + 127 + (scale * mv.x < 0)) >> 8);
-    int mvy = x265_clip3(-32768, 32767, (scale * mv.y + 127 + (scale * mv.y < 0)) >> 8);
+    int mvx = s265_clip3(-32768, 32767, (scale * mv.x + 127 + (scale * mv.x < 0)) >> 8);
+    int mvy = s265_clip3(-32768, 32767, (scale * mv.y + 127 + (scale * mv.y < 0)) >> 8);
 
     return MV((int32_t)mvx, (int32_t)mvy);
 }
@@ -116,7 +116,7 @@ CUData::CUData()
     memset(this, 0, sizeof(*this));
 }
 
-void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const x265_param& param, int instance)
+void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const s265_param& param, int instance)
 {
     int csp = param.internalCsp;
     m_chromaFormat  = csp;
@@ -151,7 +151,7 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const x26
             s_partSet[4] = NULL;
             break;
         default:
-            X265_CHECK(0, "unexpected CTU size\n");
+            S265_CHECK(0, "unexpected CTU size\n");
             break;
         }
     }
@@ -183,11 +183,11 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const x26
         m_subPartSet = NULL;
         break;
     default:
-        X265_CHECK(0, "unexpected CU partition count\n");
+        S265_CHECK(0, "unexpected CU partition count\n");
         break;
     }
 
-    if (csp == X265_CSP_I400)
+    if (csp == S265_CSP_I400)
     {
         /* Each CU's data is layed out sequentially within the charMemBlock */
         uint8_t *charBuf = dataPool.charMemBlock + (m_numPartitions * (BytesPerPartition - 4)) * instance;
@@ -213,7 +213,7 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const x26
         m_cbf[0]             = charBuf; charBuf += m_numPartitions;
         m_chromaIntraDir     = charBuf; charBuf += m_numPartitions;
 
-        X265_CHECK(charBuf == dataPool.charMemBlock + (m_numPartitions * (BytesPerPartition - 4)) * (instance + 1), "CU data layout is broken\n"); //BytesPerPartition
+        S265_CHECK(charBuf == dataPool.charMemBlock + (m_numPartitions * (BytesPerPartition - 4)) * (instance + 1), "CU data layout is broken\n"); //BytesPerPartition
 
         m_mv[0]  = dataPool.mvMemBlock + (instance * 4) * m_numPartitions;
         m_mv[1]  = m_mv[0] +  m_numPartitions;
@@ -258,7 +258,7 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const x26
         m_cbf[2]             = charBuf; charBuf += m_numPartitions;
         m_chromaIntraDir     = charBuf; charBuf += m_numPartitions;
 
-        X265_CHECK(charBuf == dataPool.charMemBlock + (m_numPartitions * BytesPerPartition) * (instance + 1), "CU data layout is broken\n");
+        S265_CHECK(charBuf == dataPool.charMemBlock + (m_numPartitions * BytesPerPartition) * (instance + 1), "CU data layout is broken\n");
 
         m_mv[0]  = dataPool.mvMemBlock + (instance * 4) * m_numPartitions;
         m_mv[1]  = m_mv[0] +  m_numPartitions;
@@ -304,10 +304,10 @@ void CUData::initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t first
         m_partSet((uint8_t*)m_refIdx[1], (uint8_t)REF_NOT_VALID);
     }
 
-    X265_CHECK(!(frame.m_encData->m_param->bLossless && !m_slice->m_pps->bTransquantBypassEnabled), "lossless enabled without TQbypass in PPS\n");
+    S265_CHECK(!(frame.m_encData->m_param->bLossless && !m_slice->m_pps->bTransquantBypassEnabled), "lossless enabled without TQbypass in PPS\n");
 
     /* initialize the remaining CU data in one memset */
-    memset(m_cuDepth, 0, (frame.m_param->internalCsp == X265_CSP_I400 ? BytesPerPartition - 12 : BytesPerPartition - 8) * m_numPartitions);
+    memset(m_cuDepth, 0, (frame.m_param->internalCsp == S265_CSP_I400 ? BytesPerPartition - 12 : BytesPerPartition - 8) * m_numPartitions);
 
     for (int8_t i = 0; i < NUM_TU_DEPTH; i++)
         m_refTuDepth[i] = -1;
@@ -344,7 +344,7 @@ void CUData::initSubCU(const CUData& ctu, const CUGeom& cuGeom, int qp)
         m_fDc_den[i] = ctu.m_fDc_den[i];
     }
 
-    X265_CHECK(m_numPartitions == cuGeom.numPartitions, "initSubCU() size mismatch\n");
+    S265_CHECK(m_numPartitions == cuGeom.numPartitions, "initSubCU() size mismatch\n");
 
     m_partSet((uint8_t*)m_qp, (uint8_t)qp);
     m_partSet((uint8_t*)m_qpAnalysis, (uint8_t)qp);
@@ -358,14 +358,14 @@ void CUData::initSubCU(const CUData& ctu, const CUGeom& cuGeom, int qp)
     m_partSet(m_cuDepth,      (uint8_t)cuGeom.depth);
 
     /* initialize the remaining CU data in one memset */
-    memset(m_predMode, 0, (ctu.m_chromaFormat == X265_CSP_I400 ? BytesPerPartition - 13 : BytesPerPartition - 9) * m_numPartitions);
+    memset(m_predMode, 0, (ctu.m_chromaFormat == S265_CSP_I400 ? BytesPerPartition - 13 : BytesPerPartition - 9) * m_numPartitions);
     memset(m_distortion, 0, m_numPartitions * sizeof(sse_t));
 }
 
 /* Copy the results of a sub-part (split) CU to the parent CU */
 void CUData::copyPartFrom(const CUData& subCU, const CUGeom& childGeom, uint32_t subPartIdx)
 {
-    X265_CHECK(subPartIdx < 4, "part unit should be less than 4\n");
+    S265_CHECK(subPartIdx < 4, "part unit should be less than 4\n");
 
     uint32_t offset = childGeom.numPartitions * subPartIdx;
 
@@ -402,7 +402,7 @@ void CUData::copyPartFrom(const CUData& subCU, const CUGeom& childGeom, uint32_t
     uint32_t tmp2 = subPartIdx * tmp;
     memcpy(m_trCoeff[0] + tmp2, subCU.m_trCoeff[0], sizeof(coeff_t)* tmp);
 
-    if (subCU.m_chromaFormat != X265_CSP_I400)
+    if (subCU.m_chromaFormat != S265_CSP_I400)
     {
         m_subPartCopy(m_transformSkip[1] + offset, subCU.m_transformSkip[1]);
         m_subPartCopy(m_transformSkip[2] + offset, subCU.m_transformSkip[2]);
@@ -458,7 +458,7 @@ void CUData::initLosslessCU(const CUData& cu, const CUGeom& cuGeom)
     m_partSet(m_cbf[0], 0);
     m_partSet(m_transformSkip[0], 0);
 
-    if (cu.m_chromaFormat != X265_CSP_I400)
+    if (cu.m_chromaFormat != S265_CSP_I400)
     {
         m_partSet(m_chromaIntraDir, (uint8_t)ALL_IDX);
         m_partSet(m_cbf[1], 0);
@@ -502,7 +502,7 @@ void CUData::copyToPic(uint32_t depth) const
     uint32_t tmpY2 = m_absIdxInCTU << (LOG2_UNIT_SIZE * 2);
     memcpy(ctu.m_trCoeff[0] + tmpY2, m_trCoeff[0], sizeof(coeff_t)* tmpY);
 
-    if (ctu.m_chromaFormat != X265_CSP_I400)
+    if (ctu.m_chromaFormat != S265_CSP_I400)
     {
         m_partCopy(ctu.m_transformSkip[1] + m_absIdxInCTU, m_transformSkip[1]);
         m_partCopy(ctu.m_transformSkip[2] + m_absIdxInCTU, m_transformSkip[2]);
@@ -561,7 +561,7 @@ void CUData::copyFromPic(const CUData& ctu, const CUGeom& cuGeom, int csp, bool 
     m_partSet(m_transformSkip[0], 0);
     m_partSet(m_cbf[0], 0);
 
-    if (csp != X265_CSP_I400)
+    if (csp != S265_CSP_I400)
     {        
         m_partSet(m_transformSkip[1], 0);
         m_partSet(m_transformSkip[2], 0);
@@ -586,7 +586,7 @@ void CUData::updatePic(uint32_t depth, int picCsp) const
     uint32_t tmpY2 = m_absIdxInCTU << (LOG2_UNIT_SIZE * 2);
     memcpy(ctu.m_trCoeff[0] + tmpY2, m_trCoeff[0], sizeof(coeff_t)* tmpY);
 
-    if (ctu.m_chromaFormat != X265_CSP_I400 && picCsp != X265_CSP_I400)
+    if (ctu.m_chromaFormat != S265_CSP_I400 && picCsp != S265_CSP_I400)
     {
         m_partCopy(ctu.m_transformSkip[1] + m_absIdxInCTU, m_transformSkip[1]);
         m_partCopy(ctu.m_transformSkip[2] + m_absIdxInCTU, m_transformSkip[2]);
@@ -977,7 +977,7 @@ void CUData::getIntraTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartId
     tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;
     tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;
 
-    tuDepthRange[0] = x265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (m_slice->m_sps->quadtreeTUMaxDepthIntra - 1 + splitFlag));
+    tuDepthRange[0] = s265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (m_slice->m_sps->quadtreeTUMaxDepthIntra - 1 + splitFlag));
 }
 
 void CUData::getInterTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartIdx) const
@@ -989,7 +989,7 @@ void CUData::getInterTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartId
     tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;
     tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;
 
-    tuDepthRange[0] = x265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (quadtreeTUMaxDepth - 1 + splitFlag));
+    tuDepthRange[0] = s265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (quadtreeTUMaxDepth - 1 + splitFlag));
 }
 
 uint32_t CUData::getCtxSkipFlag(uint32_t absPartIdx) const
@@ -1034,7 +1034,7 @@ bool CUData::setQPSubCUs(int8_t qp, uint32_t absPartIdx, uint32_t depth)
 void CUData::setPUInterDir(uint8_t dir, uint32_t absPartIdx, uint32_t puIdx)
 {
     uint32_t curPartNumQ = m_numPartitions >> 2;
-    X265_CHECK(puIdx < 2, "unexpected part unit index\n");
+    S265_CHECK(puIdx < 2, "unexpected part unit index\n");
 
     switch (m_partSize[absPartIdx])
     {
@@ -1108,7 +1108,7 @@ void CUData::setPUInterDir(uint8_t dir, uint32_t absPartIdx, uint32_t puIdx)
         }
         break;
     default:
-        X265_CHECK(0, "unexpected part type\n");
+        S265_CHECK(0, "unexpected part type\n");
         break;
     }
 }
@@ -1274,7 +1274,7 @@ void CUData::setAllPU(T* p, const T& val, int absPartIdx, int puIdx)
 
     case SIZE_NxN:
     default:
-        X265_CHECK(0, "unknown partition type\n");
+        S265_CHECK(0, "unknown partition type\n");
         break;
     }
 }
@@ -1352,7 +1352,7 @@ void CUData::deriveLeftRightTopIdx(uint32_t partIdx, uint32_t& partIdxLT, uint32
         partIdxRT -= (partIdx == 1) ? 0 : m_numPartitions >> 4;
         break;
     default:
-        X265_CHECK(0, "unexpected part index\n");
+        S265_CHECK(0, "unexpected part index\n");
         break;
     }
 }
@@ -1389,7 +1389,7 @@ uint32_t CUData::deriveLeftBottomIdx(uint32_t puIdx) const
         outPartIdxLB += puIdx ? (m_numPartitions >> 1) + (m_numPartitions >> 2) + (m_numPartitions >> 4) : m_numPartitions >> 1;
         break;
     default:
-        X265_CHECK(0, "unexpected part index\n");
+        S265_CHECK(0, "unexpected part index\n");
         break;
     }
     return outPartIdxLB;
@@ -1430,7 +1430,7 @@ uint32_t CUData::deriveRightBottomIdx(uint32_t puIdx) const
         outPartIdxRB += puIdx ? m_numPartitions >> 1 : (m_numPartitions >> 2) + (m_numPartitions >> 3) + (m_numPartitions >> 4);
         break;
     default:
-        X265_CHECK(0, "unexpected part index\n");
+        S265_CHECK(0, "unexpected part index\n");
         break;
     }
     return outPartIdxRB;
@@ -1681,7 +1681,7 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
             }
         }
     }
-    int numRefIdx = (isInterB) ? X265_MIN(m_slice->m_numRefIdx[0], m_slice->m_numRefIdx[1]) : m_slice->m_numRefIdx[0];
+    int numRefIdx = (isInterB) ? S265_MIN(m_slice->m_numRefIdx[0], m_slice->m_numRefIdx[1]) : m_slice->m_numRefIdx[0];
     int r = 0;
     int refcnt = 0;
     while (count < maxNumMergeCand)
@@ -1923,8 +1923,8 @@ void CUData::clipMv(MV& outMV) const
     int32_t ymax = (int32_t)((m_slice->m_sps->picHeightInLumaSamples + offset - m_cuPelY - 1) << mvshift);
     int32_t ymin = -(int32_t)((m_encData->m_param->maxCUSize + offset + m_cuPelY - 1) << mvshift);
 
-    outMV.x = X265_MIN(xmax, X265_MAX(xmin, outMV.x));
-    outMV.y = X265_MIN(ymax, X265_MAX(ymin, outMV.y));
+    outMV.x = S265_MIN(xmax, S265_MAX(xmin, outMV.x));
+    outMV.y = S265_MIN(ymax, S265_MAX(ymin, outMV.y));
 }
 
 // Load direct spatial MV if available.
@@ -2036,10 +2036,10 @@ MV CUData::scaleMvByPOCDist(const MV& inMV, int curPOC, int curRefPOC, int colPO
         return inMV;
     else
     {
-        int tdb   = x265_clip3(-128, 127, diffPocB);
-        int tdd   = x265_clip3(-128, 127, diffPocD);
+        int tdb   = s265_clip3(-128, 127, diffPocB);
+        int tdd   = s265_clip3(-128, 127, diffPocD);
         int x     = (0x4000 + abs(tdd / 2)) / tdd;
-        int scale = x265_clip3(-4096, 4095, (tdb * x + 32) >> 6);
+        int scale = s265_clip3(-4096, 4095, (tdb * x + 32) >> 6);
         return scaleMv(inMV, scale);
     }
 }
@@ -2075,8 +2075,8 @@ void CUData::getTUEntropyCodingParameters(TUEntropyCodingParameters &result, uin
             dirMode = m_chromaIntraDir[absPartIdx];
             if (dirMode == DM_CHROMA_IDX)
             {
-                dirMode = m_lumaIntraDir[(m_chromaFormat == X265_CSP_I444) ? absPartIdx : absPartIdx & 0xFC];
-                dirMode = (m_chromaFormat == X265_CSP_I422) ? g_chroma422IntraAngleMappingTable[dirMode] : dirMode;
+                dirMode = m_lumaIntraDir[(m_chromaFormat == S265_CSP_I444) ? absPartIdx : absPartIdx & 0xFC];
+                dirMode = (m_chromaFormat == S265_CSP_I422) ? g_chroma422IntraAngleMappingTable[dirMode] : dirMode;
             }
         }
 
@@ -2127,7 +2127,7 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
                 /* Offset of the luma CU in the X, Y direction in terms of pixels from the CTU origin */
                 uint32_t xOffset = (sbX * blockSize) >> 3;
                 uint32_t yOffset = (sbY * blockSize) >> 3;
-                X265_CHECK(cuIdx < CUGeom::MAX_GEOMS, "CU geom index bug\n");
+                S265_CHECK(cuIdx < CUGeom::MAX_GEOMS, "CU geom index bug\n");
 
                 CUGeom *cu = cuDataArray + cuIdx;
                 cu->log2CUSize = log2CUSize;

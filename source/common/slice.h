@@ -19,15 +19,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_SLICE_H
-#define X265_SLICE_H
+#ifndef S265_SLICE_H
+#define S265_SLICE_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class Frame;
@@ -260,10 +260,10 @@ struct SPS
 
     ~SPS()
     {
-        X265_FREE(cuOffsetY);
-        X265_FREE(cuOffsetC);
-        X265_FREE(buOffsetY);
-        X265_FREE(buOffsetC);
+        S265_FREE(cuOffsetY);
+        S265_FREE(cuOffsetC);
+        S265_FREE(buOffsetY);
+        S265_FREE(buOffsetC);
     }
 };
 
@@ -312,7 +312,7 @@ struct WeightParam
             inputWeight >>= 1;
         }
 
-        inputWeight = X265_MIN(inputWeight, 127);
+        inputWeight = S265_MIN(inputWeight, 127);
     }
 };
 
@@ -361,7 +361,7 @@ public:
     int         m_iPPSQpMinus26;
     int         numRefIdxDefault[2];
     int         m_iNumRPSInSPS;
-    const x265_param *m_param;
+    const s265_param *m_param;
     int         m_fieldNum;
 
     Slice()
@@ -409,4 +409,4 @@ public:
 
 }
 
-#endif // ifndef X265_SLICE_H
+#endif // ifndef S265_SLICE_H

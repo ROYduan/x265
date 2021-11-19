@@ -19,19 +19,19 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
 #include "constants.h"
 #include "threading.h"
 
-namespace X265_NS {
+namespace S265_NS {
 
-#if X265_DEPTH == 12
+#if S265_DEPTH == 12
 
 // lambda = pow(2, (double)q / 6 - 2) * (1 << (12 - 8));
-double x265_lambda_tab[QP_MAX_MAX + 1] =
+double s265_lambda_tab[QP_MAX_MAX + 1] =
 {
     4.0000,    4.4898,    5.0397,    5.6569,     6.3496,
     7.1272,    8.0000,    8.9797,    10.0794,    11.3137,
@@ -50,7 +50,7 @@ double x265_lambda_tab[QP_MAX_MAX + 1] =
 };
 
 // lambda2 = 0.038 * EXP(0.234 * QP) * 256;
-double x265_lambda2_tab[QP_MAX_MAX + 1] =
+double s265_lambda2_tab[QP_MAX_MAX + 1] =
 {
     9.7280,        12.2880,       15.5136,       19.6096,       24.7808, 
     31.3344,       39.6032,       50.0480,       63.2320,       79.8976, 
@@ -68,10 +68,10 @@ double x265_lambda2_tab[QP_MAX_MAX + 1] =
     39232197.1968, 49575549.9264, 62645870.6176, 79162109.3632, 100032763.4688
 };
 
-#elif X265_DEPTH == 10
+#elif S265_DEPTH == 10
 
-// lambda = pow(2, (double)q / 6 - 2) * (1 << (X265_DEPTH - 8));
-double x265_lambda_tab[QP_MAX_MAX + 1] =
+// lambda = pow(2, (double)q / 6 - 2) * (1 << (S265_DEPTH - 8));
+double s265_lambda_tab[QP_MAX_MAX + 1] =
 {
     1.0000, 1.1225, 1.2599, 1.4142, 1.5874, 
     1.7818, 2.0000, 2.2449, 2.5198, 2.8284, 
@@ -90,7 +90,7 @@ double x265_lambda_tab[QP_MAX_MAX + 1] =
 };
 
 // lambda2 = 0.038 * exp(0.234 * QP) * 16;
-double x265_lambda2_tab[QP_MAX_MAX + 1] =
+double s265_lambda2_tab[QP_MAX_MAX + 1] =
 {
     0.6080, 0.7680, 0.9696, 1.2256, 1.5488, 
     1.9584, 2.4752, 3.1280, 3.9520, 4.9936, 
@@ -111,7 +111,7 @@ double x265_lambda2_tab[QP_MAX_MAX + 1] =
 #else /* !HIGH_BIT_DEPTH */
 
 // lambda = pow(2, (double)q / 6 - 2);
-double x265_lambda_tab[QP_MAX_MAX + 1] =
+double s265_lambda_tab[QP_MAX_MAX + 1] =
 {
     0.2500, 0.2806, 0.3150, 0.3536, 0.3969,
     0.4454, 0.5000, 0.5612, 0.6300, 0.7071,
@@ -130,7 +130,7 @@ double x265_lambda_tab[QP_MAX_MAX + 1] =
 };
 
 // lambda2 = 0.038 * exp(0.234 * QP)
-double x265_lambda2_tab[QP_MAX_MAX + 1] =
+double s265_lambda2_tab[QP_MAX_MAX + 1] =
 {
     0.0380, 0.0480, 0.0606, 0.0766, 0.0968,
     0.1224, 0.1547, 0.1955, 0.2470, 0.3121,
@@ -150,7 +150,7 @@ double x265_lambda2_tab[QP_MAX_MAX + 1] =
 
 #endif
 
-const uint16_t x265_chroma_lambda2_offset_tab[MAX_CHROMA_LAMBDA_OFFSET+1] =
+const uint16_t s265_chroma_lambda2_offset_tab[MAX_CHROMA_LAMBDA_OFFSET+1] =
 {
        16,    20,    25,    32,    40,    50,
        64,    80,   101,   128,   161,   203,
@@ -549,7 +549,7 @@ const uint8_t g_lpsTable[64][4] =
     {   2,   2,   2,   2 }
 };
 
-const uint8_t x265_exp2_lut[64] =
+const uint8_t s265_exp2_lut[64] =
 {
     0,  3,  6,  8,  11, 14,  17,  20,  23,  26,  29,  32,  36,  39,  42,  45,
     48,  52,  55,  58,  62,  65,  69,  72,  76,  80,  83,  87,  91,  94,  98,  102,

@@ -18,15 +18,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #if _MSC_VER
 #pragma warning(disable: 4127) // conditional expression is constant, yes I know
 #endif
 
-#include "x265.h"
-#include "x265cli.h"
+#include "s265.h"
+#include "s265cli.h"
 #include "abrEncApp.h"
 
 #if HAVE_VLD
@@ -43,9 +43,9 @@
 #include <fstream>
 #include <queue>
 
-using namespace X265_NS;
+using namespace S265_NS;
 
-#define X265_HEAD_ENTRIES 3
+#define S265_HEAD_ENTRIES 3
 #define CONSOLE_TITLE_SIZE 200
 
 #ifdef _WIN32
@@ -113,20 +113,20 @@ static bool checkAbrLadder(int argc, char **argv, FILE **abrConfig)
             {
                 /* getopt_long might have already printed an error message */
                 if (c != 63)
-                    x265_log(NULL, X265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
+                    s265_log(NULL, S265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
                 return false;
             }
         }
         if (long_options_index < 0)
         {
-            x265_log(NULL, X265_LOG_WARNING, "short option '%c' unrecognized\n", c);
+            s265_log(NULL, S265_LOG_WARNING, "short option '%c' unrecognized\n", c);
             return false;
         }
         if (!strcmp(long_options[long_options_index].name, "abr-ladder"))
         {
-            *abrConfig = x265_fopen(optarg, "rb");
+            *abrConfig = s265_fopen(optarg, "rb");
             if (!abrConfig)
-                x265_log_file(NULL, X265_LOG_ERROR, "%s abr-ladder config file not found or error in opening zone file\n", optarg);
+                s265_log_file(NULL, S265_LOG_ERROR, "%s abr-ladder config file not found or error in opening zone file\n", optarg);
             return true;
         }
     }
@@ -167,25 +167,25 @@ static bool parseAbrConfig(FILE* abrConfig, CLIOptions cliopt[], uint8_t numEnco
         int argc = 0;
         char **argv = (char**)malloc(256 * sizeof(char *));
         // Adding a dummy string to avoid file parsing error
-        argv[argc++] = (char *)"x265";
+        argv[argc++] = (char *)"s265";
 
         /* Parse CLI header to identify the ID of the load encode and the reuse level */
         char *header = strtok(argLine, "[]");
         uint32_t idCount = 0;
         char *id = strtok(header, ":");
-        char *head[X265_HEAD_ENTRIES];
+        char *head[S265_HEAD_ENTRIES];
         cliopt[i].encId = i;
         cliopt[i].isAbrLadderConfig = true;
 
-        while (id && (idCount <= X265_HEAD_ENTRIES))
+        while (id && (idCount <= S265_HEAD_ENTRIES))
         {
             head[idCount] = id;
             id = strtok(NULL, ":");
             idCount++;
         }
-        if (idCount != X265_HEAD_ENTRIES)
+        if (idCount != S265_HEAD_ENTRIES)
         {
-            x265_log(NULL, X265_LOG_ERROR, "Incorrect number of arguments in ABR CLI header at line %d\n", i);
+            s265_log(NULL, S265_LOG_ERROR, "Incorrect number of arguments in ABR CLI header at line %d\n", i);
             return false;
         }
         else
@@ -231,14 +231,14 @@ static bool setRefContext(CLIOptions cliopt[], uint32_t numEncodes)
                 {
                     cliopt[curEnc].refId = refEnc;
                     cliopt[refEnc].numRefs++;
-                    cliopt[refEnc].saveLevel = X265_MAX(cliopt[refEnc].saveLevel, cliopt[curEnc].loadLevel);
+                    cliopt[refEnc].saveLevel = S265_MAX(cliopt[refEnc].saveLevel, cliopt[curEnc].loadLevel);
                     isRefFound = true;
                     break;
                 }
             }
             if (!isRefFound)
             {
-                x265_log(NULL, X265_LOG_ERROR, "Reference encode (%s) not found for %s\n", cliopt[curEnc].reuseName,
+                s265_log(NULL, S265_LOG_ERROR, "Reference encode (%s) not found for %s\n", cliopt[curEnc].reuseName,
                     cliopt[curEnc].encName);
                 return false;
             }
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 {
 #if HAVE_VLD
     // This uses Microsoft's proprietary WCHAR type, but this only builds on Windows to start with
-    VLDSetReportOptions(VLD_OPT_REPORT_TO_DEBUGGER | VLD_OPT_REPORT_TO_FILE, L"x265_leaks.txt");
+    VLDSetReportOptions(VLD_OPT_REPORT_TO_DEBUGGER | VLD_OPT_REPORT_TO_FILE, L"s265_leaks.txt");
 #endif
     PROFILE_INIT();
     THREAD_NAME("API", 0);
@@ -306,7 +306,7 @@ int main(int argc, char **argv)
             if (abrEnc->m_passEnc[idx]->m_ret)
             {
                 if (isAbrLadder)
-                    x265_log(NULL, X265_LOG_INFO, "Error generating ABR-ladder \n");
+                    s265_log(NULL, S265_LOG_INFO, "Error generating ABR-ladder \n");
                 ret = abrEnc->m_passEnc[idx]->m_ret;
                 threadsActive = 0;
                 break;

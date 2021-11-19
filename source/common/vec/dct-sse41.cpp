@@ -25,7 +25,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -33,11 +33,11 @@
 #include <xmmintrin.h> // SSE
 #include <smmintrin.h> // SSE4.1
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 static void dequant_scaling(const int16_t* quantCoef, const int32_t *deQuantCoef, int16_t* coef, int num, int per, int shift)
 {
-    X265_CHECK(num <= 32 * 32, "dequant num too large\n");
+    S265_CHECK(num <= 32 * 32, "dequant num too large\n");
 
     int valueToAdd;
 
@@ -100,7 +100,7 @@ static void dequant_scaling(const int16_t* quantCoef, const int32_t *deQuantCoef
     }
 }
 
-namespace X265_NS {
+namespace S265_NS {
 void setupIntrinsicDCT_sse41(EncoderPrimitives &p)
 {
     p.dequant_scaling = dequant_scaling;

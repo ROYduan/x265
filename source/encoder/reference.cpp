@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -30,7 +30,7 @@
 
 #include "reference.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 MotionReference::MotionReference()
 {
@@ -42,13 +42,13 @@ MotionReference::MotionReference()
 
 MotionReference::~MotionReference()
 {
-    X265_FREE(numSliceWeightedRows);
-    X265_FREE(weightBuffer[0]);
-    X265_FREE(weightBuffer[1]);
-    X265_FREE(weightBuffer[2]);
+    S265_FREE(numSliceWeightedRows);
+    S265_FREE(weightBuffer[0]);
+    S265_FREE(weightBuffer[1]);
+    S265_FREE(weightBuffer[2]);
 }
 
-int MotionReference::init(PicYuv* recPic, WeightParam *wp, const x265_param& p)
+int MotionReference::init(PicYuv* recPic, WeightParam *wp, const s265_param& p)
 {
     reconPic = recPic;
     lumaStride = recPic->m_stride;
@@ -58,10 +58,10 @@ int MotionReference::init(PicYuv* recPic, WeightParam *wp, const x265_param& p)
     if (numSliceWeightedRows)
     {
         // Unnecessary, but avoid risk on parameters dynamic modify in future.
-        X265_FREE(numSliceWeightedRows);
+        S265_FREE(numSliceWeightedRows);
         numSliceWeightedRows = NULL;
     }
-    numSliceWeightedRows = X265_MALLOC(uint32_t, p.maxSlices);
+    numSliceWeightedRows = S265_MALLOC(uint32_t, p.maxSlices);
     memset(numSliceWeightedRows, 0, p.maxSlices * sizeof(uint32_t));
 
     /* directly reference the extended integer pel planes */
@@ -79,7 +79,7 @@ int MotionReference::init(PicYuv* recPic, WeightParam *wp, const x265_param& p)
         intptr_t stride = reconPic->m_stride;
         int cuHeight = p.maxCUSize;
 
-        for (int c = 0; c < (p.internalCsp != X265_CSP_I400 && recPic->m_picCsp != X265_CSP_I400 ? numInterpPlanes : 1); c++)
+        for (int c = 0; c < (p.internalCsp != S265_CSP_I400 && recPic->m_picCsp != S265_CSP_I400 ? numInterpPlanes : 1); c++)
         {
             if (c == 1)
             {
@@ -94,17 +94,17 @@ int MotionReference::init(PicYuv* recPic, WeightParam *wp, const x265_param& p)
                 if (!weightBuffer[c])
                 {
                     size_t padheight = (numCUinHeight * cuHeight) + marginY * 2;
-                    weightBuffer[c] = X265_MALLOC(pixel, stride * padheight);
+                    weightBuffer[c] = S265_MALLOC(pixel, stride * padheight);
                     if (!weightBuffer[c])
                         return -1;
                 }
 
                 /* use our buffer which will have weighted pixels written to it */
                 fpelPlane[c] = weightBuffer[c] + marginY * stride + marginX;
-                X265_CHECK(recPic->m_picOrg[c] - recPic->m_picBuf[c] == marginY * stride + marginX, "PicYuv pad calculation mismatch\n");
+                S265_CHECK(recPic->m_picOrg[c] - recPic->m_picBuf[c] == marginY * stride + marginX, "PicYuv pad calculation mismatch\n");
 
                 w[c].weight = wp[c].inputWeight;
-                w[c].offset = wp[c].inputOffset * (1 << (X265_DEPTH - 8));
+                w[c].offset = wp[c].inputOffset * (1 << (S265_DEPTH - 8));
                 w[c].shift = wp[c].log2WeightDenom;
                 w[c].round = w[c].shift ? 1 << (w[c].shift - 1) : 0;
             }
@@ -119,7 +119,7 @@ int MotionReference::init(PicYuv* recPic, WeightParam *wp, const x265_param& p)
 void MotionReference::applyWeight(uint32_t finishedRows, uint32_t maxNumRows, uint32_t maxNumRowsInSlice, uint32_t sliceId)
 {
     const uint32_t numWeightedRows = numSliceWeightedRows[sliceId];
-    finishedRows = X265_MIN(finishedRows, maxNumRowsInSlice);
+    finishedRows = S265_MIN(finishedRows, maxNumRowsInSlice);
     if (numWeightedRows >= finishedRows)
         return;
 
@@ -156,7 +156,7 @@ void MotionReference::applyWeight(uint32_t finishedRows, uint32_t maxNumRows, ui
         const pixel* src = reconPic->m_picOrg[c] + numWeightedRows * cuHeight * stride;
         pixel* dst = fpelPlane[c] + numWeightedRows * cuHeight * stride;
         // Computing weighted CU rows
-        int correction = IF_INTERNAL_PREC - X265_DEPTH; // intermediate interpolation depth
+        int correction = IF_INTERNAL_PREC - S265_DEPTH; // intermediate interpolation depth
         int padwidth = (width + 31) & ~31;              // weightp assembly needs even 32 byte widths
         primitives.weight_pp(src, dst, stride, padwidth, height, w[c].weight, w[c].round << correction, w[c].shift + correction, w[c].offset);
         // Extending Left & Right

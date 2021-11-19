@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -30,11 +30,11 @@
 #include "frameencoder.h"
 #include "wavefront.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 static float calculateSSIM(pixel *pix1, intptr_t stride1, pixel *pix2, intptr_t stride2, uint32_t width, uint32_t height, void *buf, uint32_t& cnt);
 
-namespace X265_NS
+namespace S265_NS
 {
     static void integral_init4h_c(uint32_t *sum, pixel *pix, intptr_t stride)
     {
@@ -158,7 +158,7 @@ namespace X265_NS
 
 void FrameFilter::destroy()
 {
-    X265_FREE(m_ssimBuf);
+    S265_FREE(m_ssimBuf);
 
     if (m_parallelFilter)
     {
@@ -190,7 +190,7 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
     integralCompleted.set(0);
 
     if (m_param->bEnableSsim)
-        m_ssimBuf = X265_MALLOC(int, 8 * (m_param->sourceWidth / 4 + 3));
+        m_ssimBuf = S265_MALLOC(int, 8 * (m_param->sourceWidth / 4 + 3));
 
     m_parallelFilter = new ParallelFilter[numRows];
 
@@ -264,7 +264,7 @@ static void restoreOrigLosslessYuv(const CUData* cu, Frame& frame, uint32_t absP
 
     primitives.cu[size].copy_pp(dst, reconPic->m_stride, src, fencPic->m_stride);
 
-    if (cu->m_chromaFormat != X265_CSP_I400)
+    if (cu->m_chromaFormat != S265_CSP_I400)
     {
         pixel* dstCb = reconPic->getCbAddr(cuAddr, absPartIdx);
         pixel* srcCb = fencPic->getCbAddr(cuAddr, absPartIdx);
@@ -305,10 +305,10 @@ void FrameFilter::ParallelFilter::copySaoAboveRef(const CUData *ctu, PicYuv* rec
 
     // Luma
     memcpy(&m_sao.m_tmpU[0][col * ctuWidth], recY, ctuWidth * sizeof(pixel));
-    X265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
+    S265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
 
     // Chroma
-    if (m_frameFilter->m_param->internalCsp != X265_CSP_I400)
+    if (m_frameFilter->m_param->internalCsp != S265_CSP_I400)
     {
         ctuWidth  >>= m_sao.m_hChromaShift;
 
@@ -317,7 +317,7 @@ void FrameFilter::ParallelFilter::copySaoAboveRef(const CUData *ctu, PicYuv* rec
         memcpy(&m_sao.m_tmpU[1][col * ctuWidth], recU, ctuWidth * sizeof(pixel));
         memcpy(&m_sao.m_tmpU[2][col * ctuWidth], recV, ctuWidth * sizeof(pixel));
 
-        X265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
+        S265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
     }
 }
 
@@ -367,8 +367,8 @@ void FrameFilter::ParallelFilter::processPostCu(int col) const
     const intptr_t strideC = reconPic->m_strideC;
     pixel *pixY = reconPic->getLumaAddr(lineStartCUAddr);
     // // MUST BE check I400 since m_picOrg uninitialize in that case
-    pixel *pixU = (m_frameFilter->m_param->internalCsp != X265_CSP_I400) ? reconPic->getCbAddr(lineStartCUAddr) : NULL;
-    pixel *pixV = (m_frameFilter->m_param->internalCsp != X265_CSP_I400) ? reconPic->getCrAddr(lineStartCUAddr) : NULL;
+    pixel *pixU = (m_frameFilter->m_param->internalCsp != S265_CSP_I400) ? reconPic->getCbAddr(lineStartCUAddr) : NULL;
+    pixel *pixV = (m_frameFilter->m_param->internalCsp != S265_CSP_I400) ? reconPic->getCrAddr(lineStartCUAddr) : NULL;
     int copySizeY = realW;
     int copySizeC = (realW >> hChromaShift);
 
@@ -377,7 +377,7 @@ void FrameFilter::ParallelFilter::processPostCu(int col) const
         // TODO: improve by process on Left or Right only
         primitives.extendRowBorder(reconPic->getLumaAddr(m_rowAddr), stride, reconPic->m_picWidth, realH, reconPic->m_lumaMarginX);
 
-        if (m_frameFilter->m_param->internalCsp != X265_CSP_I400)
+        if (m_frameFilter->m_param->internalCsp != S265_CSP_I400)
         {
             primitives.extendRowBorder(reconPic->getCbAddr(m_rowAddr), strideC, reconPic->m_picWidth >> hChromaShift, realH >> vChromaShift, reconPic->m_chromaMarginX);
             primitives.extendRowBorder(reconPic->getCrAddr(m_rowAddr), strideC, reconPic->m_picWidth >> hChromaShift, realH >> vChromaShift, reconPic->m_chromaMarginX);
@@ -405,7 +405,7 @@ void FrameFilter::ParallelFilter::processPostCu(int col) const
         for (uint32_t y = 0; y < lumaMarginY; y++)
             memcpy(pixY - (y + 1) * stride, pixY, copySizeY * sizeof(pixel));
 
-        if (m_frameFilter->m_param->internalCsp != X265_CSP_I400)
+        if (m_frameFilter->m_param->internalCsp != S265_CSP_I400)
         {
             for (uint32_t y = 0; y < chromaMarginY; y++)
             {
@@ -424,7 +424,7 @@ void FrameFilter::ParallelFilter::processPostCu(int col) const
         for (uint32_t y = 0; y < lumaMarginY; y++)
             memcpy(pixY + (y + 1) * stride, pixY, copySizeY * sizeof(pixel));
 
-        if (m_frameFilter->m_param->internalCsp != X265_CSP_I400)
+        if (m_frameFilter->m_param->internalCsp != S265_CSP_I400)
         {
             for (uint32_t y = 0; y < chromaMarginY; y++)
             {
@@ -584,7 +584,7 @@ void FrameFilter::processRow(int row)
     /* Processing left block Deblock with current threading */
     {        
         /* Check to avoid previous row process slower than current row */
-        X265_CHECK(ctu->m_bFirstRowInSlice || m_parallelFilter[row - 1].m_lastDeblocked.get() == m_numCols, "previous row not finish");
+        S265_CHECK(ctu->m_bFirstRowInSlice || m_parallelFilter[row - 1].m_lastDeblocked.get() == m_numCols, "previous row not finish");
 
         m_parallelFilter[row].m_allowedCol.set(m_numCols);
         m_parallelFilter[row].processTasks(-1);
@@ -593,7 +593,7 @@ void FrameFilter::processRow(int row)
         {
             /* TODO: Early start last row */
             if ((!ctu->m_bFirstRowInSlice) && (m_parallelFilter[row - 1].m_lastDeblocked.get() != m_numCols))
-                x265_log(m_param, X265_LOG_WARNING, "detected ParallelFilter race condition on last row\n");
+                s265_log(m_param, S265_LOG_WARNING, "detected ParallelFilter race condition on last row\n");
 
             /* Apply SAO on last row of CUs, because we always apply SAO on row[X-1] */
             if (m_useSao)
@@ -658,7 +658,7 @@ void FrameFilter::processPostRow(int row)
     const uint32_t lineStartCUAddr = row * numCols;
 
     /* Generate integral planes for SEA motion search */
-    if(m_param->searchMethod == X265_SEA)
+    if(m_param->searchMethod == S265_SEA)
         computeMEIntegral(row);
     // Notify other FrameEncoders that this row of reconstructed pixels is available
     m_frame->m_reconRowFlag[row].set(1);
@@ -675,7 +675,7 @@ void FrameFilter::processPostRow(int row)
         uint64_t ssdY = m_frameEncoder->m_top->computeSSD(fencPic->getLumaAddr(cuAddr), reconPic->getLumaAddr(cuAddr), stride, width, height, m_param);
         m_frameEncoder->m_SSDY += ssdY;
 
-        if (m_param->internalCsp != X265_CSP_I400)
+        if (m_param->internalCsp != S265_CSP_I400)
         {
             height >>= m_vChromaShift;
             width >>= m_hChromaShift;
@@ -698,9 +698,9 @@ void FrameFilter::processPostRow(int row)
         uint32_t bEnd = ((row) == (this->m_numRows - 1));
         uint32_t bStart = (row == 0);
         uint32_t minPixY = row * m_param->maxCUSize - 4 * !bStart;
-        uint32_t maxPixY = X265_MIN((row + 1) * m_param->maxCUSize - 4 * !bEnd, (uint32_t)m_param->sourceHeight);
+        uint32_t maxPixY = S265_MIN((row + 1) * m_param->maxCUSize - 4 * !bEnd, (uint32_t)m_param->sourceHeight);
         uint32_t ssim_cnt;
-        x265_emms();
+        s265_emms();
 
         /* SSIM is done for each row in blocks of 4x4 . The First blocks are offset by 2 pixels to the right
         * to avoid alignment of ssim blocks with DCT blocks. */
@@ -725,7 +725,7 @@ void FrameFilter::processPostRow(int row)
 void FrameFilter::computeMEIntegral(int row)
 {
     int lastRow = row == (int)m_frame->m_encData->m_slice->m_sps->numCuInHeight - 1;
-    if (m_frame->m_lowres.sliceType != X265_TYPE_B)
+    if (m_frame->m_lowres.sliceType != S265_TYPE_B)
     {
         /* If WPP, other than first row, integral calculation for current row needs to wait till the
         * integral for the previous row is computed */
@@ -845,7 +845,7 @@ static float calculateSSIM(pixel *pix1, intptr_t stride1, pixel *pix2, intptr_t 
         }
 
         for (uint32_t x = 0; x < width - 1; x += 4)
-            ssim += primitives.ssim_end_4(sum0 + x, sum1 + x, X265_MIN(4, width - x - 1));
+            ssim += primitives.ssim_end_4(sum0 + x, sum1 + x, S265_MIN(4, width - x - 1));
     }
 
     cnt = (height - 1) * (width - 1);

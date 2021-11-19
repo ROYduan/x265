@@ -24,11 +24,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_I386_PIXEL_H
-#define X265_I386_PIXEL_H
+#ifndef S265_I386_PIXEL_H
+#define S265_I386_PIXEL_H
 
 void PFX(downShift_16_sse2)(const uint16_t* src, intptr_t srcStride, pixel* dst, intptr_t dstStride, int width, int height, int shift, uint16_t mask);
 void PFX(downShift_16_avx2)(const uint16_t* src, intptr_t srcStride, pixel* dst, intptr_t dstStride, int width, int height, int shift, uint16_t mask);
@@ -77,4 +77,4 @@ DECL_PIXELS(avx512);
 
 #undef DECL_PIXELS
 
-#endif // ifndef X265_I386_PIXEL_H
+#endif // ifndef S265_I386_PIXEL_H

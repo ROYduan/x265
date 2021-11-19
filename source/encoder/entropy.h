@@ -19,11 +19,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_ENTROPY_H
-#define X265_ENTROPY_H
+#ifndef S265_ENTROPY_H
+#define S265_ENTROPY_H
 
 #include "common.h"
 #include "bitstream.h"
@@ -32,7 +32,7 @@
 #include "contexts.h"
 #include "slice.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 struct SaoCtuParam;
@@ -119,7 +119,7 @@ public:
 
     uint32_t getNumberOfWrittenBits()
     {
-        X265_CHECK(!m_bitIf, "bit counting mode expected\n");
+        S265_CHECK(!m_bitIf, "bit counting mode expected\n");
         return (uint32_t)(m_fracBits >> 15);
     }
 
@@ -258,4 +258,4 @@ private:
 };
 }
 
-#endif // ifndef X265_ENTROPY_H
+#endif // ifndef S265_ENTROPY_H

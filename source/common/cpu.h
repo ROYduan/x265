@@ -19,36 +19,36 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_CPU_H
-#define X265_CPU_H
+#ifndef S265_CPU_H
+#define S265_CPU_H
 
 #include "common.h"
-/* All assembly functions are prefixed with X265_NS (macro expanded) */
+/* All assembly functions are prefixed with S265_NS (macro expanded) */
 #define PFX3(prefix, name) prefix ## _ ## name
 #define PFX2(prefix, name) PFX3(prefix, name)
-#define PFX(name)          PFX2(X265_NS, name)
+#define PFX(name)          PFX2(S265_NS, name)
 
 // from cpu-a.asm, if ASM primitives are compiled, else primitives.cpp
 extern "C" void PFX(cpu_emms)(void);
 extern "C" void PFX(safe_intel_cpu_indicator_init)(void);
 
 #if _MSC_VER && _WIN64
-#define x265_emms() PFX(cpu_emms)()
+#define s265_emms() PFX(cpu_emms)()
 #elif _MSC_VER
 #include <mmintrin.h>
-#define x265_emms() _mm_empty()
+#define s265_emms() _mm_empty()
 #elif __GNUC__
 // Cannot use _mm_empty() directly without compiling all the source with
 // a fixed CPU arch, which we would like to avoid at the moment
-#define x265_emms() PFX(cpu_emms)()
+#define s265_emms() PFX(cpu_emms)()
 #else
-#define x265_emms() PFX(cpu_emms)()
+#define s265_emms() PFX(cpu_emms)()
 #endif
 
-namespace X265_NS {
+namespace S265_NS {
 uint32_t cpu_detect(bool);
 bool detect512();
 
@@ -61,4 +61,4 @@ struct cpu_name_t
 extern const cpu_name_t cpu_names[];
 }
 
-#endif // ifndef X265_CPU_H
+#endif // ifndef S265_CPU_H

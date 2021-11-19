@@ -19,17 +19,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_OUTPUT_H
-#define X265_OUTPUT_H
+#ifndef S265_OUTPUT_H
+#define S265_OUTPUT_H
 
-#include "x265.h"
+#include "s265.h"
 #include "input/input.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class ReconFile
 {
@@ -48,7 +48,7 @@ public:
 
     virtual void release() = 0;
 
-    virtual bool writePicture(const x265_picture& pic) = 0;
+    virtual bool writePicture(const s265_picture& pic) = 0;
 
     virtual const char *getName() const = 0;
 };
@@ -73,14 +73,14 @@ public:
 
     virtual const char* getName() const = 0;
 
-    virtual void setParam(x265_param* param) = 0;
+    virtual void setParam(s265_param* param) = 0;
 
-    virtual int writeHeaders(const x265_nal* nal, uint32_t nalcount) = 0;
+    virtual int writeHeaders(const s265_nal* nal, uint32_t nalcount) = 0;
 
-    virtual int writeFrame(const x265_nal* nal, uint32_t nalcount, x265_picture& pic) = 0;
+    virtual int writeFrame(const s265_nal* nal, uint32_t nalcount, s265_picture& pic) = 0;
 
     virtual void closeFile(int64_t largest_pts, int64_t second_largest_pts) = 0;
 };
 }
 
-#endif // ifndef X265_OUTPUT_H
+#endif // ifndef S265_OUTPUT_H

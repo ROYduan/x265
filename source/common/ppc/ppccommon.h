@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_PPCCOMMON_H
-#define X265_PPCCOMMON_H
+#ifndef S265_PPCCOMMON_H
+#define S265_PPCCOMMON_H
 
 
 #if HAVE_ALTIVEC
@@ -85,7 +85,7 @@
 
 #endif /* HAVE_ALTIVEC */
 
-#endif /* X265_PPCCOMMON_H */
+#endif /* S265_PPCCOMMON_H */
 
 
 

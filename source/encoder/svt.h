@@ -18,7 +18,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 
@@ -30,7 +30,7 @@
 #include "EbApi.h"
 #include "EbErrorCodes.h"
 
-namespace X265_NS {
+namespace S265_NS {
 
 #define INPUT_SIZE_576p_TH     0x90000    // 0.58 Million
 #define INPUT_SIZE_1080i_TH    0xB71B0    // 0.75 Million
@@ -39,11 +39,11 @@ namespace X265_NS {
 
 #define EB_OUTPUTSTREAMBUFFERSIZE_MACRO(ResolutionSize)    ((ResolutionSize) < (INPUT_SIZE_1080i_TH) ? 0x1E8480 : (ResolutionSize) < (INPUT_SIZE_1080p_TH) ? 0x2DC6C0 : (ResolutionSize) < (INPUT_SIZE_4K_TH) ? 0x2DC6C0 : 0x2DC6C0)
 
-void svt_param_default(x265_param* param);
-int svt_set_preset(x265_param* param, const char* preset);
-int svt_param_parse(x265_param* param, const char* name, const char* value);
-void svt_initialise_app_context(x265_encoder *enc);
-int svt_initialise_input_buffer(x265_encoder *enc);
+void svt_param_default(s265_param* param);
+int svt_set_preset(s265_param* param, const char* preset);
+int svt_param_parse(s265_param* param, const char* name, const char* value);
+void svt_initialise_app_context(s265_encoder *enc);
+int svt_initialise_input_buffer(s265_encoder *enc);
 }
 
 #endif // ifdef SVT_HEVC

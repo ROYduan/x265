@@ -6,14 +6,14 @@ Command Line Options
 .. _string-options-ref:
 
 Note that unless an option is listed as **CLI ONLY** the option is also
-supported by x265_param_parse(). The CLI uses getopt to parse the
+supported by s265_param_parse(). The CLI uses getopt to parse the
 command line options so the short or long versions may be used and the
 long options may be truncated to the shortest unambiguous abbreviation.
-Users of the API must pass x265_param_parse() the full option name.
+Users of the API must pass s265_param_parse() the full option name.
 
 Preset and tune have special implications. The API user must call
-x265_param_default_preset() with the preset and tune parameters they
-wish to use, prior to calling x265_param_parse() to set any additional
+s265_param_default_preset() with the preset and tune parameters they
+wish to use, prior to calling s265_param_parse() to set any additional
 fields. The CLI does this for the user implicitly, so all CLI options
 are applied after the user's preset and tune choices, regardless of the
 order of the arguments on the command line.
@@ -23,7 +23,7 @@ value) the CLI will treat it as the input filename.  This effectively
 makes the :option:`--input` specifier optional for the input file. If
 there are two extra arguments, the second is treated as the output
 bitstream filename, making :option:`--output` also optional if the input
-filename was implied. This makes :command:`x265 in.y4m out.hevc` a valid
+filename was implied. This makes :command:`s265 in.y4m out.hevc` a valid
 command line. If there are more than two extra arguments, the CLI will
 consider this an error and abort.
 
@@ -45,17 +45,17 @@ Executable Options
 	Displays version details in the following manner *[Version Name]+/-[Number of commits from the release changeset]-/+[repository's head changeset  SHA-1 paraphrase identifier]*
 	along with the compilation platform, build information and supported cpu capabilities.
 
-	In case of release tar balls version information is partly derived from configuration file *x265Version.txt*
-	.. seeAlso::  For more information on how to configure the version file please refer to `<https://bitbucket.org/multicoreware/x265_git/wiki/Home>`_  and Contribute pages for updates specific
+	In case of release tar balls version information is partly derived from configuration file *s265Version.txt*
+	.. seeAlso::  For more information on how to configure the version file please refer to `<https://bitbucket.org/multicoreware/s265_git/wiki/Home>`_  and Contribute pages for updates specific
 	release and version control management.
 
 	**Example:**
 
-	*x265 [info]: HEVC encoder version 3.4+27-'d9217cf00'*
+	*s265 [info]: HEVC encoder version 3.4+27-'d9217cf00'*
 
-	*x265 [info]: build info [Windows][MSVC 1916][64 bit] 10bit*
+	*s265 [info]: build info [Windows][MSVC 1916][64 bit] 10bit*
 
-	*x265 [info]: using cpu capabilities: MMX2 SSE2Fast LZCNT SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2*
+	*s265 [info]: using cpu capabilities: MMX2 SSE2Fast LZCNT SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2*
 
 	**CLI ONLY**
 
@@ -227,7 +227,7 @@ Performance Options
 
 .. option:: --asm <integer:false:string>, --no-asm
 
-	x265 will use all detected CPU SIMD architectures by default. You can
+	s265 will use all detected CPU SIMD architectures by default. You can
 	disable all assembly by using :option:`--no-asm` or you can specify
 	a comma separated list of SIMD architectures to use, matching these
 	strings: MMX2, SSE, SSE2, SSE3, SSSE3, SSE4, SSE4.1, SSE4.2, AVX, XOP, FMA4, AVX2, FMA3
@@ -237,7 +237,7 @@ Performance Options
 
 	One may also directly supply the CPU capability bitmap as an integer.
 	
-	Note that by specifying this option you are overriding x265's CPU
+	Note that by specifying this option you are overriding s265's CPU
 	detection and it is possible to do this wrong. You can cause encoder
 	crashes by specifying SIMD architectures which are not supported on
 	your CPU.
@@ -261,7 +261,7 @@ Performance Options
 
 	Comma separated list of threads per NUMA node. If "none", then no worker
 	pools are created and only frame parallelism is possible. If NULL or ""
-	(default) x265 will use all available threads on each NUMA node::
+	(default) s265 will use all available threads on each NUMA node::
 
 	'+'  is a special value indicating all cores detected on the node
 	'*'  is a special value indicating all cores detected on the node and all remaining nodes
@@ -313,12 +313,12 @@ Performance Options
 
 	On Windows, the native APIs offer sufficient functionality to
 	discover the NUMA topology and enforce the thread affinity that
-	libx265 needs (so long as you have not chosen to target XP or
+	libs265 needs (so long as you have not chosen to target XP or
 	Vista), but on POSIX systems it relies on libnuma for this
 	functionality. If your target POSIX system is single socket, then
 	building without libnuma is a perfectly reasonable option, as it
 	will have no effect on the runtime behavior. On a multiple-socket
-	system, a POSIX build of libx265 without libnuma will be less work
+	system, a POSIX build of libs265 without libnuma will be less work
 	efficient. See :ref:`thread pools <pools>` for more detail.
 
 	Default "", one pool is created across all available NUMA nodes, with
@@ -347,7 +347,7 @@ Performance Options
 	Parallel mode decision, or distributed mode analysis. When enabled
 	the encoder will distribute the analysis work of each CU (merge,
 	inter, intra) across multiple worker threads. Only recommended if
-	x265 is not already saturating the CPU cores. In RD levels 3 and 4
+	s265 is not already saturating the CPU cores. In RD levels 3 and 4
 	it will be most effective if --rect is enabled. At RD levels 5 and
 	6 there is generally always enough work to distribute to warrant the
 	overhead, assuming your CPUs are not already saturated.
@@ -368,7 +368,7 @@ Performance Options
 	Parallel motion estimation. When enabled the encoder will distribute
 	motion estimation across multiple worker threads when more than two
 	references require motion searches for a given CU. Only recommended
-	if x265 is not already saturating CPU cores. :option:`--pmode` is
+	if s265 is not already saturating CPU cores. :option:`--pmode` is
 	much more effective than this option, since the amount of work it
 	distributes is substantially higher. With --pme it is not unusual
 	for the overhead of distributing the work to outweigh the
@@ -420,12 +420,12 @@ Performance Options
 
 .. option:: --copy-pic, --no-copy-pic
 
-	Allow encoder to copy input x265 pictures to internal frame buffers. When disabled,
-	x265 will not make an internal copy of the input picture and will work with the
+	Allow encoder to copy input s265 pictures to internal frame buffers. When disabled,
+	s265 will not make an internal copy of the input picture and will work with the
 	application's buffers. While this allows for deeper integration, it is the responsibility
 	of the application to (a) ensure that the allocated picture has extra space for padding
 	that will be done by the library, and (b) the buffers aren't recycled until the library
-	has completed encoding this frame (which can be figured out by tracking NALs output by x265)
+	has completed encoding this frame (which can be figured out by tracking NALs output by s265)
 
 	Default: enabled
 
@@ -489,7 +489,7 @@ frame counts) are only applicable to the CLI application.
 
 	Chroma Subsampling (YUV only):  Only 4:0:0(monochrome), 4:2:0, 4:2:2, and 4:4:4 are supported at this time. 
 	The chroma subsampling format of your input must match your desired output chroma subsampling format 
-	(libx265 will not perform any chroma subsampling conversion), and it must be supported by the 
+	(libs265 will not perform any chroma subsampling conversion), and it must be supported by the 
 	HEVC profile you have specified.
 
 	0. i400 (4:0:0 monochrome) - Not supported by Main or Main10 profiles
@@ -555,10 +555,10 @@ frame counts) are only applicable to the CLI application.
 
 	Bitdepth of output HEVC bitstream, which is also the internal bit
 	depth of the encoder. If the requested bit depth is not the bit
-	depth of the linked libx265, it will attempt to bind libx265_main
-	for an 8bit encoder, libx265_main10 for a 10bit encoder, or
-	libx265_main12 for a 12bit encoder, with the same API version as the
-	linked libx265.
+	depth of the linked libs265, it will attempt to bind libs265_main
+	for an 8bit encoder, libs265_main10 for a 10bit encoder, or
+	libs265_main12 for a 12bit encoder, with the same API version as the
+	linked libs265.
 
 	If the output depth is not specified but :option:`--profile` is
 	specified, the output depth will be derived from the profile name.
@@ -595,7 +595,7 @@ Profile, Level, Tier
 	encoder (a high bit depth encoder will be unable to output
 	bitstreams compliant with Main or MainStillPicture).
 
-	The following profiles are supported in x265.
+	The following profiles are supported in s265.
 
 	8bit profiles::
 
@@ -619,7 +619,7 @@ Profile, Level, Tier
 
 	**CLI ONLY**
 
-	API users must call x265_param_apply_profile() after configuring
+	API users must call s265_param_apply_profile() after configuring
 	their param structure. Any changes made to the param structure after
 	this call might make the encode non-compliant.
 
@@ -663,12 +663,12 @@ Profile, Level, Tier
 	but will generally have a beneficial effect on compression and
 	distortion.
 	
-	Note that x265 allows up to 16 L0 references but the HEVC
+	Note that s265 allows up to 16 L0 references but the HEVC
 	specification only allows a maximum of 8 total reference frames. So
 	if you have B frames enabled only 7 L0 refs are valid and if you
 	have :option:`--b-pyramid` enabled (which is enabled by default in
 	all presets), then only 6 L0 refs are the maximum allowed by the
-	HEVC specification.  If x265 detects that the total reference count
+	HEVC specification.  If s265 detects that the total reference count
 	is greater than 8, it will issue a warning that the resulting stream
 	is non-compliant and it signals the stream as profile NONE and level
 	NONE and will abort the encode unless
@@ -679,7 +679,7 @@ Profile, Level, Tier
 
 .. option:: --allow-non-conformance, --no-allow-non-conformance
 
-	Allow libx265 to generate a bitstream with profile and level NONE.
+	Allow libs265 to generate a bitstream with profile and level NONE.
 	By default, it will abort any encode which does not meet strict level
 	compliance. The two most likely causes for non-conformance are
 	:option:`--ctu` being too small, :option:`--ref` being too high,
@@ -706,12 +706,12 @@ Profile, Level, Tier
 	parameters to meet those requirements but it will never raise
 	them. It may enable VBV constraints on a CRF encode.
 
-	Also note that x265 determines the decoder requirement profile and
-	level in three steps.  First, the user configures an x265_param
+	Also note that s265 determines the decoder requirement profile and
+	level in three steps.  First, the user configures an s265_param
 	structure with their suggested encoder options and then optionally
-	calls x265_param_apply_profile() to enforce a specific profile
+	calls s265_param_apply_profile() to enforce a specific profile
 	(main, main10, etc). Second, an encoder is created from this
-	x265_param instance and the :option:`--level-idc` and
+	s265_param instance and the :option:`--level-idc` and
 	:option:`--high-tier` parameters are used to reduce bitrate or other
 	features in order to enforce the target level. The detected decoder level
 	will only use High tier if the user specified a High tier level.
@@ -722,7 +722,7 @@ Profile, Level, Tier
 
 	If :option:`--total-frames` is 1, then a stillpicture variant will
 	be signaled, but this parameter is not always set by applications,
-	particularly not when the CLI uses stdin streaming or when libx265
+	particularly not when the CLI uses stdin streaming or when libs265
 	is used by third-party applications.
 
 
@@ -766,7 +766,7 @@ the prediction quad-tree.
 .. option:: --ctu, -s <64|32|16>
 
 	Maximum CU size (width and height). The larger the maximum CU size,
-	the more efficiently x265 can encode flat areas of the picture,
+	the more efficiently s265 can encode flat areas of the picture,
 	giving large reductions in bitrate. However, this comes at a loss of
 	parallelism with fewer rows of CUs that can be encoded in parallel,
 	and less frame parallelism as well. Because of this the faster
@@ -791,17 +791,17 @@ the prediction quad-tree.
 
 .. option:: --limit-refs <0|1|2|3>
 
-	When set to X265_REF_LIMIT_DEPTH (1) x265 will limit the references
+	When set to s265_REF_LIMIT_DEPTH (1) s265 will limit the references
 	analyzed at the current depth based on the references used to code
 	the 4 sub-blocks at the next depth.  For example, a 16x16 CU will
 	only use the references used to code its four 8x8 CUs.
 
-	When set to X265_REF_LIMIT_CU (2), the rectangular and asymmetrical
+	When set to s265_REF_LIMIT_CU (2), the rectangular and asymmetrical
 	partitions will only use references selected by the 2Nx2N motion
 	search (including at the lowest depth which is otherwise unaffected
 	by the depth limit).
 
-	When set to 3 (X265_REF_LIMIT_DEPTH && X265_REF_LIMIT_CU), the 2Nx2N 
+	When set to 3 (s265_REF_LIMIT_DEPTH && s265_REF_LIMIT_CU), the 2Nx2N 
 	motion search at each depth will only use references from the split 
 	CUs and the rect/amp motion searches at that depth will only use the 
 	reference(s) selected by 2Nx2N. 
@@ -876,7 +876,7 @@ the prediction quad-tree.
 .. option:: --rskip-edge-threshold <0..100>
 
 	Denotes the minimum expected edge-density percentage within the CU, below which the recursion is skipped.
-	Internally normalized to decimal value in x265 library. Recommended low thresholds for slow encodes and high
+	Internally normalized to decimal value in s265 library. Recommended low thresholds for slow encodes and high
 	for fast encodes. Default: 5, requires :option:`--rskip mode 2` to be enabled.
 
 .. option:: --splitrd-skip, --no-splitrd-skip
@@ -945,7 +945,7 @@ will not reuse analysis if slice type parameters do not match.
 .. option:: --analysis-reuse-file <filename>
 
 	Specify a filename for :option:`--multi-pass-opt-analysis` and option:`--multi-pass-opt-distortion`.
-	If no filename is specified, x265_analysis.dat is used.
+	If no filename is specified, s265_analysis.dat is used.
 
 .. option:: --analysis-save-reuse-level <1..10>, --analysis-load-reuse-level <1..10>
 
@@ -1357,7 +1357,7 @@ simple rate distortion formula, trading distortion for bitrate. This is
 generally effective except for the manner in which this distortion is
 measured. It tends to favor blurred reconstructed blocks over blocks
 which have wrong motion. The human eye generally prefers the wrong
-motion over the blur and thus x265 offers psycho-visual adjustments to
+motion over the blur and thus s265 offers psycho-visual adjustments to
 the rate distortion algorithm.
 
 :option:`--psy-rd` will add an extra cost to reconstructed blocks which
@@ -1503,7 +1503,7 @@ Slice decision options
 	1: force the partitions if CTU information is present.
 	2: functionality of (1) and reduce qp if CTU information has changed.
 	4: functionality of (1) and force Inter modes when CTU Information has changed, merge/skip otherwise.
-	This option should be enabled only when planning to invoke the API function x265_encoder_ctu_info to copy ctu-info asynchronously. 
+	This option should be enabled only when planning to invoke the API function s265_encoder_ctu_info to copy ctu-info asynchronously. 
 	If enabled without calling the API function, the encoder will wait indefinitely.
 
 .. option:: --intra-refresh
@@ -1598,7 +1598,7 @@ Slice decision options
 .. option:: --bframe-bias <integer>
 
 	Bias towards B frames in slicetype decision. The higher the bias the
-	more likely x265 is to use B frames. Can be any value between -90
+	more likely s265 is to use B frames. Can be any value between -90
 	and 100 and is clipped to that range. Default 0
 
 .. option:: --b-pyramid, --no-b-pyramid
@@ -1823,7 +1823,7 @@ Quality, rate control and rate distortion options
 .. option:: --stats <filename>
 
 	Specify file name of of the multi-pass stats file. If unspecified
-	the encoder will use x265_2pass.log
+	the encoder will use s265_2pass.log
 
 .. option:: --slow-firstpass, --no-slow-firstpass
 
@@ -2104,7 +2104,7 @@ other levels.
 	lists to be defined; one each for Y, Cb, Cr for intra prediction and
 	one each for inter prediction.
 
-	x265 does not use scaling lists by default, but this can also be
+	s265 does not use scaling lists by default, but this can also be
 	made explicit by :option:`--scaling-list` *off*.
 
 	HEVC specifies a default set of scaling lists which may be enabled
@@ -2114,12 +2114,12 @@ other levels.
 	All other strings indicate a filename containing custom scaling
 	lists in the HM format. The encode will abort if the file is not
 	parsed correctly. Custom lists must be signaled in the SPS. A sample
-	scaling list file is available in `the downloads page <https://bitbucket.org/multicoreware/x265_git/downloads/reference_scalinglist.txt>`_
+	scaling list file is available in `the downloads page <https://bitbucket.org/multicoreware/s265_git/downloads/reference_scalinglist.txt>`_
 
 .. option:: --lambda-file <filename>
 
-	Specify a text file containing values for x265_lambda_tab and
-	x265_lambda2_tab. Each table requires MAX_MAX_QP+1 (70) float
+	Specify a text file containing values for s265_lambda_tab and
+	s265_lambda2_tab. Each table requires MAX_MAX_QP+1 (70) float
 	values.
 
 	The text file syntax is simple. Comma is considered to be
@@ -2201,7 +2201,7 @@ Loop filters
 
 VUI (Video Usability Information) options
 =========================================
-x265 emits a VUI with only the timing info by default. If the SAR is
+s265 emits a VUI with only the timing info by default. If the SAR is
 specified (or read from a Y4M header) it is also included.  All other
 VUI fields must be manually specified.
 
@@ -2389,7 +2389,7 @@ VUI fields must be manually specified.
 .. option:: --hdr10-opt, --no-hdr10-opt
 
 	Enable block-level luma and chroma QP optimization for HDR10 content
-	as suggested in ITU-T H-series Recommendations – Supplement 15.
+	as suggested in ITU-T H-series Recommendations ï¿½ Supplement 15.
 	Source video should have HDR10 characteristics such as 10-bit depth 4:2:0
 	with Bt.2020 color primaries and SMPTE ST.2084 transfer characteristics.
 	It is recommended that AQ-mode be enabled along with this feature. Default disabled.
@@ -2401,7 +2401,7 @@ VUI fields must be manually specified.
 	to be encoded as Dynamic Tone Mapping into the bitstream. 
 	
 	Click `here <https://www.sra.samsung.com/assets/User-data-registered-itu-t-t35-SEI-message-for-ST-2094-40-v1.1.pdf>`_
-	for the syntax of the metadata file. A sample JSON file is available in `the downloads page <https://bitbucket.org/multicoreware/x265_git/downloads/DCIP3_4K_to_400_dynamic.json>`_
+	for the syntax of the metadata file. A sample JSON file is available in `the downloads page <https://bitbucket.org/multicoreware/s265_git/downloads/DCIP3_4K_to_400_dynamic.json>`_
 	
 .. option:: --dhdr10-opt, --no-dhdr10-opt
 
@@ -2517,16 +2517,16 @@ Bitstream options
 
 .. option:: --annexb, --no-annexb
 
-	If enabled, x265 will produce Annex B bitstream format, which places
-	start codes before NAL. If disabled, x265 will produce file format,
-	which places length before NAL. x265 CLI will choose the right option
+	If enabled, s265 will produce Annex B bitstream format, which places
+	start codes before NAL. If disabled, s265 will produce file format,
+	which places length before NAL. s265 CLI will choose the right option
 	based on output format. Default enabled
 
 	**API ONLY**
 
 .. option:: --repeat-headers, --no-repeat-headers
 
-	If enabled, x265 will emit VPS, SPS, and PPS headers with every
+	If enabled, s265 will emit VPS, SPS, and PPS headers with every
 	keyframe. This is intended for use when you do not have a container
 	to keep the stream headers for you and you want keyframes to be
 	random access points. Default disabled
@@ -2579,7 +2579,7 @@ Bitstream options
 
 .. option:: --dolby-vision-rpu <filename>
 
-    File containing Dolby Vision RPU metadata. If given, x265's Dolby Vision 
+    File containing Dolby Vision RPU metadata. If given, s265's Dolby Vision 
     metadata parser will fill the RPU field of input pictures with the metadata
     read from the file. The library will interleave access units with RPUs in the 
     bitstream. Default NULL (disabled).
@@ -2664,7 +2664,7 @@ DCT Approximations
 
 .. option:: --lowpass-dct
 
-	If enabled, x265 will use low-pass subband dct approximation instead of the
+	If enabled, s265 will use low-pass subband dct approximation instead of the
 	standard dct for 16x16 and 32x32 blocks. This approximation is less computationally 
 	intensive but it generates truncated coefficient matrixes for the transformed block. 
 	Empirical analysis shows marginal loss in compression and performance gains up to 10%,
@@ -2697,7 +2697,7 @@ Debugging options
 .. option:: --recon-y4m-exec <string>
 
 	If you have an application which can play a Y4MPEG stream received
-	on stdin, the x265 CLI can feed it reconstructed pictures in display
+	on stdin, the s265 CLI can feed it reconstructed pictures in display
 	order.  The pictures will have no timing info, obviously, so the
 	picture timing will be determined primarily by encoding elapsed time
 	and latencies, but it can be useful to preview the pictures being
@@ -2731,7 +2731,7 @@ ABR-ladder Options
 	[1080p:10:540p] --input 1080pSource.y4m --ctu 32 --bitrate 5800 --vbv-maxrate 8700 --vbv-bufsize 17400 -o 1080p.hevc --preset veryslow --scale-factor 2
 	[2160p:10:1080p] --input 2160pSource.y4m --bitrate 16800 --vbv-maxrate 25200  --vbv-bufsize 50400 -o 2160p.hevc --preset veryslow  --scale-factor 2
 
-	The above sample config file is available in `the downloads page <https://bitbucket.org/multicoreware/x265_git/downloads/Sample_ABR_ladder_config.txt>`_
+	The above sample config file is available in `the downloads page <https://bitbucket.org/multicoreware/s265_git/downloads/Sample_ABR_ladder_config.txt>`_
 
 	Default: Disabled ( Conventional single encode generation ). Experimental feature.
 	**CLI ONLY**
@@ -2744,7 +2744,7 @@ See section :ref:`svthevc <SvtHevc>` for more details.
 
 .. option:: --svt, --no-svt
 
-    Enable SVT-HEVC encoder if x265 is built with SVT-HEVC library. Default
+    Enable SVT-HEVC encoder if s265 is built with SVT-HEVC library. Default
     disabled.
 
 .. option:: --svt-hme, --no-svt-hme
@@ -2786,7 +2786,7 @@ See section :ref:`svthevc <SvtHevc>` for more details.
 
 .. option:: --svt-preset-tuner <integer>
 
-    SVT-HEVC exposes 12 presets. Presets [2-11] of SVT-HEVC is mapped to x265's
+    SVT-HEVC exposes 12 presets. Presets [2-11] of SVT-HEVC is mapped to s265's
     presets [placebo-ultrafast]. Ultrafast is mapped to preset(11) of SVT-HEVC,
     superfast to preset(10), placebo to preset(2) and so on. svt-preset-tuner works
     only on top of placebo preset and maps to presets (0-1) of SVT-HEVC.

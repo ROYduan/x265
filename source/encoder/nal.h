@@ -18,16 +18,16 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_NAL_H
-#define X265_NAL_H
+#ifndef S265_NAL_H
+#define S265_NAL_H
 
 #include "common.h"
-#include "x265.h"
+#include "s265.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class Bitstream;
@@ -39,7 +39,7 @@ public:
 
 public:
 
-    x265_nal    m_nal[MAX_NAL_UNITS];
+    s265_nal    m_nal[MAX_NAL_UNITS];
     uint32_t    m_numNal;
 
     uint8_t*    m_buffer;
@@ -52,7 +52,7 @@ public:
     bool        m_annexB;
 
     NALList();
-    ~NALList() { X265_FREE(m_buffer); X265_FREE(m_extraBuffer); }
+    ~NALList() { S265_FREE(m_buffer); S265_FREE(m_extraBuffer); }
 
     void takeContents(NALList& other);
 
@@ -63,4 +63,4 @@ public:
 
 }
 
-#endif // ifndef X265_NAL_H
+#endif // ifndef S265_NAL_H

@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -64,7 +64,7 @@ static int quantInterDefault8x8[64] =
 
 }
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
     const char ScalingList::MatrixType[4][6][20] =
     {
@@ -143,12 +143,12 @@ bool ScalingList::init()
     {
         for (int listId = 0; listId < NUM_LISTS; listId++)
         {
-            m_scalingListCoef[sizeId][listId] = X265_MALLOC(int32_t, X265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeId]));
+            m_scalingListCoef[sizeId][listId] = S265_MALLOC(int32_t, S265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeId]));
             ok &= !!m_scalingListCoef[sizeId][listId];
             for (int rem = 0; rem < NUM_REM; rem++)
             {
-                m_quantCoef[sizeId][listId][rem] = X265_MALLOC(int32_t, s_numCoefPerSize[sizeId]);
-                m_dequantCoef[sizeId][listId][rem] = X265_MALLOC(int32_t, s_numCoefPerSize[sizeId]);
+                m_quantCoef[sizeId][listId][rem] = S265_MALLOC(int32_t, s_numCoefPerSize[sizeId]);
+                m_dequantCoef[sizeId][listId][rem] = S265_MALLOC(int32_t, s_numCoefPerSize[sizeId]);
                 ok &= m_quantCoef[sizeId][listId][rem] && m_dequantCoef[sizeId][listId][rem];
             }
         }
@@ -162,11 +162,11 @@ ScalingList::~ScalingList()
     {
         for (int listId = 0; listId < NUM_LISTS; listId++)
         {
-            X265_FREE(m_scalingListCoef[sizeId][listId]);
+            S265_FREE(m_scalingListCoef[sizeId][listId]);
             for (int rem = 0; rem < NUM_REM; rem++)
             {
-                X265_FREE(m_quantCoef[sizeId][listId][rem]);
-                X265_FREE(m_dequantCoef[sizeId][listId][rem]);
+                S265_FREE(m_quantCoef[sizeId][listId][rem]);
+                S265_FREE(m_dequantCoef[sizeId][listId][rem]);
             }
         }
     }
@@ -184,7 +184,7 @@ int ScalingList::checkPredMode(int size, int list) const
         // check value of matrix
         if (!memcmp(m_scalingListCoef[size][list],
                     list == predList ? getScalingListDefaultAddress(size, predList) : m_scalingListCoef[size][predList],
-                    sizeof(int32_t) * X265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[size])))
+                    sizeof(int32_t) * S265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[size])))
             return predList;
     }
 
@@ -200,7 +200,7 @@ bool ScalingList::checkDefaultScalingList() const
     for (int s = 0; s < NUM_SIZES; s++)
         for (int l = 0; l < NUM_LISTS; l++)
             if (!memcmp(m_scalingListCoef[s][l], getScalingListDefaultAddress(s, l),
-                        sizeof(int32_t) * X265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[s])) &&
+                        sizeof(int32_t) * S265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[s])) &&
                 ((s < BLOCK_16x16) || (m_scalingListDC[s][l] == 16)))
                 defaultCounter++;
 
@@ -224,13 +224,13 @@ const int32_t* ScalingList::getScalingListDefaultAddress(int sizeId, int listId)
         break;
     }
 
-    X265_CHECK(0, "invalid scaling list size\n");
+    S265_CHECK(0, "invalid scaling list size\n");
     return NULL;
 }
 
 void ScalingList::processDefaultMarix(int sizeId, int listId)
 {
-    memcpy(m_scalingListCoef[sizeId][listId], getScalingListDefaultAddress(sizeId, listId), sizeof(int) * X265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeId]));
+    memcpy(m_scalingListCoef[sizeId][listId], getScalingListDefaultAddress(sizeId, listId), sizeof(int) * S265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeId]));
     m_scalingListDC[sizeId][listId] = SCALING_LIST_DC;
 }
 
@@ -245,10 +245,10 @@ void ScalingList::setDefaultScalingList()
 
 bool ScalingList::parseScalingList(const char* filename)
 {
-    FILE *fp = x265_fopen(filename, "r");
+    FILE *fp = s265_fopen(filename, "r");
     if (!fp)
     {
-        x265_log_file(NULL, X265_LOG_ERROR, "can't open scaling list file %s\n", filename);
+        s265_log_file(NULL, S265_LOG_ERROR, "can't open scaling list file %s\n", filename);
         return true;
     }
 
@@ -258,7 +258,7 @@ bool ScalingList::parseScalingList(const char* filename)
 
     for (int sizeIdc = 0; sizeIdc < NUM_SIZES; sizeIdc++)
     {
-        int size = X265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeIdc]);
+        int size = S265_MIN(MAX_MATRIX_COEF_NUM, s_numCoefPerSize[sizeIdc]);
         for (int listIdc = 0; listIdc < NUM_LISTS;  listIdc += (sizeIdc == 3) ? 3 : 1)
         {
             src = m_scalingListCoef[sizeIdc][listIdc];
@@ -268,7 +268,7 @@ bool ScalingList::parseScalingList(const char* filename)
                 char *ret = fgets(line, 1024, fp);
                 if (!ret || (!strstr(line, MatrixType[sizeIdc][listIdc]) && feof(fp)))
                 {
-                    x265_log_file(NULL, X265_LOG_ERROR, "can't read matrix from %s\n", filename);
+                    s265_log_file(NULL, S265_LOG_ERROR, "can't read matrix from %s\n", filename);
                     return true;
                 }
             }
@@ -279,7 +279,7 @@ bool ScalingList::parseScalingList(const char* filename)
                 int data;
                 if (fscanf(fp, "%d,", &data) != 1)
                 {
-                    x265_log_file(NULL, X265_LOG_ERROR, "can't read matrix from %s\n", filename);
+                    s265_log_file(NULL, S265_LOG_ERROR, "can't read matrix from %s\n", filename);
                     return true;
                 }
                 src[i] = data;
@@ -295,7 +295,7 @@ bool ScalingList::parseScalingList(const char* filename)
                     char *ret = fgets(line, 1024, fp);
                     if (!ret || (!strstr(line, MatrixType_DC[sizeIdc][listIdc]) && feof(fp)))
                     {
-                        x265_log_file(NULL, X265_LOG_ERROR, "can't read DC from %s\n", filename);
+                        s265_log_file(NULL, S265_LOG_ERROR, "can't read DC from %s\n", filename);
                         return true;
                     }
                 }
@@ -304,7 +304,7 @@ bool ScalingList::parseScalingList(const char* filename)
                 int data;
                 if (fscanf(fp, "%d,", &data) != 1)
                 {
-                    x265_log_file(NULL, X265_LOG_ERROR, "can't read matrix from %s\n", filename);
+                    s265_log_file(NULL, S265_LOG_ERROR, "can't read matrix from %s\n", filename);
                     return true;
                 }
 
@@ -344,8 +344,8 @@ void ScalingList::setupQuantMatrices(int internalCsp)
     for (int size = 0; size < NUM_SIZES; size++)
     {
         int width = 1 << (size + 2);
-        int ratio = width / X265_MIN(MAX_MATRIX_SIZE_NUM, width);
-        int stride = X265_MIN(MAX_MATRIX_SIZE_NUM, width);
+        int ratio = width / S265_MIN(MAX_MATRIX_SIZE_NUM, width);
+        int stride = S265_MIN(MAX_MATRIX_SIZE_NUM, width);
         int count = s_numCoefPerSize[size];
 
         for (int list = 0; list < NUM_LISTS; list++)
@@ -360,7 +360,7 @@ void ScalingList::setupQuantMatrices(int internalCsp)
 
                 if (m_bEnabled)
                 {
-                    if (internalCsp == X265_CSP_I444)
+                    if (internalCsp == S265_CSP_I444)
                     {
                         for (int i = 0; i < 64; i++)
                         {

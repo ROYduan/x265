@@ -6,7 +6,7 @@
 #include "arm64-utils.h"
 #include <arm_neon.h>
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 namespace
 {
@@ -55,7 +55,7 @@ void intra_pred_ang_neon(pixel *dst, intptr_t dstStride, const pixel *srcPix0, i
             int topLeft = srcPix[0], top = srcPix[1];
             for (int y = 0; y < width; y++)
             {
-                dst[y * dstStride] = x265_clip((int16_t)(top + ((srcPix[width2 + 1 + y] - topLeft) >> 1)));
+                dst[y * dstStride] = s265_clip((int16_t)(top + ((srcPix[width2 + 1 + y] - topLeft) >> 1)));
             }
         }
     }
@@ -222,9 +222,9 @@ void all_angs_pred_neon(pixel *dest, pixel *refPix, pixel *filtPix, int bLuma)
 }
 }
 
-namespace X265_NS
+namespace S265_NS
 {
-// x265 private namespace
+// s265 private namespace
 
 void setupIntraPrimitives_neon(EncoderPrimitives &p)
 {
@@ -251,9 +251,9 @@ void setupIntraPrimitives_neon(EncoderPrimitives &p)
 
 #else
 
-namespace X265_NS
+namespace S265_NS
 {
-// x265 private namespace
+// s265 private namespace
 void setupIntraPrimitives_neon(EncoderPrimitives &p)
 {}
 }

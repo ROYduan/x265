@@ -18,17 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
-#ifndef X265_THREADPOOL_H
-#define X265_THREADPOOL_H
+#ifndef S265_THREADPOOL_H
+#define S265_THREADPOOL_H
 
 #include "common.h"
 #include "threading.h"
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 class ThreadPool;
 class WorkerThread;
@@ -42,7 +42,7 @@ typedef uint32_t sleepbitmap_t;
 
 static const sleepbitmap_t ALL_POOL_THREADS = (sleepbitmap_t)-1;
 enum { MAX_POOL_THREADS = sizeof(sleepbitmap_t) * 8 };
-enum { INVALID_SLICE_PRIORITY = 10 }; // a value larger than any X265_TYPE_* macro
+enum { INVALID_SLICE_PRIORITY = 10 }; // a value larger than any S265_TYPE_* macro
 
 // Frame level job providers. FrameEncoder and Lookahead derive from
 // this class and implement findJob()
@@ -102,10 +102,10 @@ public:
     void setThreadNodeAffinity(void *numaMask);
     int  tryAcquireSleepingThread(sleepbitmap_t firstTryBitmap, sleepbitmap_t secondTryBitmap);
     int  tryBondPeers(int maxPeers, sleepbitmap_t peerBitmap, BondedTaskGroup& master);
-    static ThreadPool* allocThreadPools(x265_param* p, int& numPools, bool isThreadsReserved);
+    static ThreadPool* allocThreadPools(s265_param* p, int& numPools, bool isThreadsReserved);
     static int  getCpuCount();
     static int  getNumaNodeCount();
-    static void getFrameThreadsCount(x265_param* p,int cpuCount);
+    static void getFrameThreadsCount(s265_param* p,int cpuCount);
 };
 
 /* Any worker thread may enlist the help of idle worker threads from the same
@@ -169,6 +169,6 @@ public:
     virtual void processTasks(int workerThreadId) = 0;
 };
 
-} // end namespace X265_NS
+} // end namespace S265_NS
 
-#endif // ifndef X265_THREADPOOL_H
+#endif // ifndef S265_THREADPOOL_H

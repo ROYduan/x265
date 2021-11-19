@@ -19,18 +19,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_HEVC_RAW_H
-#define X265_HEVC_RAW_H
+#ifndef S265_HEVC_RAW_H
+#define S265_HEVC_RAW_H
 
 #include "output.h"
 #include "common.h"
 #include <fstream>
 #include <iostream>
 
-namespace X265_NS {
+namespace S265_NS {
 class RAWOutput : public OutputFile
 {
 protected:
@@ -51,14 +51,14 @@ public:
 
     const char* getName() const { return "raw"; }
 
-    void setParam(x265_param* param);
+    void setParam(s265_param* param);
 
-    int writeHeaders(const x265_nal* nal, uint32_t nalcount);
+    int writeHeaders(const s265_nal* nal, uint32_t nalcount);
 
-    int writeFrame(const x265_nal* nal, uint32_t nalcount, x265_picture&);
+    int writeFrame(const s265_nal* nal, uint32_t nalcount, s265_picture&);
 
     void closeFile(int64_t largest_pts, int64_t second_largest_pts);
 };
 }
 
-#endif // ifndef X265_HEVC_RAW_H
+#endif // ifndef S265_HEVC_RAW_H

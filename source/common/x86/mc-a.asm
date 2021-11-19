@@ -27,7 +27,7 @@
 ;* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 ;*
 ;* This program is also available under a commercial proprietary license.
-;* For more information, contact us at license @ x265.com.
+;* For more information, contact us at license @ s265.com.
 ;*****************************************************************************
 
 %include "x86inc.asm"
@@ -7192,10 +7192,10 @@ cglobal pixel_avg2_w16_cache64_ssse3
     mov   eax, r2m
     and   eax, 0x3f
     cmp   eax, 0x30
-    jb x265_pixel_avg2_w16_sse2
+    jb s265_pixel_avg2_w16_sse2
     or    eax, r4m
     and   eax, 7
-    jz x265_pixel_avg2_w16_sse2
+    jz s265_pixel_avg2_w16_sse2
 %endif
     PROLOGUE 6, 8
     lea    r6, [r4+r2]

@@ -18,17 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_Y4M_H
-#define X265_Y4M_H
+#ifndef S265_Y4M_H
+#define S265_Y4M_H
 
 #include "output.h"
 #include <fstream>
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class Y4MOutput : public ReconFile
 {
@@ -62,8 +62,8 @@ public:
 
     void release()                                { delete this; }
 
-    bool writePicture(const x265_picture& pic);
+    bool writePicture(const s265_picture& pic);
 };
 }
 
-#endif // ifndef X265_Y4M_H
+#endif // ifndef S265_Y4M_H

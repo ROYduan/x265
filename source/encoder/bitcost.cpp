@@ -19,14 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "primitives.h"
 #include "bitcost.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 void BitCost::setQP(unsigned int qp)
 {
@@ -38,20 +38,20 @@ void BitCost::setQP(unsigned int qp)
         // this row while we were blocked
         if (!s_costs[qp])
         {
-            x265_emms(); // just to be safe
+            s265_emms(); // just to be safe
 
             CalculateLogs();
-            s_costs[qp] = X265_MALLOC(uint16_t, 4 * BC_MAX_MV + 1) + 2 * BC_MAX_MV;
+            s_costs[qp] = S265_MALLOC(uint16_t, 4 * BC_MAX_MV + 1) + 2 * BC_MAX_MV;
             if (!s_costs[qp])
             {
-                x265_log(NULL, X265_LOG_ERROR, "BitCost s_costs buffer allocation failure\n");
+                s265_log(NULL, S265_LOG_ERROR, "BitCost s_costs buffer allocation failure\n");
                 return;
             }
-            double lambda = x265_lambda_tab[qp];
+            double lambda = s265_lambda_tab[qp];
 
             // estimate same cost for negative and positive MVD
             for (int i = 0; i <= 2 * BC_MAX_MV; i++)
-                s_costs[qp][i] = s_costs[qp][-i] = (uint16_t)X265_MIN(s_bitsizes[i] * lambda + 0.5f, (1 << 15) - 1);
+                s_costs[qp][i] = s_costs[qp][-i] = (uint16_t)S265_MIN(s_bitsizes[i] * lambda + 0.5f, (1 << 15) - 1);
         }
     }
     for (int j = 0; j < 4; j++)
@@ -61,10 +61,10 @@ void BitCost::setQP(unsigned int qp)
             ScopedLock s(s_costCalcLock);
             if (!s_fpelMvCosts[qp][j])
             {
-                s_fpelMvCosts[qp][j] = X265_MALLOC(uint16_t, BC_MAX_MV + 1) + (BC_MAX_MV >> 1);
+                s_fpelMvCosts[qp][j] = S265_MALLOC(uint16_t, BC_MAX_MV + 1) + (BC_MAX_MV >> 1);
                 if (!s_fpelMvCosts[qp][j])
                 {
-                    x265_log(NULL, X265_LOG_ERROR, "BitCost s_fpelMvCosts buffer allocation failure\n");
+                    s265_log(NULL, S265_LOG_ERROR, "BitCost s_fpelMvCosts buffer allocation failure\n");
                     return;
                 }
                 for (int i = -(BC_MAX_MV >> 1); i < (BC_MAX_MV >> 1); i++)
@@ -96,10 +96,10 @@ void BitCost::CalculateLogs()
 {
     if (!s_bitsizes)
     {
-        s_bitsizes = X265_MALLOC(float, 4 * BC_MAX_MV + 1) + 2 * BC_MAX_MV;
+        s_bitsizes = S265_MALLOC(float, 4 * BC_MAX_MV + 1) + 2 * BC_MAX_MV;
         if (!s_bitsizes)
         {
-            x265_log(NULL, X265_LOG_ERROR, "BitCost s_bitsizes buffer allocation failure\n");
+            s265_log(NULL, S265_LOG_ERROR, "BitCost s_bitsizes buffer allocation failure\n");
             return;
         }
         s_bitsizes[0] = 0.718f;
@@ -115,7 +115,7 @@ void BitCost::destroy()
     {
         if (s_costs[i])
         {
-            X265_FREE(s_costs[i] - 2 * BC_MAX_MV);
+            S265_FREE(s_costs[i] - 2 * BC_MAX_MV);
 
             s_costs[i] = NULL;
         }
@@ -126,7 +126,7 @@ void BitCost::destroy()
         {
             if (s_fpelMvCosts[i][j])
             {
-                X265_FREE(s_fpelMvCosts[i][j] - (BC_MAX_MV >> 1));
+                S265_FREE(s_fpelMvCosts[i][j] - (BC_MAX_MV >> 1));
                 s_fpelMvCosts[i][j] = NULL;
             }
         }
@@ -134,7 +134,7 @@ void BitCost::destroy()
 
     if (s_bitsizes)
     {
-        X265_FREE(s_bitsizes - 2 * BC_MAX_MV);
+        S265_FREE(s_bitsizes - 2 * BC_MAX_MV);
         s_bitsizes = NULL;
     }
 }

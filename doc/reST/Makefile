@@ -92,7 +92,7 @@ man:
 	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) build/man
 	@echo
 	@echo "Build finished; the manpages are in build/man."
-	@echo "Run \`man -l build/man/x265.1' or \`man -l build/man/libx265.3'" \
+	@echo "Run \`man -l build/man/s265.1' or \`man -l build/man/libs265.3'" \
 	      "to view them."
 
 changes:

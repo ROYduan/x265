@@ -2,7 +2,7 @@
 #include "bitstream.h"
 #include "threading.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244)
@@ -12,7 +12,7 @@ using namespace X265_NS;
 
 Bitstream::Bitstream()
 {
-    m_fifo = X265_MALLOC(uint8_t, MIN_FIFO_SIZE);
+    m_fifo = S265_MALLOC(uint8_t, MIN_FIFO_SIZE);
     m_byteAlloc = MIN_FIFO_SIZE;
     resetBits();
 }
@@ -25,17 +25,17 @@ void Bitstream::push_back(uint8_t val)
     if (m_byteOccupancy >= m_byteAlloc)
     {
         /** reallocate buffer with doubled size */
-        uint8_t *temp = X265_MALLOC(uint8_t, m_byteAlloc * 2);
+        uint8_t *temp = S265_MALLOC(uint8_t, m_byteAlloc * 2);
         if (temp)
         {
             memcpy(temp, m_fifo, m_byteOccupancy);
-            X265_FREE(m_fifo);
+            S265_FREE(m_fifo);
             m_fifo = temp;
             m_byteAlloc *= 2;
         }
         else
         {
-            x265_log(NULL, X265_LOG_ERROR, "Unable to realloc bitstream buffer");
+            s265_log(NULL, S265_LOG_ERROR, "Unable to realloc bitstream buffer");
             return;
         }
     }
@@ -44,8 +44,8 @@ void Bitstream::push_back(uint8_t val)
 
 void Bitstream::write(uint32_t val, uint32_t numBits)
 {
-    X265_CHECK(numBits <= 32, "numBits out of range\n");
-    X265_CHECK(numBits == 32 || ((val & (~0u << numBits)) == 0), "numBits & val out of range\n");
+    S265_CHECK(numBits <= 32, "numBits out of range\n");
+    S265_CHECK(numBits == 32 || ((val & (~0u << numBits)) == 0), "numBits & val out of range\n");
 
     uint32_t totalPartialBits = m_partialByteBits + numBits;
     uint32_t nextPartialBits = totalPartialBits & 7;
@@ -83,7 +83,7 @@ void Bitstream::write(uint32_t val, uint32_t numBits)
 void Bitstream::writeByte(uint32_t val)
 {
     // Only CABAC will call writeByte, the fifo must be byte aligned
-    X265_CHECK(!m_partialByteBits, "expecting m_partialByteBits = 0\n");
+    S265_CHECK(!m_partialByteBits, "expecting m_partialByteBits = 0\n");
 
     push_back(val);
 }
@@ -115,7 +115,7 @@ void SyntaxElementWriter::writeUvlc(uint32_t code)
 {
     ++code;
 
-    X265_CHECK(code, "writing -1 code, will cause infinite loop\n");
+    S265_CHECK(code, "writing -1 code, will cause infinite loop\n");
 
     unsigned long idx;
     CLZ(idx, code);

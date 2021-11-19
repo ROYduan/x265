@@ -20,7 +20,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -56,7 +56,7 @@ static void processSaoCUE0(pixel * rec, int8_t * offsetEo, int width, int8_t* si
             signRight = ((rec[x] - rec[x + 1]) < 0) ? -1 : ((rec[x] - rec[x + 1]) > 0) ? 1 : 0;
             edgeType = signRight + signLeft0 + 2;
             signLeft0 = -signRight;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
         }
         rec += stride;
     }
@@ -73,7 +73,7 @@ static void processSaoCUE1(pixel* rec, int8_t* upBuff1, int8_t* offsetEo, intptr
         signDown = signOf(rec[x] - rec[x + stride]);
         edgeType = signDown + upBuff1[x] + 2;
         upBuff1[x] = -signDown;
-        rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+        rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
     }
 }
 
@@ -90,7 +90,7 @@ static void processSaoCUE1_2Rows(pixel* rec, int8_t* upBuff1, int8_t* offsetEo, 
             signDown = signOf(rec[x] - rec[x + stride]);
             edgeType = signDown + upBuff1[x] + 2;
             upBuff1[x] = -signDown;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
         }
         rec += stride;
     }
@@ -104,7 +104,7 @@ static void processSaoCUE2(pixel * rec, int8_t * bufft, int8_t * buff1, int8_t *
         int8_t signDown = signOf(rec[x] - rec[x + stride + 1]);
         int edgeType = signDown + buff1[x] + 2;
         bufft[x + 1] = -signDown;
-        rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);;
+        rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);;
     }
 }
 
@@ -118,20 +118,20 @@ static void processSaoCUE3(pixel *rec, int8_t *upBuff1, int8_t *offsetEo, intptr
         signDown = signOf(rec[x] - rec[x + stride]);
         edgeType = signDown + upBuff1[x] + 2;
         upBuff1[x - 1] = -signDown;
-        rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+        rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
     }
 }
 
 static void processSaoCUB0(pixel* rec, const int8_t* offset, int ctuWidth, int ctuHeight, intptr_t stride)
 {
     #define SAO_BO_BITS 5
-    const int boShift = X265_DEPTH - SAO_BO_BITS;
+    const int boShift = S265_DEPTH - SAO_BO_BITS;
     int x, y;
     for (y = 0; y < ctuHeight; y++)
     {
         for (x = 0; x < ctuWidth; x++)
         {
-            rec[x] = x265_clip(rec[x] + offset[rec[x] >> boShift]);
+            rec[x] = s265_clip(rec[x] + offset[rec[x] >> boShift]);
         }
         rec += stride;
     }
@@ -149,12 +149,12 @@ static void pelFilterLumaStrong_c(pixel* src, intptr_t srcStep, intptr_t offset,
         int16_t m1  = (int16_t)src[-offset * 3];
         int16_t m7  = (int16_t)src[offset * 3];
         int16_t m0  = (int16_t)src[-offset * 4];
-        src[-offset * 3] = (pixel)(x265_clip3(-tcP, tcP, ((2 * m0 + 3 * m1 + m2 + m3 + m4 + 4) >> 3) - m1) + m1);
-        src[-offset * 2] = (pixel)(x265_clip3(-tcP, tcP, ((m1 + m2 + m3 + m4 + 2) >> 2) - m2) + m2);
-        src[-offset]     = (pixel)(x265_clip3(-tcP, tcP, ((m1 + 2 * m2 + 2 * m3 + 2 * m4 + m5 + 4) >> 3) - m3) + m3);
-        src[0]           = (pixel)(x265_clip3(-tcQ, tcQ, ((m2 + 2 * m3 + 2 * m4 + 2 * m5 + m6 + 4) >> 3) - m4) + m4);
-        src[offset]      = (pixel)(x265_clip3(-tcQ, tcQ, ((m3 + m4 + m5 + m6 + 2) >> 2) - m5) + m5);
-        src[offset * 2]  = (pixel)(x265_clip3(-tcQ, tcQ, ((m3 + m4 + m5 + 3 * m6 + 2 * m7 + 4) >> 3) - m6) + m6);
+        src[-offset * 3] = (pixel)(s265_clip3(-tcP, tcP, ((2 * m0 + 3 * m1 + m2 + m3 + m4 + 4) >> 3) - m1) + m1);
+        src[-offset * 2] = (pixel)(s265_clip3(-tcP, tcP, ((m1 + m2 + m3 + m4 + 2) >> 2) - m2) + m2);
+        src[-offset]     = (pixel)(s265_clip3(-tcP, tcP, ((m1 + 2 * m2 + 2 * m3 + 2 * m4 + m5 + 4) >> 3) - m3) + m3);
+        src[0]           = (pixel)(s265_clip3(-tcQ, tcQ, ((m2 + 2 * m3 + 2 * m4 + 2 * m5 + m6 + 4) >> 3) - m4) + m4);
+        src[offset]      = (pixel)(s265_clip3(-tcQ, tcQ, ((m3 + m4 + m5 + m6 + 2) >> 2) - m5) + m5);
+        src[offset * 2]  = (pixel)(s265_clip3(-tcQ, tcQ, ((m3 + m4 + m5 + 3 * m6 + 2 * m7 + 4) >> 3) - m6) + m6);
     }
 }
 
@@ -173,14 +173,14 @@ static void pelFilterChroma_c(pixel* src, intptr_t srcStep, intptr_t offset, int
         int16_t m5 = (int16_t)src[offset];
         int16_t m2 = (int16_t)src[-offset * 2];
 
-        int32_t delta = x265_clip3(-tc, tc, ((((m4 - m3) * 4) + m2 - m5 + 4) >> 3));
-        src[-offset]  = x265_clip(m3 + (delta & maskP));
-        src[0]        = x265_clip(m4 - (delta & maskQ));
+        int32_t delta = s265_clip3(-tc, tc, ((((m4 - m3) * 4) + m2 - m5 + 4) >> 3));
+        src[-offset]  = s265_clip(m3 + (delta & maskP));
+        src[0]        = s265_clip(m4 - (delta & maskQ));
     }
 }
 }
 
-namespace X265_NS {
+namespace S265_NS {
 void setupLoopFilterPrimitives_c(EncoderPrimitives &p)
 {
     p.saoCuOrgE0 = processSaoCUE0;

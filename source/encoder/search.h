@@ -19,11 +19,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_SEARCH_H
-#define X265_SEARCH_H
+#ifndef S265_SEARCH_H
+#define S265_SEARCH_H
 
 #include "common.h"
 #include "predict.h"
@@ -51,7 +51,7 @@
 
 #define NUM_SUBPART MAX_TS_SIZE * 4 // 4 sub partitions * 4 depth
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class Entropy;
@@ -204,7 +204,7 @@ struct CUStats
         memset(this, 0, sizeof(*this));
     }
 
-    void accumulate(CUStats& other, x265_param& param)
+    void accumulate(CUStats& other, s265_param& param)
     {
         for (uint32_t i = 0; i <= param.maxCUDepth; i++)
         {
@@ -257,7 +257,7 @@ public:
     MotionEstimate  m_me;
     Quant           m_quant;
     RDCost          m_rdCost;
-    const x265_param* m_param;
+    const s265_param* m_param;
     Frame*          m_frame;
     const Slice*    m_slice;
 
@@ -288,13 +288,13 @@ public:
 
 #if DETAILED_CU_STATS
     /* Accumulate CU statistics separately for each frame encoder */
-    CUStats         m_stats[X265_MAX_FRAME_THREADS];
+    CUStats         m_stats[S265_MAX_FRAME_THREADS];
 #endif
 
     Search();
     ~Search();
 
-    bool     initSearch(const x265_param& param, ScalingList& scalingList);
+    bool     initSearch(const s265_param& param, ScalingList& scalingList);
     int      setLambdaFromQP(const CUData& ctu, int qp, int lambdaQP = -1); /* returns real quant QP in valid spec range */
 
     // mark temp RD entropy contexts as uninitialized; useful for finding loads without stores
@@ -440,4 +440,4 @@ protected:
 };
 }
 
-#endif // ifndef X265_SEARCH_H
+#endif // ifndef S265_SEARCH_H

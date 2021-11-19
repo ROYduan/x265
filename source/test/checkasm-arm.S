@@ -21,7 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "../common/arm/asm.S"
@@ -43,14 +43,14 @@ error_message:
 
 .text
 
-@ max number of args used by any x265 asm function.
+@ max number of args used by any s265 asm function.
 #define MAX_ARGS 15
 
 #define ARG_STACK 4*(MAX_ARGS - 2)
 
 .macro clobbercheck variant
 .equ pushed, 4*10
-function x265_checkasm_call_\variant
+function s265_checkasm_call_\variant
     push        {r4-r11, lr}
 .ifc \variant, neon
     vpush       {q4-q7}

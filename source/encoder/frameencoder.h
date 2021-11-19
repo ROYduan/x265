@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_FRAMEENCODER_H
-#define X265_FRAMEENCODER_H
+#ifndef S265_FRAMEENCODER_H
+#define S265_FRAMEENCODER_H
 
 #include "common.h"
 #include "wavefront.h"
@@ -41,8 +41,8 @@
 #include "reference.h"
 #include "nal.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class ThreadPool;
 class Encoder;
@@ -187,7 +187,7 @@ public:
 #endif
 
     Encoder*                 m_top;
-    x265_param*              m_param;
+    s265_param*              m_param;
     Frame*                   m_frame;
     NoiseReduction*          m_nr;
     ThreadLocalData*         m_tld; /* for --no-wpp */
@@ -234,7 +234,7 @@ protected:
     int  collectCTUStatistics(const CUData& ctu, FrameStats* frameLog);
     void noiseReductionUpdate();
     void writeTrailingSEIMessages();
-    bool writeToneMapInfo(x265_sei_payload *payload);
+    bool writeToneMapInfo(s265_sei_payload *payload);
 
     /* Called by WaveFront::findJob() */
     virtual void processRow(int row, int threadId);
@@ -253,4 +253,4 @@ protected:
 };
 }
 
-#endif // ifndef X265_FRAMEENCODER_H
+#endif // ifndef S265_FRAMEENCODER_H

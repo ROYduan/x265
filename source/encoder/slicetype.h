@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_SLICETYPE_H
-#define X265_SLICETYPE_H
+#ifndef S265_SLICETYPE_H
+#define S265_SLICETYPE_H
 
 #include "common.h"
 #include "slice.h"
@@ -31,7 +31,7 @@
 #include "piclist.h"
 #include "threadpool.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 struct Lowres;
@@ -70,8 +70,8 @@ struct LookaheadTLD
 
     LookaheadTLD()
     {
-        me.init(X265_CSP_I400);
-        me.setQP(X265_LOOKAHEAD_QP);
+        me.init(S265_CSP_I400);
+        me.setQP(S265_LOOKAHEAD_QP);
         for (int i = 0; i < 4; i++)
             wbuffer[i] = NULL;
         widthInCU = heightInCU = ncu = paddedLines = 0;
@@ -91,9 +91,9 @@ struct LookaheadTLD
         ncu = n;
     }
 
-    ~LookaheadTLD() { X265_FREE(wbuffer[0]); }
+    ~LookaheadTLD() { S265_FREE(wbuffer[0]); }
 
-    void calcAdaptiveQuantFrame(Frame *curFrame, x265_param* param);
+    void calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param);
     void lowresIntraEstimate(Lowres& fenc, uint32_t qgSize);
 
     void weightsAnalyse(Lowres& fenc, Lowres& ref);
@@ -118,13 +118,13 @@ public:
     Lock          m_outputLock;
     Event         m_outputSignal;
     LookaheadTLD* m_tld;
-    x265_param*   m_param;
+    s265_param*   m_param;
     Lowres*       m_lastNonB;
     int*          m_scratch;         // temp buffer for cutree propagate
 
     /* pre-lookahead */
     int           m_fullQueueSize;
-    int           m_histogram[X265_BFRAME_MAX + 1];
+    int           m_histogram[S265_BFRAME_MAX + 1];
     int           m_lastKeyframe;
     int           m_8x8Width;
     int           m_8x8Height;
@@ -149,11 +149,11 @@ public:
     bool          m_isSceneTransition;
     int           m_numPools;
     bool          m_extendGopBoundary;
-    double        m_frameVariance[X265_BFRAME_MAX + 4];
+    double        m_frameVariance[S265_BFRAME_MAX + 4];
     bool          m_isFadeIn;
     uint64_t      m_fadeCount;
     int           m_fadeStart;
-    Lookahead(x265_param *param, ThreadPool *pool);
+    Lookahead(s265_param *param, ThreadPool *pool);
 #if DETAILED_CU_STATS
     int64_t       m_slicetypeDecideElapsedTime;
     int64_t       m_preLookaheadElapsedTime;
@@ -184,7 +184,7 @@ protected:
     /* called by slicetypeAnalyse() to make slice decisions */
     bool    scenecut(Lowres **frames, int p0, int p1, bool bRealScenecut, int numFrames);
     bool    scenecutInternal(Lowres **frames, int p0, int p1, bool bRealScenecut);
-    void    slicetypePath(Lowres **frames, int length, char(*best_paths)[X265_LOOKAHEAD_MAX + 1]);
+    void    slicetypePath(Lowres **frames, int length, char(*best_paths)[S265_LOOKAHEAD_MAX + 1]);
     int64_t slicetypePathCost(Lowres **frames, char *path, int64_t threshold);
     int64_t vbvFrameCost(Lowres **frames, int p0, int p1, int b);
     void    vbvLookahead(Lowres **frames, int numFrames, int keyframes);
@@ -205,7 +205,7 @@ class PreLookaheadGroup : public BondedTaskGroup
 {
 public:
 
-    Frame* m_preframes[X265_LOOKAHEAD_MAX];
+    Frame* m_preframes[S265_LOOKAHEAD_MAX];
     Lookahead& m_lookahead;
 
     PreLookaheadGroup(Lookahead& l) : m_lookahead(l) {}
@@ -268,4 +268,4 @@ protected:
 
 bool computeEdge(pixel* edgePic, pixel* refPic, pixel* edgeTheta, intptr_t stride, int height, int width, bool bcalcTheta, pixel whitePixel = EDGE_THRESHOLD);
 }
-#endif // ifndef X265_SLICETYPE_H
+#endif // ifndef S265_SLICETYPE_H

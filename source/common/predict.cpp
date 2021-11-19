@@ -19,7 +19,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -29,7 +29,7 @@
 #include "predict.h"
 #include "primitives.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #if _MSC_VER
 #pragma warning(disable: 4127) // conditional expression is constant
@@ -51,7 +51,7 @@ namespace
 {
 inline pixel weightBidir(int w0, int16_t P0, int w1, int16_t P1, int round, int shift, int offset)
 {
-    return x265_clip((w0 * (P0 + IF_INTERNAL_OFFS) + w1 * (P1 + IF_INTERNAL_OFFS) + round + (offset * (1 << (shift - 1)))) >> shift);
+    return s265_clip((w0 * (P0 + IF_INTERNAL_OFFS) + w1 * (P1 + IF_INTERNAL_OFFS) + round + (offset * (1 << (shift - 1)))) >> shift);
 }
 }
 
@@ -84,8 +84,8 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
         /* P Slice */
         WeightValues wv0[3];
 
-        X265_CHECK(refIdx0 >= 0, "invalid P refidx\n");
-        X265_CHECK(refIdx0 < cu.m_slice->m_numRefIdx[0], "P refidx out of range\n");
+        S265_CHECK(refIdx0 >= 0, "invalid P refidx\n");
+        S265_CHECK(refIdx0 < cu.m_slice->m_numRefIdx[0], "P refidx out of range\n");
         const WeightParam *wp0 = cu.m_slice->m_weightPredTable[0][refIdx0];
 
         MV mv0 = cu.m_mv[0][pu.puAbsPartIdx];
@@ -96,7 +96,7 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
             for (int plane = 0; plane < (bChroma ? 3 : 1); plane++)
             {
                 wv0[plane].w      = wp0[plane].inputWeight;
-                wv0[plane].offset = wp0[plane].inputOffset * (1 << (X265_DEPTH - 8));
+                wv0[plane].offset = wp0[plane].inputOffset * (1 << (S265_DEPTH - 8));
                 wv0[plane].shift  = wp0[plane].log2WeightDenom;
                 wv0[plane].round  = wp0[plane].log2WeightDenom >= 1 ? 1 << (wp0[plane].log2WeightDenom - 1) : 0;
             }
@@ -125,8 +125,8 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
         WeightValues wv0[3], wv1[3];
         const WeightParam *pwp0, *pwp1;
 
-        X265_CHECK(refIdx0 < cu.m_slice->m_numRefIdx[0], "bidir refidx0 out of range\n");
-        X265_CHECK(refIdx1 < cu.m_slice->m_numRefIdx[1], "bidir refidx1 out of range\n");
+        S265_CHECK(refIdx0 < cu.m_slice->m_numRefIdx[0], "bidir refidx0 out of range\n");
+        S265_CHECK(refIdx1 < cu.m_slice->m_numRefIdx[1], "bidir refidx1 out of range\n");
 
         if (cu.m_slice->m_pps->bUseWeightedBiPred)
         {
@@ -139,12 +139,12 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
                 for (int plane = 0; plane < (bChroma ? 3 : 1); plane++)
                 {
                     wv0[plane].w = pwp0[plane].inputWeight;
-                    wv0[plane].o = pwp0[plane].inputOffset * (1 << (X265_DEPTH - 8));
+                    wv0[plane].o = pwp0[plane].inputOffset * (1 << (S265_DEPTH - 8));
                     wv0[plane].shift = pwp0[plane].log2WeightDenom;
                     wv0[plane].round = 1 << pwp0[plane].log2WeightDenom;
 
                     wv1[plane].w = pwp1[plane].inputWeight;
-                    wv1[plane].o = pwp1[plane].inputOffset * (1 << (X265_DEPTH - 8));
+                    wv1[plane].o = pwp1[plane].inputOffset * (1 << (S265_DEPTH - 8));
                     wv1[plane].shift = wv0[plane].shift;
                     wv1[plane].round = wv0[plane].round;
                 }
@@ -156,7 +156,7 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
                 for (int plane = 0; plane < (bChroma ? 3 : 1); plane++)
                 {
                     wv0[plane].w = pwp[plane].inputWeight;
-                    wv0[plane].offset = pwp[plane].inputOffset * (1 << (X265_DEPTH - 8));
+                    wv0[plane].offset = pwp[plane].inputOffset * (1 << (S265_DEPTH - 8));
                     wv0[plane].shift = pwp[plane].log2WeightDenom;
                     wv0[plane].round = pwp[plane].log2WeightDenom >= 1 ? 1 << (pwp[plane].log2WeightDenom - 1) : 0;
                 }
@@ -218,7 +218,7 @@ void Predict::motionCompensation(const CUData& cu, const PredictionUnit& pu, Yuv
             cu.clipMv(mv1);
 
             /* uniprediction to L1 */
-            X265_CHECK(refIdx1 >= 0, "refidx1 was not positive\n");
+            S265_CHECK(refIdx1 >= 0, "refidx1 was not positive\n");
 
             if (pwp1 && pwp1->wtPresent)
             {
@@ -276,8 +276,8 @@ void Predict::predInterLumaShort(const PredictionUnit& pu, ShortYuv& dstSYuv, co
 
     int partEnum = partitionFromSizes(pu.width, pu.height);
 
-    X265_CHECK((pu.width % 4) + (pu.height % 4) == 0, "width or height not divisible by 4\n");
-    X265_CHECK(dstStride == MAX_CU_SIZE, "stride expected to be max cu size\n");
+    S265_CHECK((pu.width % 4) + (pu.height % 4) == 0, "width or height not divisible by 4\n");
+    S265_CHECK(dstStride == MAX_CU_SIZE, "stride expected to be max cu size\n");
 
     int xFrac = mv.x & 3;
     int yFrac = mv.y & 3;
@@ -372,7 +372,7 @@ void Predict::predInterChromaShort(const PredictionUnit& pu, ShortYuv& dstSYuv, 
     
     uint32_t cxWidth  = pu.width >> m_hChromaShift;
 
-    X265_CHECK(((cxWidth | (pu.height >> m_vChromaShift)) % 2) == 0, "chroma block size expected to be multiple of 2\n");
+    S265_CHECK(((cxWidth | (pu.height >> m_vChromaShift)) % 2) == 0, "chroma block size expected to be multiple of 2\n");
 
     int xFrac = mvx & 7;
     int yFrac = mvy & 7;
@@ -424,7 +424,7 @@ void Predict::addWeightBi(const PredictionUnit& pu, Yuv& predYuv, const ShortYuv
         // Luma
         w0      = wp0[0].w;
         offset  = wp0[0].o + wp1[0].o;
-        shiftNum = IF_INTERNAL_PREC - X265_DEPTH;
+        shiftNum = IF_INTERNAL_PREC - S265_DEPTH;
         shift   = wp0[0].shift + shiftNum + 1;
         round   = shift ? (1 << (shift - 1)) : 0;
         w1      = wp1[0].w;
@@ -467,7 +467,7 @@ void Predict::addWeightBi(const PredictionUnit& pu, Yuv& predYuv, const ShortYuv
         // Chroma U
         w0      = wp0[1].w;
         offset  = wp0[1].o + wp1[1].o;
-        shiftNum = IF_INTERNAL_PREC - X265_DEPTH;
+        shiftNum = IF_INTERNAL_PREC - S265_DEPTH;
         shift   = wp0[1].shift + shiftNum + 1;
         round   = shift ? (1 << (shift - 1)) : 0;
         w1      = wp1[1].w;
@@ -535,7 +535,7 @@ void Predict::addWeightUni(const PredictionUnit& pu, Yuv& predYuv, const ShortYu
         // Luma
         w0      = wp[0].w;
         offset  = wp[0].offset;
-        shiftNum = IF_INTERNAL_PREC - X265_DEPTH;
+        shiftNum = IF_INTERNAL_PREC - S265_DEPTH;
         shift   = wp[0].shift + shiftNum;
         round   = shift ? (1 << (shift - 1)) : 0;
         srcStride = srcYuv.m_size;
@@ -554,7 +554,7 @@ void Predict::addWeightUni(const PredictionUnit& pu, Yuv& predYuv, const ShortYu
         // Chroma U
         w0      = wp[1].w;
         offset  = wp[1].offset;
-        shiftNum = IF_INTERNAL_PREC - X265_DEPTH;
+        shiftNum = IF_INTERNAL_PREC - S265_DEPTH;
         shift   = wp[1].shift + shiftNum;
         round   = shift ? (1 << (shift - 1)) : 0;
 
@@ -580,7 +580,7 @@ void Predict::predIntraLumaAng(uint32_t dirMode, pixel* dst, intptr_t stride, ui
 {
     int tuSize = 1 << log2TrSize;
     int sizeIdx = log2TrSize - 2;
-    X265_CHECK(sizeIdx >= 0 && sizeIdx < 4, "intra block size is out of range\n");
+    S265_CHECK(sizeIdx >= 0 && sizeIdx < 4, "intra block size is out of range\n");
 
     int filter = !!(g_intraFilterFlags[dirMode] & tuSize);
     bool bFilter = log2TrSize <= 4;
@@ -591,9 +591,9 @@ void Predict::predIntraChromaAng(uint32_t dirMode, pixel* dst, intptr_t stride, 
 {
     int tuSize = 1 << log2TrSizeC;
     int sizeIdx = log2TrSizeC - 2;
-    X265_CHECK(sizeIdx >= 0 && sizeIdx < 4, "intra block size is out of range\n");
+    S265_CHECK(sizeIdx >= 0 && sizeIdx < 4, "intra block size is out of range\n");
 
-    int filter = !!(m_csp == X265_CSP_I444 && (g_intraFilterFlags[dirMode] & tuSize));
+    int filter = !!(m_csp == S265_CSP_I444 && (g_intraFilterFlags[dirMode] & tuSize));
     primitives.cu[sizeIdx].intra_pred[dirMode](dst, stride, intraNeighbourBuf[filter], dirMode, 0);
 }
 
@@ -619,7 +619,7 @@ void Predict::initAdiPattern(const CUData& cu, const CUGeom& cuGeom, uint32_t pu
 
         if (cu.m_slice->m_sps->bUseStrongIntraSmoothing && tuSize == 32)
         {
-            const int threshold = 1 << (X265_DEPTH - 5);
+            const int threshold = 1 << (S265_DEPTH - 5);
 
             pixel topMiddle = refBuf[32], leftMiddle = refBuf[tuSize2 + 32];
 
@@ -657,7 +657,7 @@ void Predict::initAdiPatternChroma(const CUData& cu, const CUGeom& cuGeom, uint3
 
     fillReferenceSamples(adiOrigin, picStride, intraNeighbors, intraNeighbourBuf[0]);
 
-    if (m_csp == X265_CSP_I444)
+    if (m_csp == S265_CSP_I444)
         primitives.cu[intraNeighbors.log2TrSize - 2].intra_filter(intraNeighbourBuf[0], intraNeighbourBuf[1]);
 }
 
@@ -716,7 +716,7 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
 
 void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, const IntraNeighbors& intraNeighbors, pixel dst[258])
 {
-    const pixel dcValue = (pixel)(1 << (X265_DEPTH - 1));
+    const pixel dcValue = (pixel)(1 << (S265_DEPTH - 1));
     int numIntraNeighbor = intraNeighbors.numIntraNeighbor;
     int totalUnits = intraNeighbors.totalUnits;
     uint32_t tuSize = 1 << intraNeighbors.log2TrSize;
@@ -803,7 +803,7 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
             pixel* pAdiLineNext = adiLineBuffer + ((next < leftUnits) ? (next * unitHeight) : (pAdiLineTopRowOffset + (next * unitWidth)));
             const pixel refSample = *pAdiLineNext;
             // Pad unavailable samples with new value
-            int nextOrTop = X265_MIN(next, leftUnits);
+            int nextOrTop = S265_MIN(next, leftUnits);
 
             // fill left column
 #if HIGH_BIT_DEPTH
@@ -826,7 +826,7 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
                 curr++;
             }
 #else
-            X265_CHECK(curr <= nextOrTop, "curr must be less than or equal to nextOrTop\n");
+            S265_CHECK(curr <= nextOrTop, "curr must be less than or equal to nextOrTop\n");
             if (curr < nextOrTop)
             {
                 const int fillSize = unitHeight * (nextOrTop - curr);

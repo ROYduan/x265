@@ -20,10 +20,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_LOOPFILTER_ARM_H
-#define X265_LOOPFILTER_ARM_H
+#ifndef S265_LOOPFILTER_ARM_H
+#define S265_LOOPFILTER_ARM_H
 
-#endif // ifndef X265_LOOPFILTER_ARM_H
+#endif // ifndef S265_LOOPFILTER_ARM_H

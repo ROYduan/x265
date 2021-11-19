@@ -19,24 +19,24 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_FRAME_H
-#define X265_FRAME_H
+#ifndef S265_FRAME_H
+#define S265_FRAME_H
 
 #include "common.h"
 #include "lowres.h"
 #include "threading.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class FrameData;
 class PicYuv;
 struct SPS;
 
-#define IS_REFERENCED(frame) (frame->m_lowres.sliceType != X265_TYPE_B)
+#define IS_REFERENCED(frame) (frame->m_lowres.sliceType != S265_TYPE_B)
 
 /* Ratecontrol statistics */
 struct RcStats
@@ -82,7 +82,7 @@ public:
     FrameData*             m_encData;
     PicYuv*                m_reconPic;
 
-    /* Data associated with x265_picture */
+    /* Data associated with s265_picture */
     PicYuv*                m_fencPic;
     int                    m_poc;
     int                    m_encodeOrder;
@@ -97,10 +97,10 @@ public:
     bool                   m_bChromaExtended;    // orig chroma planes motion extended for weight analysis
     bool                   m_reconfigureRc;
 
-    float*                 m_quantOffsets;       // points to quantOffsets in x265_picture
-    x265_sei               m_userSEI;
+    float*                 m_quantOffsets;       // points to quantOffsets in s265_picture
+    s265_sei               m_userSEI;
     uint32_t               m_picStruct;          // picture structure SEI message
-    x265_dolby_vision_rpu  m_rpu;
+    s265_dolby_vision_rpu  m_rpu;
 
     /* Frame Parallelism - notification between FrameEncoders of available motion reference rows */
     ThreadSafeInteger*     m_reconRowFlag;       // flag of CTU rows completely reconstructed and extended for motion reference
@@ -110,13 +110,13 @@ public:
 
     Frame*                 m_next;               // PicList doubly linked list pointers
     Frame*                 m_prev;
-    x265_param*            m_param;              // Points to the latest param set for the frame.
-    x265_analysis_data     m_analysisData;
+    s265_param*            m_param;              // Points to the latest param set for the frame.
+    s265_analysis_data     m_analysisData;
     RcStats*               m_rcData;
 
     Event                  m_copyMVType;
 
-    x265_ctu_info_t**      m_ctuInfo;
+    s265_ctu_info_t**      m_ctuInfo;
     Event                  m_copied;
     int*                   m_prevCtuInfoChange;
     int64_t                m_encodeStartTime;
@@ -146,11 +146,11 @@ public:
 
     Frame();
 
-    bool create(x265_param *param, float* quantOffsets);
-    bool allocEncodeData(x265_param *param, const SPS& sps);
+    bool create(s265_param *param, float* quantOffsets);
+    bool allocEncodeData(s265_param *param, const SPS& sps);
     void reinit(const SPS& sps);
     void destroy();
 };
 }
 
-#endif // ifndef X265_FRAME_H
+#endif // ifndef S265_FRAME_H

@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -47,7 +47,7 @@ g_chromaFilter:
 .text
 
 // filterPixelToShort(const pixel* src, intptr_t srcStride, int16_t* dst, intptr_t dstStride)
-function x265_filterPixelToShort_4x4_neon
+function s265_filterPixelToShort_4x4_neon
     vld1.u32    {d0[]}, [r0], r1
     vld1.u32    {d0[1]}, [r0], r1
     vld1.u32    {d1[]}, [r0], r1
@@ -70,7 +70,7 @@ function x265_filterPixelToShort_4x4_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_4x8_neon
+function s265_filterPixelToShort_4x8_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -90,7 +90,7 @@ function x265_filterPixelToShort_4x8_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_4x16_neon
+function s265_filterPixelToShort_4x16_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -110,7 +110,7 @@ function x265_filterPixelToShort_4x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_8x4_neon
+function s265_filterPixelToShort_8x4_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -130,7 +130,7 @@ function x265_filterPixelToShort_8x4_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_8x8_neon
+function s265_filterPixelToShort_8x8_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -150,7 +150,7 @@ function x265_filterPixelToShort_8x8_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_8x16_neon
+function s265_filterPixelToShort_8x16_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -170,7 +170,7 @@ function x265_filterPixelToShort_8x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_8x32_neon
+function s265_filterPixelToShort_8x32_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -190,7 +190,7 @@ function x265_filterPixelToShort_8x32_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_12x16_neon
+function s265_filterPixelToShort_12x16_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -208,7 +208,7 @@ function x265_filterPixelToShort_12x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x4_neon
+function s265_filterPixelToShort_16x4_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -226,7 +226,7 @@ function x265_filterPixelToShort_16x4_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x8_neon
+function s265_filterPixelToShort_16x8_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -244,7 +244,7 @@ function x265_filterPixelToShort_16x8_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x12_neon
+function s265_filterPixelToShort_16x12_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -262,7 +262,7 @@ function x265_filterPixelToShort_16x12_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x16_neon
+function s265_filterPixelToShort_16x16_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -280,7 +280,7 @@ function x265_filterPixelToShort_16x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x32_neon
+function s265_filterPixelToShort_16x32_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -298,7 +298,7 @@ function x265_filterPixelToShort_16x32_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_16x64_neon
+function s265_filterPixelToShort_16x64_neon
     add         r3, r3
     vmov.u16    q8, #64
     vmov.u16    q9, #8192
@@ -316,7 +316,7 @@ function x265_filterPixelToShort_16x64_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_24x32_neon
+function s265_filterPixelToShort_24x32_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -339,7 +339,7 @@ function x265_filterPixelToShort_24x32_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_32x8_neon
+function s265_filterPixelToShort_32x8_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -365,7 +365,7 @@ function x265_filterPixelToShort_32x8_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_32x16_neon
+function s265_filterPixelToShort_32x16_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -395,7 +395,7 @@ function x265_filterPixelToShort_32x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_32x24_neon
+function s265_filterPixelToShort_32x24_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -425,7 +425,7 @@ function x265_filterPixelToShort_32x24_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_32x32_neon
+function s265_filterPixelToShort_32x32_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -455,7 +455,7 @@ function x265_filterPixelToShort_32x32_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_32x64_neon
+function s265_filterPixelToShort_32x64_neon
     add         r3, r3
     sub         r3, #32
     vmov.u16    q0, #64
@@ -485,7 +485,7 @@ function x265_filterPixelToShort_32x64_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_64x16_neon
+function s265_filterPixelToShort_64x16_neon
     add         r3, r3
     sub         r1, #32
     sub         r3, #96
@@ -532,7 +532,7 @@ function x265_filterPixelToShort_64x16_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_64x32_neon
+function s265_filterPixelToShort_64x32_neon
     add         r3, r3
     sub         r1, #32
     sub         r3, #96
@@ -579,7 +579,7 @@ function x265_filterPixelToShort_64x32_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_64x48_neon
+function s265_filterPixelToShort_64x48_neon
     add         r3, r3
     sub         r1, #32
     sub         r3, #96
@@ -626,7 +626,7 @@ function x265_filterPixelToShort_64x48_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_64x64_neon
+function s265_filterPixelToShort_64x64_neon
     add         r3, r3
     sub         r1, #32
     sub         r3, #96
@@ -673,7 +673,7 @@ function x265_filterPixelToShort_64x64_neon
     bx          lr
 endfunc
 
-function x265_filterPixelToShort_48x64_neon
+function s265_filterPixelToShort_48x64_neon
     add         r3, r3
     sub         r1, #32
     sub         r3, #64
@@ -723,7 +723,7 @@ g_luma_s16:
 .hword   0, 1,  -5, 17, 58, -10, 4, -1
 
 .macro LUMA_VPP_4xN h
-function x265_interp_8tap_vert_pp_4x\h\()_neon
+function s265_interp_8tap_vert_pp_4x\h\()_neon
     ldr         r12, [sp]
     push        {lr}
     adr         lr, g_luma_s16
@@ -998,7 +998,7 @@ LUMA_VPP_4xN 16
 .endm 
 
 .macro LUMA_VPP  w h
-function x265_interp_8tap_vert_pp_\w\()x\h\()_neon
+function s265_interp_8tap_vert_pp_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -1055,7 +1055,7 @@ LUMA_VPP 64 48
 LUMA_VPP 24 32
 LUMA_VPP 48 64
 
-function x265_interp_8tap_vert_pp_12x16_neon
+function s265_interp_8tap_vert_pp_12x16_neon
     push            {r4, r5, r6, r7}
     ldr             r5, [sp, #4 * 4]
     mov             r4, r1, lsl #2
@@ -1180,7 +1180,7 @@ function x265_interp_8tap_vert_pp_12x16_neon
 endfunc
 //**************luma_vsp************
 .macro LUMA_VSP_4xN h
-function x265_interp_8tap_vert_sp_4x\h\()_neon
+function s265_interp_8tap_vert_sp_4x\h\()_neon
     push            {r4, r5, r6}
     ldr             r4, [sp, #4 * 3]
     mov             r5, r4, lsl #6
@@ -1429,7 +1429,7 @@ LUMA_VSP_4xN 16
 .endm 
 
 .macro LUMA_VSP  w h
-function x265_interp_8tap_vert_sp_\w\()x\h\()_neon
+function s265_interp_8tap_vert_sp_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -1488,7 +1488,7 @@ LUMA_VSP 64 48
 LUMA_VSP 24 32
 LUMA_VSP 48 64
 
-function x265_interp_8tap_vert_sp_12x16_neon
+function s265_interp_8tap_vert_sp_12x16_neon
     push            {r4, r5, r6, r7}
     ldr             r5, [sp, #4 * 4]
     lsl             r1, #1
@@ -1619,7 +1619,7 @@ function x265_interp_8tap_vert_sp_12x16_neon
 endfunc
 //**************luma_vps*****************
 .macro LUMA_VPS_4xN h
-function x265_interp_8tap_vert_ps_4x\h\()_neon
+function s265_interp_8tap_vert_ps_4x\h\()_neon
     push           {r4, r5, r6}
     ldr             r4, [sp, #4 * 3]
     lsl             r3, #1
@@ -1769,7 +1769,7 @@ LUMA_VPS_4xN 16
 .endm 
 
 .macro LUMA_VPS  w h
-function x265_interp_8tap_vert_ps_\w\()x\h\()_neon
+function s265_interp_8tap_vert_ps_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -1827,7 +1827,7 @@ LUMA_VPS 64 48
 LUMA_VPS 24 32
 LUMA_VPS 48 64
 
-function x265_interp_8tap_vert_ps_12x16_neon
+function s265_interp_8tap_vert_ps_12x16_neon
     push            {r4, r5, r6, r7}
     lsl             r3, #1
     ldr             r5, [sp, #4 * 4]
@@ -2131,7 +2131,7 @@ endfunc
 .endm 
 
 .macro CHROMA_VPP  w h
-function x265_interp_4tap_vert_pp_\w\()x\h\()_neon
+function s265_interp_4tap_vert_pp_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -2266,7 +2266,7 @@ CHROMA_VPP 48 64
 .endm 
 
 .macro CHROMA_VPS  w h
-function x265_interp_4tap_vert_ps_\w\()x\h\()_neon
+function s265_interp_4tap_vert_ps_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -2402,7 +2402,7 @@ CHROMA_VPS 48 64
 .endm 
 
 .macro CHROMA_VSP  w h
-function x265_interp_4tap_vert_sp_\w\()x\h\()_neon
+function s265_interp_4tap_vert_sp_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r5, [sp, #4 * 5]
@@ -2591,7 +2591,7 @@ loop12_hpp_\filterhpp\()_\w\()x\h:
 .endm
 
 .macro LUMA_HPP w h
-function x265_interp_horiz_pp_\w\()x\h\()_neon
+function s265_interp_horiz_pp_\w\()x\h\()_neon
     push            {r4, r5, r6, r7, r8}
     ldr             r4, [sp, #20]
     cmp             r4, #0
@@ -2815,7 +2815,7 @@ loop12_hps_\filterhps\()_\w\()x\h\()_rowext1:
 .endm
 
 .macro LUMA_HPS w h
-function x265_interp_horiz_ps_\w\()x\h\()_neon
+function s265_interp_horiz_ps_\w\()x\h\()_neon
     push            {r4, r5, r6, r7, r8, r9, r10}
     ldr             r4, [sp, #28]
     ldr             r9, [sp, #32]
@@ -2991,7 +2991,7 @@ loop12_hpp_\filterhpp\()_\w\()x\h:
 .endm
 
 .macro CHROMA_HPP  w h
-function x265_interp_4tap_horiz_pp_\w\()x\h\()_neon
+function s265_interp_4tap_horiz_pp_\w\()x\h\()_neon
 
     push            {r4, r5, r6, r7, r8}
     ldr             r4, [sp, #4 * 5]
@@ -3248,7 +3248,7 @@ loop12_hps_\filterhpp\()_\w\()x\h\()_rowext1:
 .endm
 
 .macro CHROMA_HPS w h
-function x265_interp_4tap_horiz_ps_\w\()x\h\()_neon
+function s265_interp_4tap_horiz_ps_\w\()x\h\()_neon
     push            {r4, r5, r6, r7, r8, r9, r10}
     ldr             r4, [sp, #28]
     ldr             r9, [sp, #32]

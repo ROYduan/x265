@@ -21,13 +21,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "ipfilterharness.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 IPFilterHarness::IPFilterHarness()
 {
@@ -49,7 +49,7 @@ IPFilterHarness::IPFilterHarness()
     memset(IPF_C_output_s, 0xCD, TEST_BUF_SIZE * sizeof(int16_t));
     memset(IPF_vec_output_s, 0xCD, TEST_BUF_SIZE * sizeof(int16_t));
 
-    int pixelMax = (1 << X265_DEPTH) - 1;
+    int pixelMax = (1 << S265_DEPTH) - 1;
     int shortMax = (1 << 15) - 1;
     for (int i = 0; i < TEST_BUF_SIZE; i++)
     {
@@ -632,7 +632,7 @@ bool IPFilterHarness::testCorrectness(const EncoderPrimitives& ref, const Encode
         }
     }
 
-    for (int csp = X265_CSP_I420; csp < X265_CSP_COUNT; csp++)
+    for (int csp = S265_CSP_I420; csp < S265_CSP_COUNT; csp++)
     {
         for (int value = 0; value < NUM_PU_SIZES; value++)
         {
@@ -785,9 +785,9 @@ void IPFilterHarness::measureSpeed(const EncoderPrimitives& ref, const EncoderPr
         }
     }
 
-    for (int csp = X265_CSP_I420; csp < X265_CSP_COUNT; csp++)
+    for (int csp = S265_CSP_I420; csp < S265_CSP_COUNT; csp++)
     {
-        printf("= Color Space %s =\n", x265_source_csp_names[csp]);
+        printf("= Color Space %s =\n", s265_source_csp_names[csp]);
         for (int value = 0; value < NUM_PU_SIZES; value++)
         {
             if (opt.chroma[csp].pu[value].filter_hpp)

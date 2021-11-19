@@ -19,11 +19,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_CONTEXTS_H
-#define X265_CONTEXTS_H
+#ifndef S265_CONTEXTS_H
+#define S265_CONTEXTS_H
 
 #include "common.h"
 
@@ -105,7 +105,7 @@
 
 extern "C" const uint32_t PFX(entropyStateBits)[128];
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 extern const uint32_t g_entropyBits[128];
@@ -121,4 +121,4 @@ static const uint32_t ctxCbf[3][5] = { { 1, 0, 0, 0, 0 }, { 2, 3, 4, 5, 6 }, { 2
 
 }
 
-#endif // ifndef X265_CONTEXTS_H
+#endif // ifndef S265_CONTEXTS_H

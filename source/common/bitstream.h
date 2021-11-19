@@ -19,13 +19,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_BITSTREAM_H
-#define X265_BITSTREAM_H 1
+#ifndef S265_BITSTREAM_H
+#define S265_BITSTREAM_H 1
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class BitInterface
@@ -65,7 +65,7 @@ class Bitstream : public BitInterface
 public:
 
     Bitstream();
-    ~Bitstream()                             { X265_FREE(m_fifo); }
+    ~Bitstream()                             { S265_FREE(m_fifo); }
 
     void     resetBits()                     { m_partialByteBits = m_byteOccupancy = 0; m_partialByte = 0; }
     uint32_t getNumberOfWrittenBytes() const { return m_byteOccupancy; }
@@ -157,4 +157,4 @@ public:
 
 }
 
-#endif // ifndef X265_BITSTREAM_H
+#endif // ifndef S265_BITSTREAM_H

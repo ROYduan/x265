@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -28,14 +28,14 @@
 #include "threading.h"  // CLZ
 #include "ppccommon.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 static uint32_t quant_altivec(const int16_t* coef, const int32_t* quantCoeff, int32_t* deltaU, int16_t* qCoef, int qBits, int add, int numCoeff)
 {
 
-    X265_CHECK(qBits >= 8, "qBits less than 8\n");
+    S265_CHECK(qBits >= 8, "qBits less than 8\n");
 
-    X265_CHECK((numCoeff % 16) == 0, "numCoeff must be multiple of 16\n");
+    S265_CHECK((numCoeff % 16) == 0, "numCoeff must be multiple of 16\n");
 
     int qBits8 = qBits - 8;
     uint32_t numSig = 0;
@@ -157,7 +157,7 @@ static uint32_t quant_altivec(const int16_t* coef, const int32_t* quantCoeff, in
 
 
 
-        // for(int ii=0; ii<8; ii++) {qCoef[blockpos+ii] = (int16_t)x265_clip3(-32768, 32767, level[ii]);}
+        // for(int ii=0; ii<8; ii++) {qCoef[blockpos+ii] = (int16_t)s265_clip3(-32768, 32767, level[ii]);}
         vector bool int v_level_cmp_clip_high, v_level_cmp_clip_low ;
 
         v_level_cmp_clip_high = vec_cmpgt(v_level_0, v_clip_high) ;
@@ -254,7 +254,7 @@ static uint32_t quant_altivec(const int16_t* coef, const int32_t* quantCoeff, in
 
 
 
-        // for(int ii=0; ii<8; ii++) {qCoef[blockpos+ii] = (int16_t)x265_clip3(-32768, 32767, level[ii]);}
+        // for(int ii=0; ii<8; ii++) {qCoef[blockpos+ii] = (int16_t)s265_clip3(-32768, 32767, level[ii]);}
         v_level_cmp_clip_high = vec_cmpgt(v_level_0, v_clip_high) ;
         v_level_0 = vec_sel(v_level_0, v_clip_high, v_level_cmp_clip_high) ;
         v_level_cmp_clip_low = vec_cmplt(v_level_0, v_clip_low) ;
@@ -770,7 +770,7 @@ inline static void partialButterfly16_transposedSrc_altivec(const int16_t* __res
 
 static void dct16_altivec(const int16_t* src, int16_t* dst, intptr_t srcStride)
 {
-    const int shift_1st = 3 + X265_DEPTH - 8;
+    const int shift_1st = 3 + S265_DEPTH - 8;
     const int shift_2nd = 10;
 
     ALIGN_VAR_32(int16_t, coef[16 * 16]);
@@ -789,7 +789,7 @@ static void dct16_altivec(const int16_t* src, int16_t* dst, intptr_t srcStride)
 
 static void dct32_altivec(const int16_t* src, int16_t* dst, intptr_t srcStride)
 {
-    const int shift_1st = 4 + X265_DEPTH - 8;
+    const int shift_1st = 4 + S265_DEPTH - 8;
     const int shift_2nd = 11;
 
     ALIGN_VAR_32(int16_t, coef[32 * 32]);
@@ -804,8 +804,8 @@ static void dct32_altivec(const int16_t* src, int16_t* dst, intptr_t srcStride)
 } // end dct32_altivec()
 
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 void setupDCTPrimitives_altivec(EncoderPrimitives& p)
 {

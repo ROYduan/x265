@@ -1,8 +1,8 @@
 #include <winresrc.h>
 
 VS_VERSION_INFO VERSIONINFO
-  FILEVERSION    @X265_VERSION_MAJOR@,@X265_VERSION_MINOR@,@X265_BRANCH_ID@,@X265_TAG_DISTANCE@
-  PRODUCTVERSION @X265_VERSION_MAJOR@,@X265_VERSION_MINOR@,@X265_BRANCH_ID@,@X265_TAG_DISTANCE@
+  FILEVERSION    @S265_VERSION_MAJOR@,@S265_VERSION_MINOR@,@S265_BRANCH_ID@,@S265_TAG_DISTANCE@
+  PRODUCTVERSION @S265_VERSION_MAJOR@,@S265_VERSION_MINOR@,@S265_BRANCH_ID@,@S265_TAG_DISTANCE@
   FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
   FILEOS         VOS_NT_WINDOWS32
 #ifdef OPENOBEX_EXPORTS
@@ -17,12 +17,12 @@ VS_VERSION_INFO VERSIONINFO
       BLOCK "04090000"
       BEGIN
         VALUE "FileDescription",  "HEVC video encoder"
-        VALUE "FileVersion",      "@X265_VERSION@"
-        VALUE "InternalName",     "x265"
+        VALUE "FileVersion",      "@S265_VERSION@"
+        VALUE "InternalName",     "s265"
         VALUE "LegalCopyright",   "Multicoreware: GPLv2 or commercial"
-        VALUE "OriginalFilename", "libx265.dll"
-        VALUE "ProductName",      "x265"
-        VALUE "ProductVersion",   "@X265_VERSION@"
+        VALUE "OriginalFilename", "libs265.dll"
+        VALUE "ProductName",      "s265"
+        VALUE "ProductVersion",   "@S265_VERSION@"
       END
     END
     BLOCK "VarFileInfo"

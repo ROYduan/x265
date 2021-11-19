@@ -19,37 +19,37 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 #if _MSC_VER
 #pragma warning(disable: 4127) // conditional expression is constant, yes I know
 #endif
 
-#include "x265cli.h"
+#include "s265cli.h"
 #include "svt.h"
 
 #define START_CODE 0x00000001
 #define START_CODE_BYTES 4
 
 #ifdef __cplusplus
-namespace X265_NS {
+namespace S265_NS {
 #endif
 
-    static void printVersion(x265_param *param, const x265_api* api)
+    static void printVersion(s265_param *param, const s265_api* api)
     {
-        x265_log(param, X265_LOG_INFO, "HEVC encoder version %s\n", api->version_str);
-        x265_log(param, X265_LOG_INFO, "build info %s\n", api->build_info_str);
+        s265_log(param, S265_LOG_INFO, "HEVC encoder version %s\n", api->version_str);
+        s265_log(param, S265_LOG_INFO, "build info %s\n", api->build_info_str);
     }
 
-    static void showHelp(x265_param *param)
+    static void showHelp(s265_param *param)
     {
         int level = param->logLevel;
 
 #define OPT(value) (value ? "enabled" : "disabled")
 #define H0 printf
-#define H1 if (level >= X265_LOG_DEBUG) printf
+#define H1 if (level >= S265_LOG_DEBUG) printf
 
-        H0("\nSyntax: x265 [options] infile [-o] outfile\n");
+        H0("\nSyntax: s265 [options] infile [-o] outfile\n");
         H0("    infile can be YUV or Y4M\n");
         H0("    outfile is raw HEVC bitstream\n");
         H0("\nExecutable Options:\n");
@@ -59,7 +59,7 @@ namespace X265_NS {
         H0("\nOutput Options:\n");
         H0("-o/--output <filename>           Bitstream output file name\n");
         H0("-D/--output-depth 8|10|12        Output bit depth (also internal bit depth). Default %d\n", param->internalBitDepth);
-        H0("   --log-level <string>          Logging level: none error warning info debug full. Default %s\n", X265_NS::logLevelNames[param->logLevel + 1]);
+        H0("   --log-level <string>          Logging level: none error warning info debug full. Default %s\n", S265_NS::logLevelNames[param->logLevel + 1]);
         H0("   --no-progress                 Disable CLI progress reports\n");
         H0("   --csv <filename>              Comma separated log file, if csv-log-level > 0 frame level statistics, else one line per run\n");
         H0("   --csv-log-level <integer>     Level of csv logging, if csv-log-level > 0 frame level statistics, else one line per run: 0-2\n");
@@ -80,7 +80,7 @@ namespace X265_NS {
 #endif
         H0("   --dolby-vision-profile <float|integer> Specifies Dolby Vision profile ID. Currently only profile 5, profile 8.1 and profile 8.2 enabled. Specified as '5' or '50'. Default 0 (disabled).\n");
         H0("   --dolby-vision-rpu <filename> File containing Dolby Vision RPU metadata.\n"
-            "                                 If given, x265's Dolby Vision metadata parser will fill the RPU field of input pictures with the metadata read from the file. Default NULL(disabled).\n");
+            "                                 If given, s265's Dolby Vision metadata parser will fill the RPU field of input pictures with the metadata read from the file. Default NULL(disabled).\n");
         H0("   --nalu-file <filename>        Text file containing SEI messages in the following format : <POC><space><PREFIX><space><NAL UNIT TYPE>/<SEI TYPE><space><SEI Payload>\n");
         H0("-f/--frames <integer>            Maximum number of frames to encode. Default all\n");
         H0("   --seek <integer>              First frame to encode\n");
@@ -137,7 +137,7 @@ namespace X265_NS {
             "                                    - 1: force the partitions if CTU information is present\n"
             "                                    - 2: functionality of (1) and reduce qp if CTU information has changed\n"
             "                                    - 4: functionality of (1) and force Inter modes when CTU Information has changed, merge/skip otherwise\n"
-            "                                    Enable this option only when planning to invoke the API function x265_encoder_ctu_info to copy ctu-info asynchronously\n");
+            "                                    Enable this option only when planning to invoke the API function s265_encoder_ctu_info to copy ctu-info asynchronously\n");
         H0("\nCoding tools:\n");
         H0("-w/--[no-]weightp                Enable weighted prediction in P slices. Default %s\n", OPT(param->bEnableWeightedPred));
         H0("   --[no-]weightb                Enable weighted prediction in B slices. Default %s\n", OPT(param->bEnableWeightedBiPred));
@@ -193,7 +193,7 @@ namespace X265_NS {
         H0("   --[no-]b-pyramid              Use B-frames as references. Default %s\n", OPT(param->bBPyramid));
         H1("   --qpfile <string>             Force frametypes and QPs for some or all frames\n");
         H1("                                 Format of each line: framenumber frametype QP\n");
-        H1("                                 QP is optional (none lets x265 choose). Frametypes: I,i,K,P,B,b.\n");
+        H1("                                 QP is optional (none lets s265 choose). Frametypes: I,i,K,P,B,b.\n");
         H1("                                 QPs are restricted by qpmin/qpmax.\n");
         H1("   --force-flush <integer>       Force the encoder to flush frames. Default %d\n", param->forceFlush);
         H1("                                 0 - flush the encoder only when all the input pictures are over.\n");
@@ -225,13 +225,13 @@ namespace X265_NS {
         H0("   --[no-]multi-pass-opt-analysis   Refine analysis in 2 pass based on analysis information from pass 1\n");
         H0("   --[no-]multi-pass-opt-distortion Use distortion of CTU from pass 1 to refine qp in 2 pass\n");
         H0("   --[no-]vbv-live-multi-pass    Enable realtime VBV in rate control 2 pass.Default %s\n", OPT(param->bliveVBV2pass));
-        H0("   --stats                       Filename for stats file in multipass pass rate control. Default x265_2pass.log\n");
+        H0("   --stats                       Filename for stats file in multipass pass rate control. Default s265_2pass.log\n");
         H0("   --[no-]analyze-src-pics       Motion estimation uses source frame planes. Default disable\n");
         H0("   --[no-]slow-firstpass         Enable a slow first pass in a multipass rate control mode. Default %s\n", OPT(param->rc.bEnableSlowFirstPass));
         H0("   --[no-]strict-cbr             Enable stricter conditions and tolerance for bitrate deviations in CBR mode. Default %s\n", OPT(param->rc.bStrictCbr));
         H0("   --analysis-save <filename>    Dump analysis info into the specified file. Default Disabled\n");
         H0("   --analysis-load <filename>    Load analysis buffers from the file specified. Default Disabled\n");
-        H0("   --analysis-reuse-file <filename>    Specify file name used for either dumping or reading analysis data. Deault x265_analysis.dat\n");
+        H0("   --analysis-reuse-file <filename>    Specify file name used for either dumping or reading analysis data. Deault s265_analysis.dat\n");
         H0("   --analysis-reuse-level <1..10>      Level of analysis reuse indicates amount of info stored/reused in save/load mode, 1:least..10:most. Now deprecated. Default %d\n", param->analysisReuseLevel);
         H0("   --analysis-save-reuse-level <1..10> Indicates the amount of analysis info stored in save mode, 1:least..10:most. Default %d\n", param->analysisSaveReuseLevel);
         H0("   --analysis-load-reuse-level <1..10> Indicates the amount of analysis info reused in load mode, 1:least..10:most. Default %d\n", param->analysisLoadReuseLevel);
@@ -377,7 +377,7 @@ namespace X265_NS {
         H0("   --svt-search-height           Motion estimation search area height for SVT HEVC encoder \n");
         H0("   --[no-]svt-compressed-ten-bit-format  Enable 8+2 encoding mode for 10bit input in SVT HEVC encoder \n");
         H0("   --[no-]svt-speed-control      Enable speed control functionality to achieve real time encoding speed for  SVT HEVC encoder \n");
-        H0("   --svt-preset-tuner            Enable additional faster presets of SVT; This only has to be used on top of x265's ultrafast preset. Accepts values in the range of 0-2 \n");
+        H0("   --svt-preset-tuner            Enable additional faster presets of SVT; This only has to be used on top of s265's ultrafast preset. Accepts values in the range of 0-2 \n");
         H0("   --svt-hierarchical-level      Hierarchical layer for SVT-HEVC encoder; Accepts inputs in the range 0-3 \n");
         H0("   --svt-base-layer-switch-mode  Select whether B/P slice should be used in base layer for SVT-HEVC encoder. 0-Use B-frames; 1-Use P frames in the base layer \n");
         H0("   --svt-pred-struct             Select pred structure for SVT HEVC encoder;  Accepts inputs in the range 0-2 \n");
@@ -394,9 +394,9 @@ namespace X265_NS {
 #undef OPT
 #undef H0
 #undef H1
-        if (level < X265_LOG_DEBUG)
+        if (level < S265_LOG_DEBUG)
             printf("\nUse --fullhelp for a full listing (or --log-level full --help)\n");
-        printf("\n\nComplete documentation may be found at http://x265.readthedocs.org/en/default/cli.html\n");
+        printf("\n\nComplete documentation may be found at http://s265.readthedocs.org/en/default/cli.html\n");
         exit(1);
     }
 
@@ -432,7 +432,7 @@ namespace X265_NS {
     void CLIOptions::printStatus(uint32_t frameNum)
     {
         char buf[200];
-        int64_t time = x265_mdate();
+        int64_t time = s265_mdate();
 
         if (!bProgress || !frameNum || (prevUpdateTime && time - prevUpdateTime < UPDATE_INTERVAL))
             return;
@@ -443,12 +443,12 @@ namespace X265_NS {
         if (framesToBeEncoded)
         {
             int eta = (int)(elapsed * (framesToBeEncoded - frameNum) / ((int64_t)frameNum * 1000000));
-            sprintf(buf, "x265 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d",
+            sprintf(buf, "s265 [%.1f%%] %d/%d frames, %.2f fps, %.2f kb/s, eta %d:%02d:%02d",
                 100. * frameNum / (param->chunkEnd ? param->chunkEnd : param->totalFrames), frameNum, (param->chunkEnd ? param->chunkEnd : param->totalFrames), fps, bitrate,
                 eta / 3600, (eta / 60) % 60, eta % 60);
         }
         else
-            sprintf(buf, "x265 %d frames: %.2f fps, %.2f kb/s", frameNum, fps, bitrate);
+            sprintf(buf, "s265 %d frames: %.2f fps, %.2f kb/s", frameNum, fps, bitrate);
 
         fprintf(stderr, "%s  \r", buf + 5);
         SetConsoleTitle(buf);
@@ -456,7 +456,7 @@ namespace X265_NS {
         prevUpdateTime = time;
     }
 
-    bool CLIOptions::parseZoneParam(int argc, char **argv, x265_param* globalParam, int zonefileCount)
+    bool CLIOptions::parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount)
     {
         bool bError = false;
         int bShowHelp = false;
@@ -488,11 +488,11 @@ namespace X265_NS {
                 outputBitDepth = 8;
         }
 
-        api = x265_api_get(outputBitDepth);
+        api = s265_api_get(outputBitDepth);
         if (!api)
         {
-            x265_log(NULL, X265_LOG_WARNING, "falling back to default bit-depth\n");
-            api = x265_api_get(0);
+            s265_log(NULL, S265_LOG_WARNING, "falling back to default bit-depth\n");
+            api = s265_api_get(0);
         }
 
         if (bShowHelp)
@@ -504,11 +504,11 @@ namespace X265_NS {
         globalParam->rc.zones[zonefileCount].zoneParam = api->param_alloc();
         if (!globalParam->rc.zones[zonefileCount].zoneParam)
         {
-            x265_log(NULL, X265_LOG_ERROR, "param alloc failed\n");
+            s265_log(NULL, S265_LOG_ERROR, "param alloc failed\n");
             return true;
         }
 
-        memcpy(globalParam->rc.zones[zonefileCount].zoneParam, globalParam, sizeof(x265_param));
+        memcpy(globalParam->rc.zones[zonefileCount].zoneParam, globalParam, sizeof(s265_param));
 
         for (optind = 0;;)
         {
@@ -532,13 +532,13 @@ namespace X265_NS {
                 {
                     /* getopt_long might have already printed an error message */
                     if (c != 63)
-                        x265_log(NULL, X265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
+                        s265_log(NULL, S265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
                     return true;
                 }
             }
             if (long_options_index < 0)
             {
-                x265_log(NULL, X265_LOG_WARNING, "short option '%c' unrecognized\n", c);
+                s265_log(NULL, S265_LOG_WARNING, "short option '%c' unrecognized\n", c);
                 return true;
             }
 
@@ -547,14 +547,14 @@ namespace X265_NS {
             if (bError)
             {
                 const char *name = long_options_index > 0 ? long_options[long_options_index].name : argv[optind - 2];
-                x265_log(NULL, X265_LOG_ERROR, "invalid argument: %s = %s\n", name, optarg);
+                s265_log(NULL, S265_LOG_ERROR, "invalid argument: %s = %s\n", name, optarg);
                 return true;
             }
         }
 
         if (optind < argc)
         {
-            x265_log(param, X265_LOG_WARNING, "extra unused command arguments given <%s>\n", argv[optind]);
+            s265_log(param, S265_LOG_WARNING, "extra unused command arguments given <%s>\n", argv[optind]);
             return true;
         }
         return false;
@@ -579,7 +579,7 @@ namespace X265_NS {
 
         if (argc <= 1)
         {
-            x265_log(NULL, X265_LOG_ERROR, "No input file. Run x265 --help for a list of options.\n");
+            s265_log(NULL, S265_LOG_ERROR, "No input file. Run s265 --help for a list of options.\n");
             return true;
         }
 
@@ -615,31 +615,31 @@ namespace X265_NS {
                 outputBitDepth = 8;
         }
 
-        api = x265_api_get(outputBitDepth);
+        api = s265_api_get(outputBitDepth);
         if (!api)
         {
-            x265_log(NULL, X265_LOG_WARNING, "falling back to default bit-depth\n");
-            api = x265_api_get(0);
+            s265_log(NULL, S265_LOG_WARNING, "falling back to default bit-depth\n");
+            api = s265_api_get(0);
         }
 
         param = api->param_alloc();
         if (!param)
         {
-            x265_log(NULL, X265_LOG_ERROR, "param alloc failed\n");
+            s265_log(NULL, S265_LOG_ERROR, "param alloc failed\n");
             return true;
         }
 #if ENABLE_LIBVMAF
-        vmafData = (x265_vmaf_data*)x265_malloc(sizeof(x265_vmaf_data));
+        vmafData = (s265_vmaf_data*)s265_malloc(sizeof(s265_vmaf_data));
         if (!vmafData)
         {
-            x265_log(NULL, X265_LOG_ERROR, "vmaf data alloc failed\n");
+            s265_log(NULL, S265_LOG_ERROR, "vmaf data alloc failed\n");
             return true;
         }
 #endif
 
         if (api->param_default_preset(param, preset, tune) < 0)
         {
-            x265_log(NULL, X265_LOG_ERROR, "preset or tune unrecognized\n");
+            s265_log(NULL, S265_LOG_ERROR, "preset or tune unrecognized\n");
             return true;
         }
 
@@ -668,7 +668,7 @@ namespace X265_NS {
 
             case 'V':
                 printVersion(param, api);
-                x265_report_simd(param);
+                s265_report_simd(param);
                 exit(0);
 
             default:
@@ -687,13 +687,13 @@ namespace X265_NS {
                     {
                         /* getopt_long might have already printed an error message */
                         if (c != 63)
-                            x265_log(NULL, X265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
+                            s265_log(NULL, S265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
                         return true;
                     }
                 }
                 if (long_options_index < 0)
                 {
-                    x265_log(NULL, X265_LOG_WARNING, "short option '%c' unrecognized\n", c);
+                    s265_log(NULL, S265_LOG_WARNING, "short option '%c' unrecognized\n", c);
                     return true;
                 }
 #define OPT(longname) \
@@ -703,15 +703,15 @@ namespace X265_NS {
              !strcmp(long_options[long_options_index].name, name2))
 
                 if (0);
-                OPT2("frame-skip", "seek") this->seek = (uint32_t)x265_atoi(optarg, bError);
-                OPT("frames") this->framesToBeEncoded = (uint32_t)x265_atoi(optarg, bError);
+                OPT2("frame-skip", "seek") this->seek = (uint32_t)s265_atoi(optarg, bError);
+                OPT("frames") this->framesToBeEncoded = (uint32_t)s265_atoi(optarg, bError);
                 OPT("no-progress") this->bProgress = false;
                 OPT("output") outputfn = optarg;
                 OPT("input") inputfn = optarg;
                 OPT("recon") reconfn = optarg;
-                OPT("input-depth") inputBitDepth = (uint32_t)x265_atoi(optarg, bError);
+                OPT("input-depth") inputBitDepth = (uint32_t)s265_atoi(optarg, bError);
                 OPT("dither") this->bDither = true;
-                OPT("recon-depth") reconFileBitDepth = (uint32_t)x265_atoi(optarg, bError);
+                OPT("recon-depth") reconFileBitDepth = (uint32_t)s265_atoi(optarg, bError);
                 OPT("y4m") this->bForceY4m = true;
                 OPT("profile") /* handled above */;
                 OPT("preset")  /* handled above */;
@@ -721,28 +721,28 @@ namespace X265_NS {
                 OPT("svt")    /* handled above */;
                 OPT("qpfile")
                 {
-                    this->qpfile = x265_fopen(optarg, "rb");
+                    this->qpfile = s265_fopen(optarg, "rb");
                     if (!this->qpfile)
-                        x265_log_file(param, X265_LOG_ERROR, "%s qpfile not found or error in opening qp file\n", optarg);
+                        s265_log_file(param, S265_LOG_ERROR, "%s qpfile not found or error in opening qp file\n", optarg);
                 }
                 OPT("dolby-vision-rpu")
                 {
-                    this->dolbyVisionRpu = x265_fopen(optarg, "rb");
+                    this->dolbyVisionRpu = s265_fopen(optarg, "rb");
                     if (!this->dolbyVisionRpu)
                     {
-                        x265_log_file(param, X265_LOG_ERROR, "Dolby Vision RPU metadata file %s not found or error in opening file\n", optarg);
+                        s265_log_file(param, S265_LOG_ERROR, "Dolby Vision RPU metadata file %s not found or error in opening file\n", optarg);
                         return true;
                     }
                 }
                 OPT("zonefile")
                 {
-                    this->zoneFile = x265_fopen(optarg, "rb");
+                    this->zoneFile = s265_fopen(optarg, "rb");
                     if (!this->zoneFile)
-                        x265_log_file(param, X265_LOG_ERROR, "%s zone file not found or error in opening zone file\n", optarg);
+                        s265_log_file(param, S265_LOG_ERROR, "%s zone file not found or error in opening zone file\n", optarg);
                 }
                 OPT("fullhelp")
                 {
-                    param->logLevel = X265_LOG_FULL;
+                    param->logLevel = S265_LOG_FULL;
                     printVersion(param, api);
                     showHelp(param);
                     break;
@@ -752,7 +752,7 @@ namespace X265_NS {
                 if (bError)
                 {
                     const char *name = long_options_index > 0 ? long_options[long_options_index].name : argv[optind - 2];
-                    x265_log(NULL, X265_LOG_ERROR, "invalid argument: %s = %s\n", name, optarg);
+                    s265_log(NULL, S265_LOG_ERROR, "invalid argument: %s = %s\n", name, optarg);
                     return true;
                 }
 #undef OPT
@@ -765,7 +765,7 @@ namespace X265_NS {
             outputfn = argv[optind++];
         if (optind < argc)
         {
-            x265_log(param, X265_LOG_WARNING, "extra unused command arguments given <%s>\n", argv[optind]);
+            s265_log(param, S265_LOG_WARNING, "extra unused command arguments given <%s>\n", argv[optind]);
             return true;
         }
 
@@ -778,13 +778,13 @@ namespace X265_NS {
 
         if (!inputfn || !outputfn)
         {
-            x265_log(param, X265_LOG_ERROR, "input or output file not specified, try --help for help\n");
+            s265_log(param, S265_LOG_ERROR, "input or output file not specified, try --help for help\n");
             return true;
         }
 
         if (param->internalBitDepth != api->bit_depth)
         {
-            x265_log(param, X265_LOG_ERROR, "Only bit depths of %d are supported in this build\n", api->bit_depth);
+            s265_log(param, S265_LOG_ERROR, "Only bit depths of %d are supported in this build\n", api->bit_depth);
             return true;
         }
 
@@ -818,13 +818,13 @@ namespace X265_NS {
         this->input = InputFile::open(info, this->bForceY4m);
         if (!this->input || this->input->isFail())
         {
-            x265_log_file(param, X265_LOG_ERROR, "unable to open input file <%s>\n", inputfn);
+            s265_log_file(param, S265_LOG_ERROR, "unable to open input file <%s>\n", inputfn);
             return true;
         }
 
         if (info.depth < 8 || info.depth > 16)
         {
-            x265_log(param, X265_LOG_ERROR, "Input bit depth (%d) must be between 8 and 16\n", inputBitDepth);
+            s265_log(param, S265_LOG_ERROR, "Input bit depth (%d) must be between 8 and 16\n", inputBitDepth);
             return true;
         }
 
@@ -875,11 +875,11 @@ namespace X265_NS {
         if (api->param_apply_profile(param, profile))
             return true;
 
-        if (param->logLevel >= X265_LOG_INFO)
+        if (param->logLevel >= S265_LOG_INFO)
         {
             char buf[128];
             int p = sprintf(buf, "%dx%d fps %d/%d %sp%d", param->sourceWidth, param->sourceHeight,
-                param->fpsNum, param->fpsDenom, x265_source_csp_names[param->internalCsp], info.depth);
+                param->fpsNum, param->fpsDenom, s265_source_csp_names[param->internalCsp], info.depth);
 
             int width, height;
             getParamAspectRatio(param, width, height);
@@ -891,7 +891,7 @@ namespace X265_NS {
             else
                 sprintf(buf + p, " frames %u - %d of %d", this->seek, this->seek + this->framesToBeEncoded - 1, info.frameCount);
 
-            general_log(param, input->getName(), X265_LOG_INFO, "%s\n", buf);
+            general_log(param, input->getName(), S265_LOG_INFO, "%s\n", buf);
         }
 
         this->input->startReader();
@@ -904,57 +904,57 @@ namespace X265_NS {
                 param->fpsNum, param->fpsDenom, param->internalCsp);
             if (this->recon->isFail())
             {
-                x265_log(param, X265_LOG_WARNING, "unable to write reconstructed outputs file\n");
+                s265_log(param, S265_LOG_WARNING, "unable to write reconstructed outputs file\n");
                 this->recon->release();
                 this->recon = 0;
             }
             else
-                general_log(param, this->recon->getName(), X265_LOG_INFO,
+                general_log(param, this->recon->getName(), S265_LOG_INFO,
                 "reconstructed images %dx%d fps %d/%d %s\n",
                 param->sourceWidth, param->sourceHeight, param->fpsNum, param->fpsDenom,
-                x265_source_csp_names[param->internalCsp]);
+                s265_source_csp_names[param->internalCsp]);
         }
 #if ENABLE_LIBVMAF
         if (!reconfn)
         {
-            x265_log(param, X265_LOG_ERROR, "recon file must be specified to get VMAF score, try --help for help\n");
+            s265_log(param, S265_LOG_ERROR, "recon file must be specified to get VMAF score, try --help for help\n");
             return true;
         }
         const char *str = strrchr(info.filename, '.');
 
         if (!strcmp(str, ".y4m"))
         {
-            x265_log(param, X265_LOG_ERROR, "VMAF supports YUV file format only.\n");
+            s265_log(param, S265_LOG_ERROR, "VMAF supports YUV file format only.\n");
             return true;
         }
-        if (param->internalCsp == X265_CSP_I420 || param->internalCsp == X265_CSP_I422 || param->internalCsp == X265_CSP_I444)
+        if (param->internalCsp == S265_CSP_I420 || param->internalCsp == S265_CSP_I422 || param->internalCsp == S265_CSP_I444)
         {
-            vmafData->reference_file = x265_fopen(inputfn, "rb");
-            vmafData->distorted_file = x265_fopen(reconfn, "rb");
+            vmafData->reference_file = s265_fopen(inputfn, "rb");
+            vmafData->distorted_file = s265_fopen(reconfn, "rb");
         }
         else
         {
-            x265_log(param, X265_LOG_ERROR, "VMAF will support only yuv420p, yu422p, yu444p, yuv420p10le, yuv422p10le, yuv444p10le formats.\n");
+            s265_log(param, S265_LOG_ERROR, "VMAF will support only yuv420p, yu422p, yu444p, yuv420p10le, yuv422p10le, yuv444p10le formats.\n");
             return true;
         }
 #endif
         this->output = OutputFile::open(outputfn, info);
         if (this->output->isFail())
         {
-            x265_log_file(param, X265_LOG_ERROR, "failed to open output file <%s> for writing\n", outputfn);
+            s265_log_file(param, S265_LOG_ERROR, "failed to open output file <%s> for writing\n", outputfn);
             return true;
         }
-        general_log_file(param, this->output->getName(), X265_LOG_INFO, "output file: %s\n", outputfn);
+        general_log_file(param, this->output->getName(), S265_LOG_INFO, "output file: %s\n", outputfn);
         return false;
     }
 
-    bool CLIOptions::parseQPFile(x265_picture &pic_org)
+    bool CLIOptions::parseQPFile(s265_picture &pic_org)
     {
         int32_t num = -1, qp, ret;
         char type;
         uint32_t filePos;
         pic_org.forceqp = 0;
-        pic_org.sliceType = X265_TYPE_AUTO;
+        pic_org.sliceType = S265_TYPE_AUTO;
         while (num < pic_org.poc)
         {
             filePos = ftell(qpfile);
@@ -970,12 +970,12 @@ namespace X265_NS {
                 continue;
             if (ret == 3 && qp >= 0)
                 pic_org.forceqp = qp + 1;
-            if (type == 'I') pic_org.sliceType = X265_TYPE_IDR;
-            else if (type == 'i') pic_org.sliceType = X265_TYPE_I;
-            else if (type == 'K') pic_org.sliceType = param->bOpenGOP ? X265_TYPE_I : X265_TYPE_IDR;
-            else if (type == 'P') pic_org.sliceType = X265_TYPE_P;
-            else if (type == 'B') pic_org.sliceType = X265_TYPE_BREF;
-            else if (type == 'b') pic_org.sliceType = X265_TYPE_B;
+            if (type == 'I') pic_org.sliceType = S265_TYPE_IDR;
+            else if (type == 'i') pic_org.sliceType = S265_TYPE_I;
+            else if (type == 'K') pic_org.sliceType = param->bOpenGOP ? S265_TYPE_I : S265_TYPE_IDR;
+            else if (type == 'P') pic_org.sliceType = S265_TYPE_P;
+            else if (type == 'B') pic_org.sliceType = S265_TYPE_BREF;
+            else if (type == 'b') pic_org.sliceType = S265_TYPE_B;
             else ret = 0;
             if (ret < 2 || qp < -1 || qp > 51)
                 return 0;
@@ -996,14 +996,14 @@ namespace X265_NS {
         }
 
         rewind(zoneFile);
-        param->rc.zones = X265_MALLOC(x265_zone, param->rc.zonefileCount);
+        param->rc.zones = S265_MALLOC(s265_zone, param->rc.zonefileCount);
         for (int i = 0; i < param->rc.zonefileCount; i++)
         {
             while (fgets(line, sizeof(line), zoneFile))
             {
                 if (*line == '#' || (strcmp(line, "\r\n") == 0))
                     continue;
-                param->rc.zones[i].zoneParam = X265_MALLOC(x265_param, 1);
+                param->rc.zones[i].zoneParam = S265_MALLOC(s265_param, 1);
                 int index = (int)strcspn(line, "\r\n");
                 line[index] = '\0';
                 argLine = line;
@@ -1014,7 +1014,7 @@ namespace X265_NS {
                 int argCount = 0;
                 char **args = (char**)malloc(256 * sizeof(char *));
                 // Adding a dummy string to avoid file parsing error
-                args[argCount++] = (char *)"x265";
+                args[argCount++] = (char *)"s265";
                 char* token = strtok(start, " ");
                 while (token)
                 {
@@ -1038,7 +1038,7 @@ namespace X265_NS {
 
     /* Parse the RPU file and extract the RPU corresponding to the current picture
     * and fill the rpu field of the input picture */
-    int CLIOptions::rpuParser(x265_picture * pic)
+    int CLIOptions::rpuParser(s265_picture * pic)
     {
         uint8_t byteVal;
         uint32_t code = 0;
@@ -1052,7 +1052,7 @@ namespace X265_NS {
 
             if (code != START_CODE)
             {
-                x265_log(NULL, X265_LOG_ERROR, "Invalid Dolby Vision RPU startcode in POC %d\n", pic->pts);
+                s265_log(NULL, S265_LOG_ERROR, "Invalid Dolby Vision RPU startcode in POC %d\n", pic->pts);
                 return 1;
             }
         }
@@ -1065,7 +1065,7 @@ namespace X265_NS {
                 continue;
             if (bytesRead >= 1024)
             {
-                x265_log(NULL, X265_LOG_ERROR, "Invalid Dolby Vision RPU size in POC %d\n", pic->pts);
+                s265_log(NULL, S265_LOG_ERROR, "Invalid Dolby Vision RPU size in POC %d\n", pic->pts);
                 return 1;
             }
 
@@ -1084,7 +1084,7 @@ namespace X265_NS {
             code = (code << 8);
         }
         if (!pic->rpu.payloadSize)
-            x265_log(NULL, X265_LOG_WARNING, "Dolby Vision RPU not found for POC %d\n", pic->pts);
+            s265_log(NULL, S265_LOG_WARNING, "Dolby Vision RPU not found for POC %d\n", pic->pts);
         return 0;
     }
 

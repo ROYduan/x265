@@ -18,16 +18,16 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_DPB_H
-#define X265_DPB_H
+#ifndef S265_DPB_H
+#define S265_DPB_H
 
 #include "piclist.h"
 
-namespace X265_NS {
-// private namespace for x265
+namespace S265_NS {
+// private namespace for s265
 
 class Frame;
 class FrameData;
@@ -47,7 +47,7 @@ public:
     PicList            m_freeList;
     FrameData*         m_frameDataFreeList;
 
-    DPB(x265_param *param)
+    DPB(s265_param *param)
     {
         m_lastIDR = 0;
         m_pocCRA = 0;
@@ -86,4 +86,4 @@ protected:
 };
 }
 
-#endif // X265_DPB_H
+#endif // S265_DPB_H

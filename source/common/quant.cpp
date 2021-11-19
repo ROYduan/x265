@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -31,7 +31,7 @@
 #include "cudata.h"
 #include "contexts.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #define SIGN(x,y) ((x^(y >> 31))-(y >> 31))
 
@@ -53,17 +53,17 @@ inline int fastMin(int x, int y)
 
 inline int getICRate(uint32_t absLevel, int32_t diffLevel, const int* greaterOneBits, const int* levelAbsBits, const uint32_t absGoRice, const uint32_t maxVlc, const uint32_t c1c2Rate)
 {
-    X265_CHECK(absGoRice <= 4, "absGoRice check failure\n");
+    S265_CHECK(absGoRice <= 4, "absGoRice check failure\n");
     if (!absLevel)
     {
-        X265_CHECK(diffLevel < 0, "diffLevel check failure\n");
+        S265_CHECK(diffLevel < 0, "diffLevel check failure\n");
         return 0;
     }
     int rate = 0;
 
     if (diffLevel < 0)
     {
-        X265_CHECK(absLevel <= 2, "absLevel check failure\n");
+        S265_CHECK(absLevel <= 2, "absLevel check failure\n");
         rate += greaterOneBits[(absLevel == 2)];
 
         if (absLevel == 2)
@@ -86,7 +86,7 @@ inline int getICRate(uint32_t absLevel, int32_t diffLevel, const int* greaterOne
             rate += egs << 15;
 
             // NOTE: in here, expGolomb=true means (symbol >= maxVlc + 1)
-            X265_CHECK(fastMin(symbol, (maxVlc + 1)) == (int)maxVlc + 1, "min check failure\n");
+            S265_CHECK(fastMin(symbol, (maxVlc + 1)) == (int)maxVlc + 1, "min check failure\n");
             symbol = maxVlc + 1;
         }
 
@@ -102,7 +102,7 @@ inline int getICRate(uint32_t absLevel, int32_t diffLevel, const int* greaterOne
 #if CHECKED_BUILD || _DEBUG
 inline int getICRateNegDiff(uint32_t absLevel, const int* greaterOneBits, const int* levelAbsBits)
 {
-    X265_CHECK(absLevel <= 2, "absLevel check failure\n");
+    S265_CHECK(absLevel <= 2, "absLevel check failure\n");
 
     int rate;
     if (absLevel == 0)
@@ -117,10 +117,10 @@ inline int getICRateNegDiff(uint32_t absLevel, const int* greaterOneBits, const 
 
 inline int getICRateLessVlc(uint32_t absLevel, int32_t diffLevel, const uint32_t absGoRice)
 {
-    X265_CHECK(absGoRice <= 4, "absGoRice check failure\n");
+    S265_CHECK(absGoRice <= 4, "absGoRice check failure\n");
     if (!absLevel)
     {
-        X265_CHECK(diffLevel < 0, "diffLevel check failure\n");
+        S265_CHECK(diffLevel < 0, "diffLevel check failure\n");
         return 0;
     }
     int rate;
@@ -137,11 +137,11 @@ inline int getICRateLessVlc(uint32_t absLevel, int32_t diffLevel, const uint32_t
 /* Calculates the cost for specific absolute transform level */
 inline uint32_t getICRateCost(uint32_t absLevel, int32_t diffLevel, const int* greaterOneBits, const int* levelAbsBits, uint32_t absGoRice, const uint32_t c1c2Rate)
 {
-    X265_CHECK(absLevel, "absLevel should not be zero\n");
+    S265_CHECK(absLevel, "absLevel should not be zero\n");
 
     if (diffLevel < 0)
     {
-        X265_CHECK((absLevel == 1) || (absLevel == 2), "absLevel range check failure\n");
+        S265_CHECK((absLevel == 1) || (absLevel == 2), "absLevel range check failure\n");
 
         uint32_t rate = greaterOneBits[(absLevel == 2)];
         if (absLevel == 2)
@@ -192,18 +192,18 @@ bool Quant::init(double psyScale, const ScalingList& scalingList, Entropy& entro
 {
     m_entropyCoder = &entropy;
     m_psyRdoqScale = (int32_t)(psyScale * 256.0);
-    X265_CHECK((psyScale * 256.0) < (double)MAX_INT, "psyScale value too large\n");
+    S265_CHECK((psyScale * 256.0) < (double)MAX_INT, "psyScale value too large\n");
     m_scalingList  = &scalingList;
-    m_resiDctCoeff = X265_MALLOC(int16_t, MAX_TR_SIZE * MAX_TR_SIZE * 2);
+    m_resiDctCoeff = S265_MALLOC(int16_t, MAX_TR_SIZE * MAX_TR_SIZE * 2);
     m_fencDctCoeff = m_resiDctCoeff + (MAX_TR_SIZE * MAX_TR_SIZE);
-    m_fencShortBuf = X265_MALLOC(int16_t, MAX_TR_SIZE * MAX_TR_SIZE);
+    m_fencShortBuf = S265_MALLOC(int16_t, MAX_TR_SIZE * MAX_TR_SIZE);
 
     return m_resiDctCoeff && m_fencShortBuf;
 }
 
-bool Quant::allocNoiseReduction(const x265_param& param)
+bool Quant::allocNoiseReduction(const s265_param& param)
 {
-    m_frameNr = X265_MALLOC(NoiseReduction, param.frameNumThreads);
+    m_frameNr = S265_MALLOC(NoiseReduction, param.frameNumThreads);
     if (m_frameNr)
         memset(m_frameNr, 0, sizeof(NoiseReduction) * param.frameNumThreads);
     else
@@ -213,9 +213,9 @@ bool Quant::allocNoiseReduction(const x265_param& param)
 
 Quant::~Quant()
 {
-    X265_FREE(m_frameNr);
-    X265_FREE(m_resiDctCoeff);
-    X265_FREE(m_fencShortBuf);
+    S265_FREE(m_frameNr);
+    S265_FREE(m_resiDctCoeff);
+    S265_FREE(m_fencShortBuf);
 }
 
 void Quant::setQPforQuant(const CUData& ctu, int qp)
@@ -223,7 +223,7 @@ void Quant::setQPforQuant(const CUData& ctu, int qp)
     m_nr = m_frameNr ? &m_frameNr[ctu.m_encData->m_frameEncoderID] : NULL;
     m_qpParam[TEXT_LUMA].setQpParam(qp + QP_BD_OFFSET);
     m_rdoqLevel = ctu.m_encData->m_param->rdoqLevel;
-    if (ctu.m_chromaFormat != X265_CSP_I400)
+    if (ctu.m_chromaFormat != S265_CSP_I400)
     {
         setChromaQP(qp + ctu.m_slice->m_pps->chromaQpOffset[0] + ctu.m_slice->m_chromaQpOffset[0], TEXT_CHROMA_U, ctu.m_chromaFormat);
         setChromaQP(qp + ctu.m_slice->m_pps->chromaQpOffset[1] + ctu.m_slice->m_chromaQpOffset[1], TEXT_CHROMA_V, ctu.m_chromaFormat);
@@ -232,13 +232,13 @@ void Quant::setQPforQuant(const CUData& ctu, int qp)
 
 void Quant::setChromaQP(int qpin, TextType ttype, int chFmt)
 {
-    int qp = x265_clip3(-QP_BD_OFFSET, 57, qpin);
+    int qp = s265_clip3(-QP_BD_OFFSET, 57, qpin);
     if (qp >= 30)
     {
-        if (chFmt == X265_CSP_I420)
+        if (chFmt == S265_CSP_I420)
             qp = g_chromaScale[qp];
         else
-            qp = X265_MIN(qp, QP_MAX_SPEC);
+            qp = S265_MIN(qp, QP_MAX_SPEC);
     }
     m_qpParam[ttype].setQpParam(qp + QP_BD_OFFSET);
 }
@@ -281,7 +281,7 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
 
         if (coeffNum[cg] == 0)
         {
-            X265_CHECK(lastNZPosInCG0 < 0, "all zero block check failure\n");
+            S265_CHECK(lastNZPosInCG0 < 0, "all zero block check failure\n");
             continue;
         }
 
@@ -299,8 +299,8 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
         CTZ(tmp, coeffFlag[cg]);
         const int lastNZPosInCG = (15 ^ tmp);
 
-        X265_CHECK(firstNZPosInCG0 == firstNZPosInCG, "firstNZPosInCG0 check failure\n");
-        X265_CHECK(lastNZPosInCG0 == lastNZPosInCG, "lastNZPosInCG0 check failure\n");
+        S265_CHECK(firstNZPosInCG0 == firstNZPosInCG, "firstNZPosInCG0 check failure\n");
+        S265_CHECK(lastNZPosInCG0 == lastNZPosInCG, "lastNZPosInCG0 check failure\n");
 
         if (lastNZPosInCG - firstNZPosInCG >= SBH_THRESHOLD)
         {
@@ -321,7 +321,7 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                 for (n = (cg == cgLastScanPos ? lastNZPosInCG : SCAN_SET_SIZE - 1); n >= 0; --n)
                 {
                     uint32_t blkPos = scan[n + cgStartPos];
-                    X265_CHECK(!!coeff[blkPos] == !!(cgFlags & 1), "non zero coeff check failure\n");
+                    S265_CHECK(!!coeff[blkPos] == !!(cgFlags & 1), "non zero coeff check failure\n");
 
                     if (cgFlags & 1)
                     {
@@ -334,7 +334,7 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                         {
                             if ((cgFlags == 1) && (abs(coeff[blkPos]) == 1))
                             {
-                                X265_CHECK(n == firstNZPosInCG, "firstNZPosInCG position check failure\n");
+                                S265_CHECK(n == firstNZPosInCG, "firstNZPosInCG position check failure\n");
                                 curCost = MAX_INT;
                             }
                             else
@@ -348,7 +348,7 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                     {
                         if (cgFlags == 0)
                         {
-                            X265_CHECK(n < firstNZPosInCG, "firstNZPosInCG position check failure\n");
+                            S265_CHECK(n < firstNZPosInCG, "firstNZPosInCG position check failure\n");
                             uint32_t thisSignBit = m_resiDctCoeff[blkPos] >= 0 ? 0 : 1;
                             if (thisSignBit != signbit)
                                 curCost = MAX_INT;
@@ -401,19 +401,19 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
 
     if (cu.m_tqBypass[0])
     {
-        X265_CHECK(log2TrSize >= 2 && log2TrSize <= 5, "Block size mistake!\n");
+        S265_CHECK(log2TrSize >= 2 && log2TrSize <= 5, "Block size mistake!\n");
         return primitives.cu[sizeIdx].copy_cnt(coeff, residual, resiStride);
     }
 
     bool isLuma  = ttype == TEXT_LUMA;
     bool usePsy  = m_psyRdoqScale && isLuma && !useTransformSkip;
-    int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize; // Represents scaling through forward transform
+    int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; // Represents scaling through forward transform
 
-    X265_CHECK((cu.m_slice->m_sps->quadtreeTULog2MaxSize >= log2TrSize), "transform size too large\n");
+    S265_CHECK((cu.m_slice->m_sps->quadtreeTULog2MaxSize >= log2TrSize), "transform size too large\n");
     if (useTransformSkip)
     {
-#if X265_DEPTH <= 10
-        X265_CHECK(transformShift >= 0, "invalid transformShift\n");
+#if S265_DEPTH <= 10
+        S265_CHECK(transformShift >= 0, "invalid transformShift\n");
         primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);
 #else
         if (transformShift >= 0)
@@ -483,7 +483,7 @@ uint64_t Quant::ssimDistortion(const CUData& cu, const pixel* fenc, uint32_t fSt
 {
     static const int ssim_c1 = (int)(.01 * .01 * PIXEL_MAX * PIXEL_MAX * 64 + .5); // 416
     static const int ssim_c2 = (int)(.03 * .03 * PIXEL_MAX * PIXEL_MAX * 64 * 63 + .5); // 235963
-    int shift = (X265_DEPTH - 8);
+    int shift = (S265_DEPTH - 8);
 
     int trSize = 1 << log2TrSize;
     uint64_t ssDc = 0, ssBlock = 0, ssAc = 0;
@@ -552,7 +552,7 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
     // Values need to pass as input parameter in dequant
     int rem = m_qpParam[ttype].rem;
     int per = m_qpParam[ttype].per;
-    int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize;
+    int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize;
     int shift = QUANT_IQUANT_SHIFT - QUANT_SHIFT - transformShift;
     int numCoeff = 1 << (log2TrSize * 2);
 
@@ -570,8 +570,8 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
 
     if (useTransformSkip)
     {
-#if X265_DEPTH <= 10
-        X265_CHECK(transformShift > 0, "invalid transformShift\n");
+#if S265_DEPTH <= 10
+        S265_CHECK(transformShift > 0, "invalid transformShift\n");
         primitives.cu[sizeIdx].cpy1Dto2D_shr(residual, m_resiDctCoeff, resiStride, transformShift);
 #else
         if (transformShift > 0)
@@ -583,13 +583,13 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
     else
     {
         int useDST = !sizeIdx && ttype == TEXT_LUMA && bIntra;
-        X265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(coeff), "numSig differ\n");
+        S265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(coeff), "numSig differ\n");
         // DC only
         if (numSig == 1 && coeff[0] != 0 && !useDST)
         {
             const int shift_1st = 7 - 6;
             const int add_1st = 1 << (shift_1st - 1);
-            const int shift_2nd = 12 - (X265_DEPTH - 8) - 3;
+            const int shift_2nd = 12 - (S265_DEPTH - 8) - 3;
             const int add_2nd = 1 << (shift_2nd - 1);
 
             int dc_val = (((m_resiDctCoeff[0] * (64 >> 6) + add_1st) >> shift_1st) * (64 >> 3) + add_2nd) >> shift_2nd;
@@ -609,11 +609,11 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
 template<uint32_t log2TrSize>
 uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, uint32_t absPartIdx, bool usePsy)
 {
-    const int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
+    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
     int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;
     const uint32_t usePsyMask = usePsy ? -1 : 0;
 
-    X265_CHECK(scalingListType < 6, "scaling list type out of range\n");
+    S265_CHECK(scalingListType < 6, "scaling list type out of range\n");
 
     int rem = m_qpParam[ttype].rem;
     int per = m_qpParam[ttype].per;
@@ -623,7 +623,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
 
     const int numCoeff = 1 << (log2TrSize * 2);
     uint32_t numSig = primitives.nquant(m_resiDctCoeff, qCoef, dstCoeff, qbits, add, numCoeff);
-    X265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(dstCoeff), "numSig differ\n");
+    S265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(dstCoeff), "numSig differ\n");
     if (!numSig)
         return 0;
     const uint32_t trSize = 1 << log2TrSize;
@@ -640,7 +640,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
 #define UNQUANT(lvl)    (((lvl) * (unquantScale[blkPos] << per) + unquantRound) >> unquantShift)
 #define SIGCOST(bits)   ((lambda2 * (bits)) >> 8)
 #define RDCOST(d, bits) ((((int64_t)d * d) << scaleBits) + SIGCOST(bits))
-#define PSYVALUE(rec)   ((psyScale * (rec)) >> X265_MAX(0, (2 * transformShift + 1)))
+#define PSYVALUE(rec)   ((psyScale * (rec)) >> S265_MAX(0, (2 * transformShift + 1)))
 
     int64_t costCoeff[trSize * trSize];   /* d*d + lambda * bits */
     int64_t costUncoded[trSize * trSize]; /* d*d + lambda * 0    */
@@ -704,10 +704,10 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
     {
         for (int cgScanPos = cgLastScanPos + 1; cgScanPos < (int)cgNum ; cgScanPos++)
         {
-            X265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");
+            S265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");
             uint32_t scanPosBase = (cgScanPos << MLS_CG_SIZE);
             uint32_t blkPos      = codeParams.scan[scanPosBase];
-#if X265_ARCH_X86
+#if S265_ARCH_X86
             bool enable512 = detect512();
             if (enable512)
                 primitives.cu[log2TrSize - 2].psyRdoQuant(m_resiDctCoeff, m_fencDctCoeff, costUncoded, &totalUncodedCost, &totalRdCost, &psyScale, blkPos);
@@ -727,7 +727,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
         // non-psy path
         for (int cgScanPos = cgLastScanPos + 1; cgScanPos < (int)cgNum ; cgScanPos++)
         {
-            X265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");
+            S265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");
             uint32_t scanPosBase = (cgScanPos << MLS_CG_SIZE);
             uint32_t blkPos      = codeParams.scan[scanPosBase];
             primitives.cu[log2TrSize - 2].nonPsyRdoQuant(m_resiDctCoeff, costUncoded, &totalUncodedCost, &totalRdCost, blkPos);
@@ -794,7 +794,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             uint32_t blkPos = codeParams.scan[scanPosBase];
             if (usePsyMask)
             {
-#if X265_ARCH_X86
+#if S265_ARCH_X86
                 bool enable512 = detect512();
                 if (enable512)
                     primitives.cu[log2TrSize - 2].psyRdoQuant(m_resiDctCoeff, m_fencDctCoeff, costUncoded, &totalUncodedCost, &totalRdCost, &psyScale, blkPos);
@@ -814,8 +814,8 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                     {
                         const uint32_t scanPosOffset =  y * MLS_CG_SIZE + x;
                         const uint32_t ctxSig = table_cnt[patternSigCtx][g_scan4x4[codeParams.scanType][scanPosOffset]] + ctxSigOffset;
-                        X265_CHECK(trSize > 4, "trSize check failure\n");
-                        X265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
+                        S265_CHECK(trSize > 4, "trSize check failure\n");
+                        S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
 
                         costSig[scanPosBase + scanPosOffset] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);
                         costCoeff[scanPosBase + scanPosOffset] = costUncoded[blkPos + x];
@@ -835,8 +835,8 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                     {
                         const uint32_t scanPosOffset =  y * MLS_CG_SIZE + x;
                         const uint32_t ctxSig = table_cnt[patternSigCtx][g_scan4x4[codeParams.scanType][scanPosOffset]] + ctxSigOffset;
-                        X265_CHECK(trSize > 4, "trSize check failure\n");
-                        X265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
+                        S265_CHECK(trSize > 4, "trSize check failure\n");
+                        S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
 
                         costSig[scanPosBase + scanPosOffset] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);
                         costCoeff[scanPosBase + scanPosOffset] = costUncoded[blkPos + x];
@@ -879,7 +879,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
 
             /* cost of not coding this coefficient (all distortion, no signal bits) */
             costUncoded[blkPos] = ((int64_t)signCoef * signCoef) << scaleBits;
-            X265_CHECK((!!scanPos ^ !!blkPos) == 0, "failed on (blkPos=0 && scanPos!=0)\n");
+            S265_CHECK((!!scanPos ^ !!blkPos) == 0, "failed on (blkPos=0 && scanPos!=0)\n");
             if (usePsyMask & scanPos)
                 /* when no residual coefficient is coded, predicted coef == recon coef */
                 costUncoded[blkPos] -= PSYVALUE(predictedCoef);
@@ -893,7 +893,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             uint64_t ctxCnt = (trSize == 4) ? 0x8877886654325410ULL : table_cnt64[patternSigCtx];
             const uint32_t ctxSig = (blkPos == 0) ? 0 : ((ctxCnt >> (4 * g_scan4x4[codeParams.scanType][scanPosinCG])) & 0xF) + ctxSigOffset;
             // NOTE: above equal to 'table_cnt[(trSize == 4) ? 4 : patternSigCtx][g_scan4x4[codeParams.scanType][scanPosinCG]] + ctxSigOffset'
-            X265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, blkPos, bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
+            S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, blkPos, bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
 
             // before find lastest non-zero coeff
             if (scanPos > (uint32_t)lastScanPos)
@@ -926,10 +926,10 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 const uint32_t c1c2idx = ((c1Idx - 8) >> (sizeof(int) * CHAR_BIT - 1)) + (((-(int)c2Idx) >> (sizeof(int) * CHAR_BIT - 1)) + 1) * 2;
                 const uint32_t baseLevel = ((uint32_t)0xD9 >> (c1c2idx * 2)) & 3;  // {1, 2, 1, 3}
 
-                X265_CHECK(!!((int)c1Idx < C1FLAG_NUMBER) == (int)((c1Idx - 8) >> (sizeof(int) * CHAR_BIT - 1)), "scan validation 1\n");
-                X265_CHECK(!!(c2Idx == 0) == ((-(int)c2Idx) >> (sizeof(int) * CHAR_BIT - 1)) + 1, "scan validation 2\n");
-                X265_CHECK((int)baseLevel == ((c1Idx < C1FLAG_NUMBER) ? (2 + (c2Idx == 0)) : 1), "scan validation 3\n");
-                X265_CHECK(c1c2idx <= 3, "c1c2Idx check failure\n");
+                S265_CHECK(!!((int)c1Idx < C1FLAG_NUMBER) == (int)((c1Idx - 8) >> (sizeof(int) * CHAR_BIT - 1)), "scan validation 1\n");
+                S265_CHECK(!!(c2Idx == 0) == ((-(int)c2Idx) >> (sizeof(int) * CHAR_BIT - 1)) + 1, "scan validation 2\n");
+                S265_CHECK((int)baseLevel == ((c1Idx < C1FLAG_NUMBER) ? (2 + (c2Idx == 0)) : 1), "scan validation 3\n");
+                S265_CHECK(c1c2idx <= 3, "c1c2Idx check failure\n");
 
                 // coefficient level estimation
                 const int* levelAbsBits = estBitsSbac.levelAbsBits[ctxSet + c2];
@@ -954,14 +954,14 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 }
 
                 const uint32_t unQuantLevel = (maxAbsLevel * (unquantScale[blkPos] << per) + unquantRound);
-                // NOTE: X265_MAX(maxAbsLevel - 1, 1) ==> (X>=2 -> X-1), (X<2 -> 1)  | (0 < X < 2 ==> X=1)
+                // NOTE: S265_MAX(maxAbsLevel - 1, 1) ==> (X>=2 -> X-1), (X<2 -> 1)  | (0 < X < 2 ==> X=1)
                 if (maxAbsLevel == 1)
                 {
                     uint32_t levelBits = (c1c2idx & 1) ? greaterOneBits[0] + IEP_RATE : ((1 + goRiceParam) << 15) + IEP_RATE;
-                    X265_CHECK(levelBits == getICRateCost(1, 1 - baseLevel, greaterOneBits, levelAbsBits, goRiceParam, c1c2Rate) + IEP_RATE, "levelBits mistake\n");
+                    S265_CHECK(levelBits == getICRateCost(1, 1 - baseLevel, greaterOneBits, levelAbsBits, goRiceParam, c1c2Rate) + IEP_RATE, "levelBits mistake\n");
 
                     int unquantAbsLevel = unQuantLevel >> unquantShift;
-                    X265_CHECK(UNQUANT(1) == unquantAbsLevel, "DQuant check failed\n");
+                    S265_CHECK(UNQUANT(1) == unquantAbsLevel, "DQuant check failed\n");
                     int d = abs(signCoef) - unquantAbsLevel;
                     int64_t curCost = RDCOST(d, sigCoefBits + levelBits);
 
@@ -987,12 +987,12 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                     const uint32_t preDQuantLevelDiff = (unquantScale[blkPos] << per);
 
                     const int unquantAbsLevel0 = unQuantLevel >> unquantShift;
-                    X265_CHECK(UNQUANT(maxAbsLevel) == (uint32_t)unquantAbsLevel0, "DQuant check failed\n");
+                    S265_CHECK(UNQUANT(maxAbsLevel) == (uint32_t)unquantAbsLevel0, "DQuant check failed\n");
                     int d0 = abs(signCoef) - unquantAbsLevel0;
                     int64_t curCost0 = RDCOST(d0, sigCoefBits + levelBits0);
 
                     const int unquantAbsLevel1 = (unQuantLevel - preDQuantLevelDiff) >> unquantShift;
-                    X265_CHECK(UNQUANT(maxAbsLevel - 1) == (uint32_t)unquantAbsLevel1, "DQuant check failed\n");
+                    S265_CHECK(UNQUANT(maxAbsLevel - 1) == (uint32_t)unquantAbsLevel1, "DQuant check failed\n");
                     int d1 = abs(signCoef) - unquantAbsLevel1;
                     int64_t curCost1 = RDCOST(d1, sigCoefBits + levelBits1);
 
@@ -1035,7 +1035,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                     {
                         // NOTE: Min: L - 1 - {1,2,1,3} < -2 ==> L < {0,1,0,2}
                         //            additional L > 0, so I got (L > 0 && L < 2) ==> L = 1
-                        X265_CHECK(level == 1, "absLevel check failure\n");
+                        S265_CHECK(level == 1, "absLevel check failure\n");
 
                         const int rateEqual2 = greaterOneBits[1] + levelAbsBits[0];;
                         const int rateNotEqual2 = greaterOneBits[0];
@@ -1044,9 +1044,9 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         rate2 = rateEqual2;
                         rate1 = rateNotEqual2;
 
-                        X265_CHECK(rate1 == getICRateNegDiff(level + 0, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
-                        X265_CHECK(rate2 == getICRateNegDiff(level + 1, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
-                        X265_CHECK(rate0 == getICRateNegDiff(level - 1, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
+                        S265_CHECK(rate1 == getICRateNegDiff(level + 0, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
+                        S265_CHECK(rate2 == getICRateNegDiff(level + 1, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
+                        S265_CHECK(rate0 == getICRateNegDiff(level - 1, greaterOneBits, levelAbsBits), "rate1 check failure!\n");
                     }
                     else if (diff0 >= 0 && diff2 <= maxVlc)     // prob except from above path (98.6, 97.9, 96.9)%
                     {
@@ -1102,13 +1102,13 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             cgRdStats.sigCost += costSig[scanPos];
         } /* end for (scanPosinCG) */
 
-        X265_CHECK((cgScanPos << MLS_CG_SIZE) == (int)scanPos, "scanPos mistake\n");
+        S265_CHECK((cgScanPos << MLS_CG_SIZE) == (int)scanPos, "scanPos mistake\n");
         cgRdStats.sigCost0 = costSig[scanPos];
 
         costCoeffGroupSig[cgScanPos] = 0;
 
         /* nothing to do at this case */
-        X265_CHECK(cgLastScanPos >= 0, "cgLastScanPos check failure\n");
+        S265_CHECK(cgLastScanPos >= 0, "cgLastScanPos check failure\n");
 
         if (!cgScanPos || cgScanPos == cgLastScanPos)
         {
@@ -1162,7 +1162,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
         }
     } /* end for (cgScanPos) */
 
-    X265_CHECK(lastScanPos >= 0, "numSig non zero, but no coded CG\n");
+    S265_CHECK(lastScanPos >= 0, "numSig non zero, but no coded CG\n");
 
     /* calculate RD cost of uncoded block CBF=0, and add cost of CBF=1 to total */
     int64_t bestCost;
@@ -1268,7 +1268,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
 
     // Average 49.62 pixels
     /* clean uncoded coefficients */
-    X265_CHECK((uint32_t)(fastMin(lastScanPos, bestLastIdx) | (SCAN_SET_SIZE - 1)) < trSize * trSize, "array beyond bound\n");
+    S265_CHECK((uint32_t)(fastMin(lastScanPos, bestLastIdx) | (SCAN_SET_SIZE - 1)) < trSize * trSize, "array beyond bound\n");
     for (int pos = bestLastIdx; pos <= (fastMin(lastScanPos, bestLastIdx) | (SCAN_SET_SIZE - 1)); pos++)
     {
         dstCoeff[codeParams.scan[pos]] = 0;
@@ -1311,7 +1311,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 int32_t absSum_dummy = 0;
                 for (n = firstNZPosInCG; n <= lastNZPosInCG; n++)
                     absSum_dummy += dstCoeff[codeParams.scan[n + subPos]];
-                X265_CHECK(((uint32_t)absSum_dummy & 1) == (absSumSign >> 31), "absSumSign check failure\n");
+                S265_CHECK(((uint32_t)absSum_dummy & 1) == (absSumSign >> 31), "absSumSign check failure\n");
 #endif
 
                 //if (signbit != absSumSign)
@@ -1337,7 +1337,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         const uint32_t unQuantLevel = (absLevel * (unquantScale[blkPos] << per) + unquantRound);
 
                         int d = abs(signCoef) - (unQuantLevel >> unquantShift);
-                        X265_CHECK((uint32_t)UNQUANT(absLevel) == (unQuantLevel >> unquantShift), "dquant check failed\n");
+                        S265_CHECK((uint32_t)UNQUANT(absLevel) == (unQuantLevel >> unquantShift), "dquant check failed\n");
 
                         const int64_t origDist = (((int64_t)d * d));
 
@@ -1347,13 +1347,13 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         if (dstCoeff[blkPos])
                         {
                             d = abs(signCoef) - ((unQuantLevel + preDQuantLevelDiff) >> unquantShift);
-                            X265_CHECK((uint32_t)UNQUANT(absLevel + 1) == ((unQuantLevel + preDQuantLevelDiff) >> unquantShift), "dquant check failed\n");
+                            S265_CHECK((uint32_t)UNQUANT(absLevel + 1) == ((unQuantLevel + preDQuantLevelDiff) >> unquantShift), "dquant check failed\n");
                             int64_t costUp = DELTARDCOST(origDist, d, rateIncUp[blkPos]);
 
                             /* if decrementing would make the coeff 0, we can include the
                              * significant coeff flag cost savings */
                             d = abs(signCoef) - ((unQuantLevel - preDQuantLevelDiff) >> unquantShift);
-                            X265_CHECK((uint32_t)UNQUANT(absLevel - 1) == ((unQuantLevel - preDQuantLevelDiff) >> unquantShift), "dquant check failed\n");
+                            S265_CHECK((uint32_t)UNQUANT(absLevel - 1) == ((unQuantLevel - preDQuantLevelDiff) >> unquantShift), "dquant check failed\n");
                             int downBits = rateIncDown[blkPos] - (isOne ? (IEP_RATE + sigRateDelta[blkPos]) : 0);
                             int64_t costDown = DELTARDCOST(origDist, d, downBits);
 
@@ -1375,7 +1375,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         {
                             /* evaluate changing an uncoded coeff 0 to a coded coeff +/-1 */
                             d = abs(signCoef) - ((preDQuantLevelDiff + unquantRound) >> unquantShift);
-                            X265_CHECK((uint32_t)UNQUANT(1) == ((preDQuantLevelDiff + unquantRound) >> unquantShift), "dquant check failed\n");
+                            S265_CHECK((uint32_t)UNQUANT(1) == ((preDQuantLevelDiff + unquantRound) >> unquantShift), "dquant check failed\n");
                             curCost = DELTARDCOST(origDist, d, rateIncUp[blkPos] + IEP_RATE + sigRateDelta[blkPos]);
                             curChange = 1;
                         }
@@ -1442,10 +1442,10 @@ uint32_t Quant::getSigCtxInc(uint32_t patternSigCtx, uint32_t log2TrSize, uint32
 
     const uint32_t posY = blkPos >> log2TrSize;
     const uint32_t posX = blkPos & (trSize - 1);
-    X265_CHECK((blkPos - (posY << log2TrSize)) == posX, "block pos check failed\n");
+    S265_CHECK((blkPos - (posY << log2TrSize)) == posX, "block pos check failed\n");
 
     int posXinSubset = blkPos & 3;
-    X265_CHECK((posX & 3) == (blkPos & 3), "pos alignment fail\n");
+    S265_CHECK((posX & 3) == (blkPos & 3), "pos alignment fail\n");
     int posYinSubset = posY & 3;
 
     // NOTE: [patternSigCtx][posXinSubset][posYinSubset]

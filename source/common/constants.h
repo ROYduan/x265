@@ -19,20 +19,20 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_CONSTANTS_H
-#define X265_CONSTANTS_H
+#ifndef S265_CONSTANTS_H
+#define S265_CONSTANTS_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
-extern double x265_lambda_tab[QP_MAX_MAX + 1];
-extern double x265_lambda2_tab[QP_MAX_MAX + 1];
-extern const uint16_t x265_chroma_lambda2_offset_tab[MAX_CHROMA_LAMBDA_OFFSET + 1];
+extern double s265_lambda_tab[QP_MAX_MAX + 1];
+extern double s265_lambda2_tab[QP_MAX_MAX + 1];
+extern const uint16_t s265_chroma_lambda2_offset_tab[MAX_CHROMA_LAMBDA_OFFSET + 1];
 
 enum { ChromaQPMappingTableSize = 70 };
 enum { AngleMapping422TableSize = 36 };
@@ -86,7 +86,7 @@ extern const uint8_t g_goRiceRange[5]; // maximum value coded with Rice codes
 
 // CABAC tables
 extern const uint8_t g_lpsTable[64][4];
-extern const uint8_t x265_exp2_lut[64];
+extern const uint8_t s265_exp2_lut[64];
 
 // Intra tables
 extern const uint8_t g_intraFilterFlags[NUM_INTRA_MODE];
