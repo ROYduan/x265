@@ -271,6 +271,14 @@ void Lowres::init(PicYuv *origPic, int poc)
     m_bIsMaxThres = false;
     m_bIsHardScenecut = false;
 
+    i_level = 0;
+    i_gop_size = 1;
+    i_bref = 0;
+    i_max_depth = 0;
+    i_gop_id = 1;
+    i_temporal_id = 0;
+    i_ref_value = 0;
+
     if (qpAqOffset && invQscaleFactor)
         memset(costEstAq, -1, sizeof(costEstAq));
 

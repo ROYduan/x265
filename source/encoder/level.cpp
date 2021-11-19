@@ -183,15 +183,20 @@ void determineLevel(const s265_param &param, VPS& vps)
 
         /* The value of NumPocTotalCurr shall be less than or equal to 8 */
         int numPocTotalCurr = param.maxNumReferences + vps.numReorderPics;
-        if (numPocTotalCurr > 8)
+        /*这里的8应该是个估计值，并不一定是必须的，如果参考帧管理得当，numPocTotalCurr大于8不会让PDB过限制*/
+        if(param.bBPyramid<S265_B_PYRAMID_HIER)
         {
-            s265_log(&param, S265_LOG_WARNING, "level %s detected, but NumPocTotalCurr (total references) is non-compliant\n", levels[i].name);
-            vps.ptl.profileIdc = Profile::NONE;
-            vps.ptl.levelIdc = Level::NONE;
-            vps.ptl.tierFlag = Level::MAIN;
-            s265_log(&param, S265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
-            return;
+            if (numPocTotalCurr > 8)
+            {
+                s265_log(&param, S265_LOG_WARNING, "level %s detected, but NumPocTotalCurr (total references) is non-compliant\n", levels[i].name);
+                vps.ptl.profileIdc = Profile::NONE;
+                vps.ptl.levelIdc = Level::NONE;
+                vps.ptl.tierFlag = Level::MAIN;
+                s265_log(&param, S265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
+                return;
+            }
         }
+
 
 #define CHECK_RANGE(value, main, high) (high != MAX_UINT && value > main && value <= high)
 
@@ -289,7 +294,15 @@ void determineLevel(const s265_param &param, VPS& vps)
  * circumstances it will be quite noisy */
 bool enforceLevel(s265_param& param, VPS& vps)
 {
-    vps.numReorderPics = (param.bBPyramid && param.bframes > 1) ? 2 : !!param.bframes;
+    int reorderPicsPyramid = 2;
+    if( param.bBPyramid== S265_B_PYRAMID_HIER )
+    {
+        if( param.bframes > 7 )
+            reorderPicsPyramid = 4;
+        else if(param.bframes > 3 )
+            reorderPicsPyramid = 3;
+    }
+    vps.numReorderPics = (param.bBPyramid && param.bframes > 1) ? reorderPicsPyramid : !!param.bframes;
     vps.maxDecPicBuffering = S265_MIN(MAX_NUM_REF, S265_MAX(vps.numReorderPics + 2, (uint32_t)param.maxNumReferences) + 1);
 
     /* no level specified by user, just auto-detect from the configuration */

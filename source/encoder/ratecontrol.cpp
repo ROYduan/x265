@@ -1932,11 +1932,28 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 q0 = q1;
             }
         }
+        int is_hier = m_param->rc.pyQpMethod&&(m_param->bBPyramid == S265_B_PYRAMID_HIER);
+        if(m_param->rc.pyQpMethod == 2 && m_param->rc.rfConstant<30)
+        {
+            is_hier = false;
+        }
 
-        if (prevRefSlice->m_sliceType == B_SLICE && IS_REFERENCED(m_curSlice->m_refFrameList[0][0]))
-            q0 -= m_pbOffset / 2;
-        if (nextRefSlice->m_sliceType == B_SLICE && IS_REFERENCED(m_curSlice->m_refFrameList[1][0]))
-            q1 -= m_pbOffset / 2;
+        if (is_hier)
+        {
+            if (m_param->rc.pyQpMethod!=3)
+            {
+                i0 = m_curSlice->m_refFrameList[0][0]->m_lowres.i_temporal_id == 0;
+                i1 = m_curSlice->m_refFrameList[1][0]->m_lowres.i_temporal_id == 0;
+            }
+        }
+        else
+        {
+            if (prevRefSlice->m_sliceType == B_SLICE && IS_REFERENCED(m_curSlice->m_refFrameList[0][0]))
+                q0 -= m_pbOffset / 2;
+            if (nextRefSlice->m_sliceType == B_SLICE && IS_REFERENCED(m_curSlice->m_refFrameList[1][0]))
+                q1 -= m_pbOffset / 2;
+        }
+
         if (i0 && i1)
             q = (q0 + q1) / 2 + m_ipOffset;
         else if (i0)
@@ -1948,8 +1965,13 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             else
             q = (q0 * dt1 + q1 * dt0) / (dt0 + dt1);
 
-        if (IS_REFERENCED(curFrame))
-            q += m_pbOffset / 2;
+        double crf_factor = 0.5;
+        if (is_hier && m_param->rc.pyQpMethod==3)
+            crf_factor = m_param->rc.rfConstant * 1.1 / 15 - 1.2;
+
+        if (IS_REFERENCED(curFrame) || is_hier)
+            //q += m_pbOffset / 2;
+            q += m_pbOffset * crf_factor;
         else
             q += m_pbOffset;
 

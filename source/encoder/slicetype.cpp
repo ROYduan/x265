@@ -960,6 +960,8 @@ void LookaheadTLD::weightsAnalyse(Lowres& fenc, Lowres& ref)
     }
 }
 
+#define ADAPTIVEGOP_RES_THRES (416 * 240)
+
 Lookahead::Lookahead(s265_param *param, ThreadPool* pool)
 {
     m_param = param;
@@ -983,6 +985,17 @@ Lookahead::Lookahead(s265_param *param, ThreadPool* pool)
     m_isFadeIn = false;
     m_fadeCount = 0;
     m_fadeStart = -1;
+
+    /* thres init */
+    int32_t adapt_gop_cost_ratio_thres[] = { 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2 };
+    double resolutionbase = sqrt( (double)(param->sourceHeight >> 1) * (param->sourceWidth >> 1) / ADAPTIVEGOP_RES_THRES );
+    i_large_mv_thres = 16 * resolutionbase; // 416,240 => 8; 1280x720 => 24; 1920x1080 =>  36; 3840x2160 => 68;
+    i_large_mv_thres2 =
+        16 * ( 1 + adapt_gop_cost_ratio_thres[param->subpelRefine] + ((param->sourceHeight + param->sourceWidth) > 2500 ? 1 : 0) ) / 10.0 *
+        ( (param->sourceHeight / 2 + param->sourceWidth / 2) / (416.0 + 240.0) );
+    i_large_mv_thres3 =
+        16 * ( 1 + (adapt_gop_cost_ratio_thres[param->subpelRefine] + ((param->sourceHeight + param->sourceWidth) > 2500 ? 1 : 0)) / 10.0 ) *
+        ( (param->sourceHeight / 2 + param->sourceWidth / 2) / (416.0 + 240.0) );
 
     /* Allow the strength to be adjusted via qcompress, since the two concepts
      * are very similar. */
@@ -1074,7 +1087,10 @@ bool Lookahead::create()
     int numTLD = 1 + (m_pool ? m_pool->m_numWorkers : 0);
     m_tld = new LookaheadTLD[numTLD];
     for (int i = 0; i < numTLD; i++)
+    {
         m_tld[i].init(m_8x8Width, m_8x8Height, m_8x8Blocks);
+        m_tld[i].setUsePskip(m_param->rc.costCalPskip);
+    }
     m_scratch = S265_MALLOC(int, m_tld[0].widthInCU);
 
     return m_tld && m_scratch;
@@ -1401,6 +1417,76 @@ void PreLookaheadGroup::processTasks(int workerThreadID)
     m_lock.release();
 }
 
+
+static void set_gop_info_internal(  Lowres *cur_frame, int32_t *gop_id, int32_t gop_size,
+    int32_t depth )
+{
+    static const int32_t max_depth[] = { 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4 };// gop_size max 17
+    //int32_t max_depth[] = { 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4 };// gop_size max 17  todo: BD_rate_test
+    //assert( gop_size <= 17 );
+    cur_frame->i_gop_size = gop_size;
+    cur_frame->i_max_depth = max_depth[gop_size];
+    // if( s264_is_key_frame( h, cur_frame ) || (cur_frame->b_scenecut && IS_S264_TYPE_I( cur_frame->i_type )) )
+    // {
+    //     cur_frame->i_gop_id = 0;
+    //     cur_frame->i_level = 0;
+    //     cur_frame->i_bref = 1;
+    //     cur_frame->i_temporal_id = 0;
+    //     if( cur_frame->i_type != S264_TYPE_I && cur_frame->i_type != S264_TYPE_IDR )
+    //        cur_frame->i_type = h->param.b_open_gop ? S264_TYPE_I : S264_TYPE_IDR;
+
+    //ZY TODO:目前先看一般情况,应该还有其他的情况
+    //此时应该是没有AUTO，但是谨慎起见，判断一下
+     if(!IS_S265_TYPE_B(cur_frame->sliceType) && cur_frame->sliceType != S265_TYPE_AUTO)
+     {
+         cur_frame->i_bref = 1;
+         cur_frame->i_temporal_id = 0;
+         cur_frame->i_gop_id = *gop_id;
+         cur_frame->i_level = 0;
+     }
+     else
+     {
+        cur_frame->i_level = depth;
+        cur_frame->i_bref = (depth < cur_frame->i_max_depth);
+        cur_frame->i_gop_id = *gop_id;
+//      cur_frame->i_temporal_id = S264_MAX(0, depth - 1);// note: this seems to be also ok    todo: BD_rate_test
+        cur_frame->i_temporal_id = cur_frame->i_gop_size > 4 ? S265_MAX(0, depth - 1): S265_MAX(0, depth );
+//      cur_frame->i_temporal_id = S264_MAX(0, depth);//tested   todo:BD_rate_test
+        cur_frame->sliceType = cur_frame->i_bref ? S265_TYPE_BREF : S265_TYPE_B;
+        // if( cur_frame->i_level == 0 )
+        // {
+        //     cur_frame->i_type = S264_TYPE_P;
+        // }
+    }
+    ( *gop_id )++;
+}
+
+static void set_gop_info_random_access( Lowres **frames, int32_t *gop_id, int32_t left,
+    int32_t right, int32_t gop_size, int32_t depth )
+{
+    if( left > right )
+    {
+        return;
+    }
+
+    if( depth < 5 )
+    {
+        int mid = (left + right) / 2;
+        Lowres *cur_frame = frames[mid];
+        set_gop_info_internal( cur_frame, gop_id, gop_size, depth);
+        set_gop_info_random_access( frames, gop_id, left, mid - 1, gop_size, depth + 1);
+        set_gop_info_random_access( frames, gop_id, mid + 1, right, gop_size, depth + 1);
+    }
+    else // this code will never be hit
+    {
+        for( int32_t idx = left; idx <= right; idx++ )
+        {
+            Lowres *cur_frame = frames[idx];
+            set_gop_info_internal( cur_frame, gop_id, gop_size, depth );
+        }
+    }
+}
+
 /* called by API thread or worker thread with inputQueueLock acquired */
 void Lookahead::slicetypeDecide()
 {
@@ -1535,7 +1621,7 @@ void Lookahead::slicetypeDecide()
 
             /* pyramid with multiple B-refs needs a big enough dpb that the preceding P-frame stays available.
              * smaller dpb could be supported by smart enough use of mmco, but it's easier just to forbid it. */
-            else if (frm.sliceType == S265_TYPE_BREF && m_param->bBPyramid && brefs &&
+            else if (frm.sliceType == S265_TYPE_BREF && m_param->bBPyramid == S265_B_PYRAMID_STRICT && brefs &&
                 m_param->maxNumReferences <= (brefs + 3))
             {
                 frm.sliceType = S265_TYPE_B;
@@ -1629,7 +1715,13 @@ void Lookahead::slicetypeDecide()
             if (frm.sliceType == S265_TYPE_AUTO)
                 frm.sliceType = S265_TYPE_B;
             else if (!IS_S265_TYPE_B(frm.sliceType))
+            {
+                //如果是非S265_TYPE_B，自然也可以做参考帧，我们在这里标记一下i_bref。
+                //另：我们需要i_bref这个变量吗？或许可以去掉
+                frm.i_bref = 1;
                 break;
+            }
+                
         }
     }
     else
@@ -1655,12 +1747,36 @@ void Lookahead::slicetypeDecide()
     m_lastNonB = &list[bframes]->m_lowres;
     m_histogram[bframes]++;
 
+
+
     /* insert a bref into the sequence */
+    //ZY TODO:有可能放到if (!m_param->analysisLoad || m_param->bAnalysisType == HEVC_INFO)之前会比较好，可以做检查
+    // if (m_param->bBPyramid == S265_B_PYRAMID_HIER && bframes > 1)
+    // {
+    //     int32_t gop_id = 1;
+    //     set_gop_info_internal(frames[bframes + 1], &gop_id, bframes + 2, 0);
+    //     set_gop_info_random_access(frames, &gop_id, 1, bframes, bframes + 2, 1);
+    //     //frames[1+ numBFramesReal]->sliceType = S265_TYPE_P;
+    //     for (int i = 1, brefs = 0; i <= bframes; i++)
+    //     {
+    //         Lowres &frm = list[i]->m_lowres;
+    //         if (frm.sliceType == S265_TYPE_BREF)
+    //             brefs++;
+    //     }
+    // }
+    // else if (m_param->bBPyramid && bframes > 1 && !brefs)
+    // {
+    //     list[bframes / 2]->m_lowres.sliceType = S265_TYPE_BREF;
+    //     brefs++;
+    // }
+
     if (m_param->bBPyramid && bframes > 1 && !brefs)
     {
         list[bframes / 2]->m_lowres.sliceType = S265_TYPE_BREF;
         brefs++;
     }
+
+    /*ZY TODO:参考关系变了cost计算可能也要变*/
     /* calculate the frame costs ahead of time for estimateFrameCost while we still have lowres */
     if (m_param->rc.rateControlMode != S265_RC_CQP)
     {
@@ -1682,26 +1798,46 @@ void Lookahead::slicetypeDecide()
 
         if (bframes)
         {
-            p0 = 0; // last nonb
-            bool isp0available = frames[bframes + 1]->sliceType == S265_TYPE_IDR ? false : true;
-
-            for (b = 1; b <= bframes; b++)
+            if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
             {
-                if (!isp0available)
-                    p0 = b;
+                p0 = 0; // last nonb
+                bool isp0available = frames[bframes + 1]->sliceType == S265_TYPE_IDR ? false : true;
 
-                if (frames[b]->sliceType == S265_TYPE_B)
-                    for (p1 = b; frames[p1]->sliceType == S265_TYPE_B; p1++)
-                        ; // find new nonb or bref
-                else
-                    p1 = bframes + 1;
-
-                estGroup.singleCost(p0, p1, b);
-
-                if (frames[b]->sliceType == S265_TYPE_BREF)
+                for (b = 1; b <= bframes; b++)
                 {
-                    p0 = b;
-                    isp0available = true;
+                    for (p1 = b+1; frames[p1]->i_level >= frames[b]->i_level && p1<=bframes+1; p1++)
+                            ; // find new bref or p level lower than cur b
+                    for (p0 = b-1; frames[p0]->i_level >= frames[b]->i_level && p0>=0; p0--)
+                            ; // find new bref or p level lower than cur b
+                    if (!isp0available && p0==0)
+                        p0 = b;
+
+                    estGroup.singleCost(p0, p1, b);
+                }
+            }
+            else
+            {
+                p0 = 0; // last nonb
+                bool isp0available = frames[bframes + 1]->sliceType == S265_TYPE_IDR ? false : true;
+
+                for (b = 1; b <= bframes; b++)
+                {
+                    if (!isp0available)
+                        p0 = b;
+
+                    if (frames[b]->sliceType == S265_TYPE_B)
+                        for (p1 = b; frames[p1]->sliceType == S265_TYPE_B; p1++)
+                            ; // find new nonb or bref
+                    else
+                        p1 = bframes + 1;
+
+                    estGroup.singleCost(p0, p1, b);
+
+                    if (frames[b]->sliceType == S265_TYPE_BREF)
+                    {
+                        p0 = b;
+                        isp0available = true;
+                    }
                 }
             }
         }
@@ -1726,6 +1862,34 @@ void Lookahead::slicetypeDecide()
     int idx = 0;
     list[bframes]->m_reorderedPts = pts[idx++];
     m_outputQueue.pushBack(*list[bframes]);
+
+    if(m_param->bBPyramid == S265_B_PYRAMID_HIER)
+    {
+        
+        int  put_flag[S265_BFRAME_MAX + 2] = {0};
+        for (int i = 0; i < bframes; i++)
+        {
+            int minimumNum = 10 + bframes;
+            int minimumId = 0;
+            for(int j = 0; j<bframes; j++)
+            {
+                if(put_flag[j])
+                    continue;
+                if(minimumNum > list[j]->m_lowres.i_gop_id)
+                {
+                    minimumNum = list[j]->m_lowres.i_gop_id;
+                    minimumId = j;
+                }
+            }
+            put_flag[minimumId] = 1;
+            list[minimumId]->m_reorderedPts = pts[idx++];
+            m_outputQueue.pushBack(*list[minimumId]);
+        }
+    }
+    else
+    {
+
+    
     /* Add B-ref frame next to P frame in output queue, the B-ref encode before non B-ref frame */
     if (brefs)
     {
@@ -1748,6 +1912,7 @@ void Lookahead::slicetypeDecide()
             list[i]->m_reorderedPts = pts[idx++];
             m_outputQueue.pushBack(*list[i]);
         }
+    }
     }
 
     bool isKeyFrameAnalyse = (m_param->rc.cuTree || (m_param->rc.vbvBufferSize && m_param->lookaheadDepth));
@@ -1860,6 +2025,7 @@ void Lookahead::vbvLookahead(Lowres **frames, int numFrames, int keyframe)
     frames[nextNonB]->plannedType[idx] = S265_TYPE_AUTO;
 }
 
+
 int64_t Lookahead::vbvFrameCost(Lowres **frames, int p0, int p1, int b)
 {
     CostEstimateGroup estGroup(*this, frames);
@@ -1874,6 +2040,73 @@ int64_t Lookahead::vbvFrameCost(Lowres **frames, int p0, int p1, int b)
     }
 
     return cost;
+}
+
+#define IS_S265_TYPE_AUTO_OR_B(x) ((x)==S265_TYPE_AUTO || IS_S265_TYPE_B(x))
+int Lookahead::check_gop8( Lowres **frames, int32_t gop_start )
+{
+    static const int32_t adaptive_gop4_ratio[] = { 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85 };
+    static const int32_t adaptive_gop8_ratio[] = { 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80 };
+    int32_t gop_end = gop_start + 8;
+    CostEstimateGroup estGroup(*this, frames);
+    estGroup.singleCost(gop_start, gop_end, gop_end);
+    double adapt_gop_cost = 1.0 * (frames[gop_end]->largeMvs[gop_end - gop_start]) / m_8x8Blocks;
+    double large_mv_thres8 = 5 / 10.0;
+    if( adapt_gop_cost >= large_mv_thres8 )
+    {
+        double costRatio =
+            1.0 * frames[gop_end]->costEst[gop_end - gop_start][0] / frames[gop_end]->costEst[0][0];
+        double ratioGop4 = adaptive_gop4_ratio[m_param->subpelRefine] / 100.0;
+        double ratioGop8 = adaptive_gop8_ratio[m_param->subpelRefine] / 100.0;
+
+        int cut_gop =( costRatio < 0.98 );
+
+        if( cut_gop )
+        { // not a scene cut
+            if( (costRatio > ratioGop4) ||
+                (costRatio > ratioGop8 && m_preGopSize == 4) )
+            { // if exceed maximum, must be gop=4
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+int Lookahead::check_gop16( Lowres **frames, int32_t gop_start )
+{
+    //int32_t large_mv_abr_thresh16[] = { 68, 68, 73, 73, 73, 73, 73, 73, 78, 78, 78, 78 };     // --large-mvabr-thresh16
+    //int32_t cost_ratio_abr_thresh16[] =  { 57, 57, 62, 62, 62, 62, 66, 66, 66, 66, 70, 70 };  // --cost-ratioabr-thresh16
+    //int32_t intra_ratio_abr_thresh16[] = { 60, 60, 62, 62, 62, 62, 62, 62, 72, 72, 78, 78 };  // --cost-ratioabr-thresh16
+    int32_t large_mv_abr_thresh16[] = { 75, 75, 75, 75, 75, 75, 75, 75, 80, 80, 80, 80 };     // --large-mvabr-thresh16
+    int32_t cost_ratio_abr_thresh16[] = { 70, 70, 70, 70, 70, 70, 70, 80, 80, 80, 80, 80 };  // --cost-ratioabr-thresh16
+    int32_t intra_ratio_abr_thresh16[] = { 70, 70, 70, 70, 75, 75, 75, 75, 80, 80, 80, 80 };  // --cost-ratioabr-thresh16
+
+    double large_mv_thres16 =
+        large_mv_abr_thresh16[m_param->subpelRefine] / 100.0;
+    double intra_ratio_thresh16 =
+        intra_ratio_abr_thresh16[m_param->subpelRefine] / 100.0;
+
+    int32_t gop_end = gop_start + 16;
+    CostEstimateGroup estGroup(*this, frames);
+    estGroup.singleCost(gop_start, gop_end, gop_end);
+    double large_mv_frac = 1.0 * ( frames[gop_end]->veryLargeMvs[gop_end - gop_start] ) / m_8x8Blocks;
+    double intra_frac = 1.0 * ( frames[gop_end]->intraMbs[gop_end - gop_start] ) / m_8x8Blocks;
+
+    if( intra_frac <= intra_ratio_thresh16 && large_mv_frac <= large_mv_thres16 )
+    {
+        double ratio_gop16 = cost_ratio_abr_thresh16[m_param->subpelRefine] / 100.0;
+        double cost_ratio16 =
+            1.0 * frames[gop_end]->costEst[gop_end - gop_start][0] / frames[gop_end]->costEst[0][0];
+        double similarity = 1.0 * frames[gop_start]->costEst[0][0] / frames[gop_end]->costEst[0][0];
+
+        if( cost_ratio16 < ratio_gop16 && cost_ratio16 >= 0.05 && similarity >= 0.3333 &&
+            similarity <= 3 )
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
@@ -1895,7 +2128,17 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     if (!framecnt)
     {
         if (m_param->rc.cuTree)
-            cuTree(frames, 0, bKeyframe);
+        {
+            if(m_param->rc.cuTreeType)
+            {
+                cuTree2(frames, 0, bKeyframe);
+            }
+            else
+            {
+                cuTree(frames, 0, bKeyframe);
+            }
+        }
+            
         return;
     }
     frames[framecnt + 1] = NULL;
@@ -2084,7 +2327,78 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     }
     if (m_param->bframes)
     {
-        if (m_param->bFrameAdaptive == S265_B_ADAPT_TRELLIS)
+        if (m_param->bFrameAdaptive == S265_B_ADAPT_OPTIMAL_FAST)
+        {
+            int32_t gop_start = 0;
+            int32_t search_len = S265_MIN(m_param->bframes + 1, origNumFrames);
+            int32_t gop_size = 0;
+            if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
+            {
+                for( int j = 1; j < search_len; j++ )//first minigop scenecut check
+                {
+                    if( scenecut( frames, j, j + 1, 0, origNumFrames ) )
+                    {
+                        gop_size = j;
+                        break;
+                    }
+                }
+                if( gop_size > 0 )
+                {
+                    if( gop_size >= 8 )
+                    {
+                        int firstgop4 =( frames[0]->frameNum - m_lastKeyframe < 4 );
+                        int is_gop8_good = firstgop4 ? 0 : check_gop8( frames, gop_start );
+                        gop_size = is_gop8_good ? 8 : 4;
+                    }
+                    m_preGopSize = gop_size;
+                    if(IS_S265_TYPE_AUTO_OR_B(frames[gop_start+gop_size]->sliceType))
+                        frames[gop_start+gop_size]->sliceType = S265_TYPE_P;
+                    //process_gop( h, frames, gop_start, gop_size, 1 );
+                    gop_start += gop_size;
+                }
+            }
+            while( gop_start < numFrames )
+            {
+                for( gop_size = 0; (gop_size < m_param->bframes + 1) && (gop_start + gop_size + 1 <= numFrames); gop_size++ )
+                {
+                    if( !IS_S265_TYPE_AUTO_OR_B(frames[gop_start + gop_size + 1]->sliceType) )
+                    {
+                        gop_size++;
+                        break;
+                    }
+                }
+                if( gop_size >= 8 )
+                {
+                    int is_gop16_good = 0;
+                    if( gop_size >= 16 )
+                    {
+                        is_gop16_good = check_gop16( frames, gop_start );
+                        gop_size=16;
+                    }
+                    if( !is_gop16_good )
+                    {
+                        int is_gop8_good = check_gop8( frames, gop_start );
+                        gop_size = is_gop8_good ? 8 : S265_MIN( gop_size, 4 );
+                    }
+                }
+                m_preGopSize = gop_size;
+                if(IS_S265_TYPE_AUTO_OR_B(frames[gop_start+gop_size]->sliceType))
+                    frames[gop_start+gop_size]->sliceType = S265_TYPE_P;
+                
+                //process_gop( h, frames, gop_start, gop_size, 0 );
+                gop_start += gop_size;
+            }
+
+            for (int i = 1; i < numFrames; i++)
+            {
+                if (frames[i]->sliceType == S265_TYPE_AUTO)
+                    frames[i]->sliceType = S265_TYPE_B;
+            }
+            numBFrames = 0;
+            while (numBFrames < numFrames && frames[numBFrames + 1]->sliceType == S265_TYPE_B)
+                numBFrames++;
+        }
+        else if (m_param->bFrameAdaptive == S265_B_ADAPT_TRELLIS)
         {
             if (numFrames > 1)
             {
@@ -2156,12 +2470,32 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
         }
         else
         {
-            numBFrames = S265_MIN(numFrames - 1, m_param->bframes);
-            for (int j = 1; j < numFrames; j++)
-                frames[j]->sliceType = (j % (numBFrames + 1)) ? S265_TYPE_B : S265_TYPE_P;
+            //将BREF的决定更换一个位置，此处先注释掉
+            // if(m_param->bBPyramid == S265_B_PYRAMID_HIER)
+            // {
+                
+            //     numBFrames = S265_MIN(numFrames - 1, m_param->bframes);
+            //     for (int j = 1; j < numFrames; j = j + numBFrames + 1)
+            //     {
+            //         int32_t gop_id = 1;
+            //         int32_t numBFramesReal = S265_MIN(numBFrames, numFrames-j);
+            //         set_gop_info_internal( frames[j+ numBFramesReal], &gop_id, numBFramesReal+2, 0);
+            //         set_gop_info_random_access( frames, &gop_id, j, j+ numBFramesReal-1, numBFramesReal+2, 1);
+            //         frames[j+ numBFramesReal]->sliceType = S265_TYPE_P;
+            //     }
+                    
+            // }
+            // else
+            {
+                numBFrames = S265_MIN(numFrames - 1, m_param->bframes);
+                for (int j = 1; j < numFrames; j++)
+                    frames[j]->sliceType = (j % (numBFrames + 1)) ? S265_TYPE_B : S265_TYPE_P;
 
-            frames[numFrames]->sliceType = S265_TYPE_P;
+                frames[numFrames]->sliceType = S265_TYPE_P;
+            }
         }
+
+
 
         int zoneRadl = m_param->rc.zonefileCount && m_param->bResetZoneConfig ? m_param->rc.zones->zoneParam->radl : 0;
         bool bForceRADL = zoneRadl || (m_param->radl && (m_param->keyframeMax == m_param->keyframeMin));
@@ -2200,11 +2534,54 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
 
         resetStart = bKeyframe ? 1 : 2;
     }
+
+    /*这里帧类型不会再改变了，确定B帧的层级*/
+    if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
+    {
+        int bframes = 0;
+        int curNonB = 0;
+        for (int j = 1; j <= numFrames; j++)
+        {
+            assert(frames[j]->sliceType != S265_TYPE_AUTO);
+            //这里应该没有auto的情况了，但是先写上以免有其他问题
+            if (IS_S265_TYPE_B(frames[j]->sliceType) || frames[j]->sliceType == S265_TYPE_AUTO)
+                bframes++;
+            else
+            {
+                //if (frames[j]->sliceType == S265_TYPE_P)
+                {
+                    if (bframes > 0)
+                    {
+                        int32_t gop_id = 1;
+                        set_gop_info_internal(frames[j], &gop_id, bframes + 1, 0);
+                        set_gop_info_random_access(frames, &gop_id, curNonB + 1, j - 1, bframes + 1, 1);
+                    }
+                    else
+                    {
+                        int32_t gop_id = 1;
+                        set_gop_info_internal(frames[j], &gop_id, 1, 0);
+                    }
+                }
+                curNonB = j;
+                bframes = 0;
+            }
+        }
+    }
+
     if (m_param->bAQMotion)
         aqMotion(frames, bKeyframe);
 
     if (m_param->rc.cuTree)
-        cuTree(frames, S265_MIN(numFrames, m_param->keyframeMax), bKeyframe);
+    {
+        if (m_param->rc.cuTreeType)
+        {
+            cuTree2(frames, S265_MIN(numFrames, m_param->keyframeMax), bKeyframe);
+        }
+        else
+        {
+            cuTree(frames, S265_MIN(numFrames, m_param->keyframeMax), bKeyframe);
+        }
+    }
 
     if (m_param->gopLookahead && (keyFrameLimit >= 0) && (keyFrameLimit <= m_param->bframes + 1) && !m_extendGopBoundary)
         keyintLimit = keyFrameLimit;
@@ -2224,6 +2601,13 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     for (int j = resetStart; j <= numFrames; j++)
     {
         frames[j]->sliceType = S265_TYPE_AUTO;
+        frames[j]->i_level = 0;
+        frames[j]->i_gop_size = 1;
+        frames[j]->i_bref = 0;
+        frames[j]->i_max_depth = 0;
+        frames[j]->i_gop_id = 1;
+        frames[j]->i_temporal_id = 0;
+
         /* If any frame marked as scenecut is being restarted for sliceDecision, 
          * undo scene Transition flag */
         if (j <= maxp1 && frames[j]->bScenecut && m_isSceneTransition)
@@ -2405,8 +2789,25 @@ void Lookahead::slicetypePath(Lowres **frames, int length, char(*best_paths)[S26
         }
     }
 
+    //printf("length: %d, cost: %d, path: %s \n", length, best_cost, paths[idx ^ 1]);
     /* Store the best path. */
     memcpy(best_paths[length % (S265_BFRAME_MAX + 1)], paths[idx ^ 1], length);
+}
+
+static uint64_t addcost( CostEstimateGroup *estGroup, Lowres **frames, int left_ref, int right_ref, uint64_t threshold )
+{
+    uint64_t cost = 0;
+    if( right_ref - left_ref > 1 )
+	{
+        int middle = left_ref + ( right_ref - left_ref ) / 2;
+        cost += estGroup->singleCost(left_ref, right_ref, middle);
+
+        if( middle > left_ref && cost < threshold )
+            cost += addcost( estGroup, frames, left_ref, middle, threshold - cost );
+        if( right_ref > middle && cost < threshold )
+            cost += addcost( estGroup, frames, middle, right_ref, threshold - cost );
+    }
+    return cost;
 }
 
 int64_t Lookahead::slicetypePathCost(Lowres **frames, char *path, int64_t threshold)
@@ -2434,6 +2835,12 @@ int64_t Lookahead::slicetypePathCost(Lowres **frames, char *path, int64_t thresh
 
         if (m_param->bBPyramid && next_p - cur_p > 2)
         {
+            if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
+            {
+                cost += addcost( &estGroup, frames, cur_p, next_p, threshold - cost );
+            }
+            else
+            {
             int middle = cur_p + (next_p - cur_p) / 2;
             cost += estGroup.singleCost(cur_p, next_p, middle);
 
@@ -2442,6 +2849,8 @@ int64_t Lookahead::slicetypePathCost(Lowres **frames, char *path, int64_t thresh
 
             for (int next_b = middle + 1; next_b < next_p && cost < threshold; next_b++)
                 cost += estGroup.singleCost(middle, next_p, next_b);
+            }
+
         }
         else
         {
@@ -2586,10 +2995,22 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
 
     CostEstimateGroup estGroup(*this, frames);
 
+    if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
+    {
+        int first_nonb = bIntra ? 0 : frames[1]->i_gop_size;
+        for( int32_t t = first_nonb + 1; t <= i; t++ )
+        {
+            if( frames[t]->sliceType == S265_TYPE_BREF ) // i_bref
+                memset( frames[t]->propagateCost, 0, m_cuCount * sizeof(uint16_t) );
+        }
+    }
+
     while (i-- > idx)
     {
         curnonb = i;
-        while (frames[curnonb]->sliceType == S265_TYPE_B && curnonb > 0)
+        // while (frames[curnonb]->sliceType == S265_TYPE_B && curnonb > 0)
+        //     curnonb--;
+        while (IS_S265_TYPE_B(frames[curnonb]->sliceType) && curnonb > 0)
             curnonb--;
 
         if (curnonb < idx)
@@ -2601,22 +3022,76 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
         bframes = lastnonb - curnonb - 1;
         if (m_param->bBPyramid && bframes > 1)
         {
-            int middle = (bframes + 1) / 2 + curnonb;
-            estGroup.singleCost(curnonb, lastnonb, middle);
-            memset(frames[middle]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
-            while (i > curnonb)
+            if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
             {
-                int p0 = i > middle ? middle : curnonb;
-                int p1 = i < middle ? middle : lastnonb;
-                if (i != middle)
+                int32_t gop_id = frames[lastnonb]->i_gop_size;
+                while (i > curnonb)
                 {
-                    estGroup.singleCost(p0, p1, i);
-                    estimateCUPropagate(frames, averageDuration, p0, p1, i, 0);
-                }
-                i--;
-            }
+                    int32_t p0, p1, b = idx;
+                    int gop_id_exist = 0;
+                    for (int32_t cur = lastnonb - 1; cur > curnonb; cur--)
+                    {
+                        if (frames[cur]->i_gop_id == gop_id)
+                        {
+                            b = cur;
+                            gop_id_exist = 1;
+                            break;
+                        }
+                    }
+                    gop_id--;
 
-            estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, middle, 1);
+                    if (!gop_id_exist)
+                        continue;
+                    p0 = p1 = b;
+                    if (!IS_S265_TYPE_I(frames[b]->sliceType))
+                    {
+                        for (int32_t bef = b - 1; bef >= curnonb; bef--)
+                        {
+                            if (frames[bef] && frames[bef]->i_bref && frames[bef]->i_level <= frames[b]->i_level)
+                            {
+                                p0 = bef;
+                                break;
+                            }
+                        }
+                    }
+                    if (IS_S265_TYPE_B(frames[b]->sliceType))
+                    {
+                        for (int32_t aft = b + 1; aft <= lastnonb; aft++)
+                        {
+                            if (frames[aft] && frames[aft]->i_bref && frames[aft]->i_level <= frames[b]->i_level)
+                            {
+                                p1 = aft;
+                                break;
+                            }
+                        }
+                    }
+                    if (p0 != p1)
+                    {
+                        estGroup.singleCost(p0, p1, b);
+                        estimateCUPropagate(frames, averageDuration, p0, p1, b, frames[b]->i_bref);
+                    }
+                    i--;
+                }
+            }
+            else
+            {
+                int middle = (bframes + 1) / 2 + curnonb;
+                estGroup.singleCost(curnonb, lastnonb, middle);
+                memset(frames[middle]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+                while (i > curnonb)
+                {
+                    int p0 = i > middle ? middle : curnonb;
+                    int p1 = i < middle ? middle : lastnonb;
+                    if (i != middle)
+                    {
+                        estGroup.singleCost(p0, p1, i);
+                        estimateCUPropagate(frames, averageDuration, p0, p1, i, 0);
+                    }
+                    i--;
+                }
+
+                estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, middle, 1);
+            }
         }
         else
         {
@@ -2638,9 +3113,247 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
         std::swap(frames[lastnonb]->propagateCost, frames[0]->propagateCost);
     }
 
+    //printf("current qp minigop: %d->%d\n", frames[0]->frameNum, frames[lastnonb]->frameNum);
+    //printf("set qp from: %d->%d\n", frames[lastnonb]->frameNum, frames[lastnonb + bframes + 1]->frameNum);
+
+
     cuTreeFinish(frames[lastnonb], averageDuration, lastnonb);
+    
+
     if (m_param->bBPyramid && bframes > 1 && !m_param->rc.vbvBufferSize)
-        cuTreeFinish(frames[lastnonb + (bframes + 1) / 2], averageDuration, 0);
+    {
+        if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
+        {
+            for (int32_t gop_id = 1; gop_id <= bframes; gop_id++)
+            {
+                if (frames[lastnonb + gop_id]->i_bref)
+                {
+                    cuTreeFinish(frames[lastnonb + gop_id], averageDuration, 0);
+                }
+            }
+        }
+        else
+            cuTreeFinish(frames[lastnonb + (bframes + 1) / 2], averageDuration, 0);
+    }
+}
+
+
+void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
+{
+    int idx = !bIntra;
+    int lastnonb, curnonb = 1;
+    int bframes = 0;
+
+    s265_emms();
+    double totalDuration = 0.0;
+    for (int j = 0; j <= numframes; j++)
+        totalDuration += (double)m_param->fpsDenom / m_param->fpsNum;
+
+    double averageDuration = totalDuration / (numframes + 1);
+
+    int i = numframes;
+
+    while (i > 0 && frames[i]->sliceType == S265_TYPE_B)
+        i--;
+
+    lastnonb = i;
+
+    /* Lookaheadless MB-tree is not a theoretically distinct case; the same extrapolation could
+     * be applied to the end of a lookahead buffer of any size.  However, it's most needed when
+     * lookahead=0, so that's what's currently implemented. */
+    if (!m_param->lookaheadDepth)
+    {
+        if (bIntra)
+        {
+            memset(frames[0]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+            if (m_param->rc.qgSize == 8)
+                memcpy(frames[0]->qpCuTreeOffset, frames[0]->qpAqOffset, m_cuCount * 4 * sizeof(double));
+            else
+                memcpy(frames[0]->qpCuTreeOffset, frames[0]->qpAqOffset, m_cuCount * sizeof(double));
+            return;
+        }
+        std::swap(frames[lastnonb]->propagateCost, frames[0]->propagateCost);
+        memset(frames[0]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+    }
+    else
+    {
+        if (lastnonb < idx)
+            return;
+        memset(frames[lastnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+    }
+
+    CostEstimateGroup estGroup(*this, frames);
+
+    if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
+    {
+        //int first_nonb = bIntra ? 0 : frames[1]->i_gop_size ;
+        int first_nonb =  0 ;
+        for( int32_t t = first_nonb + 1; t <= i; t++ )
+        {
+            if( frames[t]->sliceType == S265_TYPE_BREF ) // i_bref
+                memset( frames[t]->propagateCost, 0, m_cuCount * sizeof(uint16_t) );
+        }
+    }
+    int lastnonb2 = lastnonb;
+    int lastnonb3 = lastnonb2;
+
+    while (i-- > idx)
+    {
+        curnonb = i;
+        // while (frames[curnonb]->sliceType == S265_TYPE_B && curnonb > 0)
+        //     curnonb--;
+        while (IS_S265_TYPE_B(frames[curnonb]->sliceType) && curnonb > 0)
+            curnonb--;
+
+        // if (curnonb < idx)
+        //     break;
+
+        estGroup.singleCost(curnonb, lastnonb, lastnonb);
+
+        memset(frames[curnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+        bframes = lastnonb - curnonb - 1;
+        if (m_param->bBPyramid && bframes > 1)
+        {
+            if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
+            {
+                int32_t gop_id = frames[lastnonb]->i_gop_size;
+                while (i > curnonb)
+                {
+                    int32_t p0, p1, b = idx;
+                    int gop_id_exist = 0;
+                    for (int32_t cur = lastnonb - 1; cur > curnonb; cur--)
+                    {
+                        if (frames[cur]->i_gop_id == gop_id)
+                        {
+                            b = cur;
+                            gop_id_exist = 1;
+                            break;
+                        }
+                    }
+                    gop_id--;
+
+                    if (!gop_id_exist)
+                        continue;
+                    p0 = p1 = b;
+                    if (!IS_S265_TYPE_I(frames[b]->sliceType))
+                    {
+                        for (int32_t bef = b - 1; bef >= curnonb; bef--)
+                        {
+                            if (frames[bef] && frames[bef]->i_bref && frames[bef]->i_level <= frames[b]->i_level)
+                            {
+                                p0 = bef;
+                                break;
+                            }
+                        }
+                    }
+                    if (IS_S265_TYPE_B(frames[b]->sliceType))
+                    {
+                        for (int32_t aft = b + 1; aft <= lastnonb; aft++)
+                        {
+                            if (frames[aft] && frames[aft]->i_bref && frames[aft]->i_level <= frames[b]->i_level)
+                            {
+                                p1 = aft;
+                                break;
+                            }
+                        }
+                    }
+                    if (p0 != p1)
+                    {
+                        estGroup.singleCost(p0, p1, b);
+                        estimateCUPropagate(frames, averageDuration, p0, p1, b, frames[b]->i_bref);
+                    }
+                    i--;
+                }
+            }
+            else
+            {
+                int middle = (bframes + 1) / 2 + curnonb;
+                estGroup.singleCost(curnonb, lastnonb, middle);
+                memset(frames[middle]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+                while (i > curnonb)
+                {
+                    int p0 = i > middle ? middle : curnonb;
+                    int p1 = i < middle ? middle : lastnonb;
+                    if (i != middle)
+                    {
+                        estGroup.singleCost(p0, p1, i);
+                        estimateCUPropagate(frames, averageDuration, p0, p1, i, 0);
+                    }
+                    i--;
+                }
+
+                estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, middle, 1);
+            }
+        }
+        else
+        {
+            while (i > curnonb)
+            {
+                estGroup.singleCost(curnonb, lastnonb, i);
+                estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, i, 0);
+                i--;
+            }
+        }
+        estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, lastnonb, 1);
+        lastnonb3 = lastnonb2;
+        lastnonb2 = lastnonb;
+        lastnonb = curnonb;
+    }
+
+    if (!m_param->lookaheadDepth)
+    {
+        estGroup.singleCost(0, lastnonb, lastnonb);
+        estimateCUPropagate(frames, averageDuration, 0, lastnonb, lastnonb, 1);
+        std::swap(frames[lastnonb]->propagateCost, frames[0]->propagateCost);
+    }
+
+    //printf("current qp minigop: %d->%d\n", frames[0]->frameNum, frames[lastnonb]->frameNum);
+    //printf("set qp from: %d->%d\n", frames[lastnonb]->frameNum, frames[lastnonb + bframes + 1]->frameNum);
+    
+
+    //first mini gop
+    if (curnonb == idx)
+    //if (curnonb < idx)
+    {
+        cuTreeFinish(frames[lastnonb], averageDuration, lastnonb);
+    }
+    if (m_param->bBPyramid && bframes > 1 && !m_param->rc.vbvBufferSize)
+    {
+        if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
+        {
+            for (int32_t gop_id = 1; gop_id <= bframes; gop_id++)
+            {
+                if (frames[lastnonb + gop_id]->i_bref)
+                {
+                    cuTreeFinish(frames[lastnonb + gop_id], averageDuration, 0);
+                }
+            }
+        }
+        else
+            cuTreeFinish(frames[lastnonb + (bframes + 1) / 2], averageDuration, 0);
+    }
+
+        //second mini gop
+    if (lastnonb3 > lastnonb2)
+    {
+        cuTreeFinish(frames[lastnonb + bframes + 1], averageDuration, lastnonb2 - lastnonb);
+        int bframes2 = lastnonb3 - lastnonb2-1;
+        if (m_param->bBPyramid && bframes2 > 1 && !m_param->rc.vbvBufferSize)
+        {
+            if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
+            {
+                for (int32_t gop_id = 1; gop_id <= bframes2; gop_id++)
+                {
+                    if (frames[lastnonb + gop_id]->i_bref)
+                    {
+                        cuTreeFinish(frames[lastnonb2 + gop_id], averageDuration, 0);
+                    }
+                }
+            }
+            else
+                cuTreeFinish(frames[lastnonb2 + (bframes2 + 1) / 2], averageDuration, 0);
+        }
+    }
 }
 
 void Lookahead::estimateCUPropagate(Lowres **frames, double averageDuration, int p0, int p1, int b, int referenced)
@@ -2899,6 +3612,7 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
     }
     else
     {
+        //printf("cal cuTreeFinish for frame %d\n", frame->frameNum);
         int fpsFactor = (int)(CLIP_DURATION(averageDuration) / CLIP_DURATION((double)m_param->fpsDenom / m_param->fpsNum) * 256);
         double weightdelta = 0.0;
 
@@ -3145,6 +3859,11 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
         fenc->costEst[b - p0][p1 - b] = 0;
         fenc->costEstAq[b - p0][p1 - b] = 0;
 
+
+        fenc->largeMvs[b-p0] = 0;
+        fenc->veryLargeMvs[b-p0] = 0;
+        fenc->hasSmallMvs[b-p0] = 0;
+
         if (!m_batchMode && m_lookahead.m_numCoopSlices > 1 && ((p1 > b) || bDoSearch[0] || bDoSearch[1]))
         {
             /* Use cooperative mode if a thread pool is available and the cost estimate is
@@ -3174,7 +3893,13 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
                 fenc->costEst[b - p0][p1 - b] += m_slice[i].costEst;
                 fenc->costEstAq[b - p0][p1 - b] += m_slice[i].costEstAq;
                 if (p1 == b)
+                {
                     fenc->intraMbs[b - p0] += m_slice[i].intraMbs;
+                    fenc->veryLargeMvs[b - p0] += m_slice[i].largeMvs; 
+                    fenc->hasSmallMvs[b - p0]  += m_slice[i].hasSmallMvs; 
+                    fenc->largeMvs[b - p0]     += m_slice[i].largeMvs; 
+                }
+                    
             }
         }
         else
@@ -3217,6 +3942,10 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
 
     return score;
 }
+
+
+
+#define FPEL(mv) (((mv)+2)>>2) /* Convert subpel MV to fullpel with rounding... */
 
 void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int p0, int p1, int b, bool bDoSearch[2], bool lastRow, int slice, bool hme)
 {
@@ -3306,7 +4035,8 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
                 int cost = tld.me.bufSATD(src, stride);
                 COPY2_IF_LT(mvpcost, cost, mvp, mvc[idx]);
                 /* Except for mv0 case, everyting else is likely to have enough residual to not trigger the skip. */
-                if (!mvp.notZero() && bBidir)
+                //if (!mvp.notZero() && bBidir)
+                if (!mvp.notZero() && (bBidir || tld.usePskip))
                     skipCost = cost;
             }
         }
@@ -3318,7 +4048,8 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices);
         else
             fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices, fref->lowerResPlane[0]);
-        if (skipCost < 64 && skipCost < fencCost && bBidir)
+        //if (skipCost < 64 && skipCost < fencCost && bBidir)
+        if (skipCost < 64 && skipCost < fencCost && (bBidir || tld.usePskip))
         {
             fencCost = skipCost;
             *fencMV = 0;
@@ -3386,6 +4117,51 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             if (!listused && !bBidir)
                 m_slice[slice].intraMbs++;
         }
+    }
+
+    /* mv sts only need in case "p0 < b == p1" */
+    if( bFrameScoreCU && p0 < b && b == p1 )
+    {
+        int32_t large_mv[2]={0};
+        MV tmp_mv = fenc->lowresMvs[0][listDist[0]][cuXY];
+        //if( tmp_mv )
+        {
+            large_mv[0] = FPEL(tmp_mv.x);
+            large_mv[1] = FPEL(tmp_mv.y);
+        }
+        if (slice < 0)
+        {
+            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres2))
+            {
+                fenc->largeMvs[b - p0] += 1;
+            }
+            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres3))
+            {
+                fenc->veryLargeMvs[b - p0] += 1;
+            }
+            if (abs(large_mv[0]) + abs(large_mv[1]) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
+                m_lookahead.m_param->rc.rateControlMode)
+            {
+                fenc->hasSmallMvs[b - p0] += 1;
+            }
+        }
+        else
+        {
+            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres2))
+            {
+                m_slice[slice].largeMvs += 1;
+            }
+            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres3))
+            {
+                m_slice[slice].veryLargeMvs += 1;
+            }
+            if (abs(large_mv[0]) + abs(large_mv[1]) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
+                m_lookahead.m_param->rc.rateControlMode)
+            {
+                m_slice[slice].hasSmallMvs += 1;
+            }
+        }
+
     }
 
     fenc->rowSatds[b - p0][p1 - b][cuY] += bcostAq;

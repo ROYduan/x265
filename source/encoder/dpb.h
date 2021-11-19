@@ -41,6 +41,8 @@ public:
     int                m_pocCRA;
     int                m_bOpenGOP;
     int                m_bhasLeadingPicture;
+    int                m_pyramid_type;
+    int                m_dpb_method;
     bool               m_bRefreshPending;
     bool               m_bTemporalSublayer;
     PicList            m_picList;
@@ -63,6 +65,8 @@ public:
                 }
             }
         }
+        m_pyramid_type = param->bBPyramid;
+        m_dpb_method = param->rc.dpbMethod;
         m_bRefreshPending = false;
         m_frameDataFreeList = NULL;
         m_bOpenGOP = param->bOpenGOP;
