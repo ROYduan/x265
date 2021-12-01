@@ -193,7 +193,7 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
 
     if (m_param->bEnableSsim)
         m_ssimBuf = S265_MALLOC(int, 8 * (m_param->sourceWidth / 4 + 3));
-
+    //新建numRows 个filter工作 worker
     m_parallelFilter = new ParallelFilter[numRows];
 
     if (m_parallelFilter)
@@ -202,9 +202,10 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
         {
             for(int row = 0; row < numRows; row++)
             {
+                // 每个filter 起一个sao worker
                 if (!m_parallelFilter[row].m_sao.create(m_param, (row == 0 ? 1 : 0)))
                     m_useSao = 0;
-                else
+                else //如果起失败了则从Root node 再次起
                 {
                     if (row != 0)
                         m_parallelFilter[row].m_sao.createFromRootNode(&m_parallelFilter[0].m_sao);
@@ -216,10 +217,11 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
         for(int row = 0; row < numRows; row++)
         {
             // Setting maximum bound information
+            //最后一行可能不足一个cut 高度
             m_parallelFilter[row].m_rowHeight = (row == numRows - 1) ? m_lastHeight : m_param->maxCUSize;
             m_parallelFilter[row].m_row = row;
-            m_parallelFilter[row].m_rowAddr = row * numCols;
-            m_parallelFilter[row].m_frameFilter = this;
+            m_parallelFilter[row].m_rowAddr = row * numCols;//起始ctu地址
+            m_parallelFilter[row].m_frameFilter = this;//所有行级filter 共享同一个帧fiter 指针
 
             if (row > 0)
                 m_parallelFilter[row].m_prevRow = &m_parallelFilter[row - 1];
@@ -237,6 +239,8 @@ void FrameFilter::start(Frame *frame, Entropy& initState)
     m_frame = frame;
 
     // Reset Filter Data Struct
+    // 帧级fiter 全部都是通过行级fiter 实现
+    // 这里将一帧里面的每一个行级filter初始化到最开始的地方
     if (m_parallelFilter)
     {
         for(int row = 0; row < m_numRows; row++)

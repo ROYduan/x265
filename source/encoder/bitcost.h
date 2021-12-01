@@ -67,7 +67,7 @@ protected:
 
     uint16_t *m_cost;
 
-    uint16_t *m_fpelMvCosts[4];
+    uint16_t *m_fpelMvCosts[4];// 0/1/2/3 分别对应mv的4个亚像素相位
 
     MV        m_mvp;
 
@@ -91,7 +91,7 @@ private:
     static Lock s_costCalcLock;
 
     static void CalculateLogs();
-};
+}; // endof class BitCost
 }
 
 #endif // ifndef S265_BITCOST_H

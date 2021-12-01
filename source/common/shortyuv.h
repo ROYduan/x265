@@ -31,7 +31,7 @@
 namespace S265_NS {
 // private namespace
 
-class Yuv;
+class Yuv;// 类的前置声明（无需包含头文件）, 随后仅仅可以以类指针的形式使用
 
 /* A ShortYuv instance holds int16_ts for a square CU (64x64 down to 8x8) for all three planes,
  * these are typically used to hold residual or coefficients */

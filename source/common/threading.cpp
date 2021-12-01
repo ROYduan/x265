@@ -140,7 +140,7 @@ bool Thread::start()
         thread = 0;
         return false;
     }
-
+    // pthread_create返回0 表示成功 return true
     return true;
 }
 

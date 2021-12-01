@@ -600,7 +600,7 @@ static void scale2D_64to32(pixel* dst, const pixel* src, intptr_t stride)
         }
     }
 }
-
+// 参考x264 一样的函数 一个原图 出4个1/2x1/2缩小的图
 static
 void frame_init_lowres_core(const pixel* src0, pixel* dst0, pixel* dsth, pixel* dstv, pixel* dstc,
                             intptr_t src_stride, intptr_t dst_stride, int width, int height)

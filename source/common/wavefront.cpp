@@ -33,8 +33,8 @@ namespace S265_NS {
 bool WaveFront::init(int numRows)
 {
     m_numRows = numRows;
-
-    m_numWords = (numRows + 31) >> 5;
+    //numRows 代表总共有多少个任务 （wpp下为 2倍的 ctu 行数）
+    m_numWords = (numRows + 31) >> 5;//一个words 有32个bit可以管理32个任务
     m_internalDependencyBitmap = S265_MALLOC(uint32_t, m_numWords);
     if (m_internalDependencyBitmap)
         memset((void*)m_internalDependencyBitmap, 0, sizeof(uint32_t) * m_numWords);
@@ -92,17 +92,23 @@ void WaveFront::findJob(int threadId)
     unsigned long id;
 
     /* Loop over each word until all available rows are finished */
+    //总共有 32bit*m_numWords 个bit，每个bit 对应一个processrow（一个独立的任务）
+    //遍历每一个32bit bitmap
     for (int w = 0; w < m_numWords; w++)
     {
+        // 当前32个任务里面哪些任务的内部/外部依赖条件都已经满足
         uint32_t oldval = m_internalDependencyBitmap[w] & m_externalDependencyBitmap[w];
         while (oldval)
         {
+            //找到首个bit为1的位置
             CTZ(id, oldval);
 
             uint32_t bit = 1 << id;
-            if (ATOMIC_AND(&m_internalDependencyBitmap[w], ~bit) & bit)
+            //如果该bit对应的任务内部依赖条件已经满足,则清除改bit标志,并启动任务（使用当前thread 进行任务的处理与执行）
+            if (ATOMIC_AND(&m_internalDependencyBitmap[w], ~bit) & bit)// 先读取再操作
             {
                 /* we cleared the bit, we get to process the row */
+                // 其中 w*32 +id 为编码row对应的任务id
                 processRow(w * 32 + id, threadId);
                 m_helpWanted = true;
                 return; /* check for a higher priority task */

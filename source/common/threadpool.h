@@ -32,7 +32,7 @@ namespace S265_NS {
 
 class ThreadPool;
 class WorkerThread;
-class BondedTaskGroup;
+class BondedTaskGroup; // 类的前置声明
 
 #if X86_64
 typedef uint64_t sleepbitmap_t;
@@ -82,7 +82,7 @@ public:
 
     sleepbitmap_t m_sleepBitmap;
     int           m_numProviders;
-    int           m_numWorkers;
+    int           m_numWorkers;//该线程池有多少个可以工作的线程
     void*         m_numaMask; // node mask in linux, cpu mask in windows
 #if defined(_WIN32_WINNT) && _WIN32_WINNT >= _WIN32_WINNT_WIN7 
     GROUP_AFFINITY m_groupAffinity;

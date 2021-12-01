@@ -153,7 +153,7 @@ public:
     bool                     m_bUseSao;
 
     CTURow*                  m_rows;
-    uint16_t                 m_sliceAddrBits;
+    uint16_t                 m_sliceAddrBits;// 用几个bits 来表示slice header中的 sliceaddr 这个语法元素
     uint32_t                 m_sliceGroupSize;
     uint32_t*                m_sliceBaseRow;    
     uint32_t*                m_sliceMaxBlockRow;

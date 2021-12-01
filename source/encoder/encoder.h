@@ -167,10 +167,10 @@ public:
     int64_t            m_prevReorderedPts[4]; //hier B in 15bframs is 4
     int64_t            m_encodeStartTime;
 
-    int                m_pocLast;         // time index (POC)
-    int                m_encodedFrameNum;
-    int                m_outputCount;
-    int                m_bframeDelay;
+    int                m_pocLast;         // time index (POC)  初始化为-1,每输入一帧自加1
+    int                m_encodedFrameNum; //已经送给编码器进行编码的帧数量统计
+    int                m_outputCount;     // 从编码器已经输出的帧数统计
+    int                m_bframeDelay;//类似num_reordered frames
     int                m_numPools;
     int                m_curEncoder;
 

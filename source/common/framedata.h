@@ -31,8 +31,8 @@
 namespace S265_NS {
 // private namespace
 
-class PicYuv;
-class JobProvider;
+class PicYuv; // 类的前置声明（无需包含头文件）, 随后仅仅可以以类指针或引用的形式使用
+class JobProvider; // 类的前置声明（无需包含头文件）, 随后仅仅可以以类指针或引用的形式使用
 
 #define INTER_MODES 4 // 2Nx2N, 2NxN, Nx2N, AMP modes
 #define INTRA_MODES 3 // DC, Planar, Angular modes

@@ -516,7 +516,11 @@ namespace S265_NS {
         }
         return false;
     }
-
+// 设置各个api 接口
+// 分配param 对象
+// 设置默认参数
+// apply_profile 限制
+// 启动输入input工作线程
     bool CLIOptions::parse(int argc, char **argv)
     {
         bool bError = false;

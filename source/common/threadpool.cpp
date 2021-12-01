@@ -94,7 +94,7 @@ class WorkerThread : public Thread
 private:
 
     ThreadPool&  m_pool;
-    int          m_id;
+    int          m_id; //线程id 此ID表明其在某个pool中的位置
     Event        m_wakeEvent;
 
     WorkerThread& operator =(const WorkerThread&);
@@ -108,7 +108,7 @@ public:
     virtual ~WorkerThread() {}
 
     void threadMain();
-    void awaken()           { m_wakeEvent.trigger(); }
+    void awaken()           { m_wakeEvent.trigger(); } // 调用 pthread_cond_signal(&m_cond); 唤醒一个被阻塞的线程
 };
 
 void WorkerThread::threadMain()
@@ -129,9 +129,9 @@ void WorkerThread::threadMain()
 
     SLEEPBITMAP_OR(&m_curJobProvider->m_ownerBitmap, idBit);
     SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);
-    m_wakeEvent.wait();
+    m_wakeEvent.wait();// 线程加锁 等待触发
 
-    while (m_pool.m_isActive)
+    while (m_pool.m_isActive)// 线程池中的线程是否已经都起来了
     {
         if (m_bondMaster)
         {
@@ -209,7 +209,7 @@ int ThreadPool::tryAcquireSleepingThread(sleepbitmap_t firstTryBitmap, sleepbitm
         SLEEPBITMAP_CTZ(id, masked);
 
         sleepbitmap_t bit = (sleepbitmap_t)1 << id;
-        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)
+        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)// SLEEPBITMAP_AND 先返回m_sleepBitmap 的原始值，再做and操作
             return (int)id;
 
         masked = m_sleepBitmap & firstTryBitmap;
@@ -259,6 +259,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
     memset(threadsPerPool, 0, sizeof(threadsPerPool));
     memset(nodeMaskPerPool, 0, sizeof(nodeMaskPerPool));
 
+   // 获取有多少个numanode 节点(每个节点对应一个颗物理cpu)
     int numNumaNodes = S265_MIN(getNumaNodeCount(), MAX_NODE_NUM);
     bool bNumaSupport = false;
 
@@ -292,7 +293,8 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
         numa_free_cpumask(bitMask);
     }
 #else // NUMA not supported
-    cpusPerNode[0] = getCpuCount();
+    //如果不支持numa,则表示只有一个numa 节点
+    cpusPerNode[0] = getCpuCount();//所有cpu 都归属在node[0]
 #endif
 
     if (bNumaSupport && p->logLevel >= S265_LOG_DEBUG)
@@ -302,6 +304,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
      * For windows because threads can't be allocated to live across sockets
      * changing the default behavior to be per-socket pools -- FIXME */
 #if defined(_WIN32_WINNT) && _WIN32_WINNT >= _WIN32_WINNT_WIN7
+        //     默认指针为空                                         //指定为“*”                      //或者未指定内容
     if (!p->numaPools || (strcmp(p->numaPools, "NULL") == 0 || strcmp(p->numaPools, "*") == 0 || strcmp(p->numaPools, "") == 0))
     {
          char poolString[50] = "";
@@ -322,17 +325,17 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
         const char *nodeStr = p->numaPools;
         for (int i = 0; i < numNumaNodes; i++)
         {
-            if (!*nodeStr)
+            if (!*nodeStr)//如果某个numanode上的cpu 个数为0
             {
                 threadsPerPool[i] = 0;
                 continue;
             }
-            else if (*nodeStr == '-')
+            else if (*nodeStr == '-')//或者指定了不使用该node
                 threadsPerPool[i] = 0;
-            else if (*nodeStr == '*' || !strcasecmp(nodeStr, "NULL"))
+            else if (*nodeStr == '*' || !strcasecmp(nodeStr, "NULL"))//如果从某一个开始指定为*或者不指定
             {
                 for (int j = i; j < numNumaNodes; j++)
-                {
+                {   //
                     threadsPerPool[numNumaNodes] += cpusPerNode[j];
                     nodeMaskPerPool[numNumaNodes] |= ((uint64_t)1 << j);
                 }
@@ -343,13 +346,13 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
                 threadsPerPool[numNumaNodes] += cpusPerNode[i];
                 nodeMaskPerPool[numNumaNodes] |= ((uint64_t)1 << i);
             }
-            else
+            else //如果指定了该node 限制使用的线程个数
             {
                 int count = atoi(nodeStr);
                 if (i > 0 || strchr(nodeStr, ','))   // it is comma -> old logic
                 {
-                    threadsPerPool[i] = S265_MIN(count, cpusPerNode[i]);
-                    nodeMaskPerPool[i] = ((uint64_t)1 << i);
+                    threadsPerPool[i] = S265_MIN(count, cpusPerNode[i]);//取指定值与该numanode的cpu个数的较小的值
+                    nodeMaskPerPool[i] = ((uint64_t)1 << i);//该node存在mask
                 }
                 else                                 // new logic: exactly 'count' threads on all NUMAs
                 {
@@ -357,7 +360,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
                     nodeMaskPerPool[numNumaNodes] = ((uint64_t)-1 >> (64 - numNumaNodes));
                 }
             }
-
+            // 指向下一个node对应的配置字符
             /* consume current node string, comma, and white-space */
             while (*nodeStr && *nodeStr != ',')
                ++nodeStr;
@@ -402,23 +405,24 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
             totalNumThreads = ThreadPool::getCpuCount(); // auto-detect frame threads
         }
 
-        if (!p->frameNumThreads)
+        if (!p->frameNumThreads)//如果帧级多线程没有指定，则根据可用线程总数决定
             ThreadPool::getFrameThreadsCount(p, totalNumThreads);
     }
     
     if (!numPools)
         return NULL;
-
+    //线程池的个数必须小于等于帧级线程的个数
     if (numPools > p->frameNumThreads)
     {
         s265_log(p, S265_LOG_DEBUG, "Reducing number of thread pools for frame thread count\n");
         numPools = S265_MAX(p->frameNumThreads / 2, 1);
     }
     if (isThreadsReserved)
-        numPools = 1;
-    ThreadPool *pools = new ThreadPool[numPools];
+        numPools = 1;//如果是lookahead 线程池，限定一个线程池
+    ThreadPool *pools = new ThreadPool[numPools];//新建numpools 个线程池对象
     if (pools)
     {
+        //lookahead 线程只用0号线程池里面的线程
         int maxProviders = (p->frameNumThreads + numPools - 1) / numPools + !isThreadsReserved; /* +1 is Lookahead, always assigned to threadpool 0 */
         int node = 0;
         for (int i = 0; i < numPools; i++)
@@ -433,12 +437,12 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
                 s265_log(p, S265_LOG_DEBUG, "Setting lookahead threads to a maximum of half the total number of threads\n");
             }
             if (isThreadsReserved)
-            {
+            {   // lookahead 线程只允许一个providers
                 numThreads = p->lookaheadThreads;
                 maxProviders = 1;
             }
 
-            else if (i == 0)
+            else if (i == 0)//否则 非lookahead线程，共线程数减去lookahead占去的线程数
                 numThreads -= p->lookaheadThreads;
             if (!pools[i].create(numThreads, maxProviders, nodeMaskPerPool[node]))
             {
@@ -458,6 +462,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
             }
             else
                 s265_log(p, S265_LOG_INFO, "Thread pool created using %d threads\n", numThreads);
+            //注意:单个pool里面最多32个线程，如果某个node里面的线程多余32，则该node对应存在多个线程池
             threadsPerPool[node] -= origNumThreads;
         }
     }
@@ -502,13 +507,15 @@ bool ThreadPool::create(int numThreads, int maxProviders, uint64_t nodeMask)
 #endif
 
     m_numWorkers = numThreads;
-
+    // 线程资源分配 该线程池中 分配numThreads个工作线程
     m_workers = S265_MALLOC(WorkerThread, numThreads);
+
     /* placement new initialization */
+    //该线程池中的线程对象都使用同一个同一个线程池，每一个线程有自己的线程id
     if (m_workers)
         for (int i = 0; i < numThreads; i++)
-            new (m_workers + i)WorkerThread(*this, i);
-
+            new (m_workers + i)WorkerThread(*this, i);// placement new
+    //二级指针
     m_jpTable = S265_MALLOC(JobProvider*, maxProviders);
     m_numProviders = 0;
 
@@ -520,7 +527,7 @@ bool ThreadPool::start()
     m_isActive = true;
     for (int i = 0; i < m_numWorkers; i++)
     {
-        if (!m_workers[i].start())
+        if (!m_workers[i].start())// 将线程池中的所有线程都启动起来 “实际是穿件并运行线程“
         {
             m_isActive = false;
             return false;

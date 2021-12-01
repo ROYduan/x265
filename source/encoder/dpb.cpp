@@ -137,7 +137,7 @@ void DPB::prepareEncode(Frame *newFrame)
     slice->m_lastIDR = m_lastIDR;
     slice->m_sliceType = IS_S265_TYPE_B(type) ? B_SLICE : (type == S265_TYPE_P) ? P_SLICE : I_SLICE;
 
-    if (type == S265_TYPE_B)
+    if (type == S265_TYPE_B)//非参考B帧类型,不作为参考
     {
         newFrame->m_encData->m_bHasReferences = false;
 
@@ -165,7 +165,7 @@ void DPB::prepareEncode(Frame *newFrame)
         newFrame->m_encData->m_bHasReferences = true;
     }
 
-    m_picList.pushFront(*newFrame);
+    m_picList.pushFront(*newFrame);// 当前即将要编码的帧放到dpb的list的头部
 
     // Do decoding refresh marking if any
     decodingRefreshMarking(pocCurr, slice->m_nalUnitType);
@@ -356,6 +356,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
     Frame* iterPic = m_picList.first();
     while (iterPic && (poci < maxDecPicBuffer - 1))
     {
+        // 找出与当前帧不想等的用作参考的帧
         if ((iterPic->m_poc != curPoc) && iterPic->m_encData->m_bHasReferences)
         {
             if (!m_dpb_method)
@@ -371,7 +372,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
                     continue;
                 }
             }
-
+            //如果当前的编码帧的poc 位于最近编码的idr帧之前,则dpb中所有的帧都计入rps,否则,只有位于dir后面的帧才能作为当前编码帧的参考帧
             if ((m_lastIDR >= curPoc) || (m_lastIDR <= iterPic->m_poc))
             {
                     rps->poc[poci] = iterPic->m_poc;
@@ -387,7 +388,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
     rps->numberOfPictures = poci;
     rps->numberOfPositivePictures = numPos;
     rps->numberOfNegativePictures = numNeg;
-
+    //negtive（前向） 按照poc降序排列，postive（后向） 按照poc升序排列
     rps->sortDeltaPOC();
 }
 
@@ -440,6 +441,7 @@ void DPB::decodingRefreshMarking(int pocCurr, NalUnitType nalUnitType)
 }
 
 /** Function for applying picture marking based on the Reference Picture Set */
+//在dpb中找出所有不属于rps中的参考帧，标记为不用于参考
 void DPB::applyReferencePictureSet(RPS *rps, int curPoc)
 {
     // loop through all pictures in the reference picture buffer

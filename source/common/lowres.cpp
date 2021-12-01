@@ -310,7 +310,7 @@ void Lowres::init(PicYuv *origPic, int poc)
     extendPicBorder(lowresPlane[3], lumaStride, width, lines, origPic->m_lumaMarginX, origPic->m_lumaMarginY);
     
     if (origPic->m_param->bEnableHME)
-    {
+    {   // 分3级搜素算法,将
         primitives.frameInitLowerRes(lowresPlane[0],
             lowerResPlane[0], lowerResPlane[1], lowerResPlane[2], lowerResPlane[3],
             lumaStride, lumaStride/2, (width / 2), (lines / 2));

@@ -31,12 +31,12 @@ using namespace S265_NS;
 void BitCost::setQP(unsigned int qp)
 {
     if (!s_costs[qp])
-    {
+    {// s_costs 为static,属于共有，如果还没有分配内存,则加锁分配
         ScopedLock s(s_costCalcLock);
 
         // Now that we have acquired the lock, check again if another thread calculated
         // this row while we were blocked
-        if (!s_costs[qp])
+        if (!s_costs[qp])// 再一次 判断，是否在block 期间(会释放锁)，有其他线程已经完成了分配
         {
             s265_emms(); // just to be safe
 
@@ -83,7 +83,7 @@ void BitCost::setQP(unsigned int qp)
 /***
  * Class static data and methods
  */
-
+//类的静态成员变量需要在类外分配内存空间
 uint16_t *BitCost::s_costs[BC_MAX_QP];
 
 uint16_t* BitCost::s_fpelMvCosts[BC_MAX_QP][4];
@@ -91,7 +91,7 @@ uint16_t* BitCost::s_fpelMvCosts[BC_MAX_QP][4];
 float *BitCost::s_bitsizes;
 
 Lock BitCost::s_costCalcLock;
-
+// 该函数的执行在 s_costCalcLock 保护下
 void BitCost::CalculateLogs()
 {
     if (!s_bitsizes)

@@ -87,7 +87,7 @@ public:
     PicYuv*                m_originalPic;             // store org pic point for psnr/ssim calculation
     PicYuv*                m_filteredPic;             // if filter_enable m_filteredPic hold an new buffer else nulptr
     int                    m_poc;
-    int                    m_encodeOrder;
+    int                    m_encodeOrder;        // 每编码一帧，编码器order 加 1
     int64_t                m_pts;                // user provided presentation time stamp
     int64_t                m_reorderedPts;
     int64_t                m_dts;

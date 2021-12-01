@@ -332,7 +332,7 @@ class Event
 {
 public:
 
-    Event()
+    Event()//构造函数
     {
         m_counter = 0;
         if (pthread_mutex_init(&m_mutex, NULL) ||
@@ -354,10 +354,11 @@ public:
 
         /* blocking wait on conditional variable, mutex is atomically released
          * while blocked. When condition is signaled, mutex is re-acquired */
+        // 如果条件没有满足，将此线程挂起，并释放m_mutex,等待m_cond条件触发，如果条件触发，线程会继续获得m_mutex,然后进一步执行
         while (!m_counter)
             pthread_cond_wait(&m_cond, &m_mutex);
 
-        m_counter--;
+        m_counter--;// 相当于消费者
         pthread_mutex_unlock(&m_mutex);
     }
 
@@ -387,7 +388,7 @@ public:
         }
         if (m_counter > 0)
         {
-            m_counter--;
+            m_counter--;//如果等到了就消费，如果没有等到（超时）就不消费
             bTimedOut = false;
         }
         pthread_mutex_unlock(&m_mutex);
@@ -398,7 +399,7 @@ public:
     {
         pthread_mutex_lock(&m_mutex);
         if (m_counter < UINT_MAX)
-            m_counter++;
+            m_counter++;// 相当于生产者
         /* Signal a single blocking thread */
         pthread_cond_signal(&m_cond);
         pthread_mutex_unlock(&m_mutex);
@@ -416,13 +417,14 @@ protected:
  * mutex's main purpose is to serve as a memory fence to ensure writes made by
  * the writer thread are visible prior to readers seeing the m_val change. Its
  * secondary purpose is for use with the condition variable for blocking waits */
+//相当于一个整型原子变量
 class ThreadSafeInteger
 {
 public:
 
     ThreadSafeInteger()
     {
-        m_val = 0;
+        m_val = 0;// 初始化
         if (pthread_mutex_init(&m_mutex, NULL) ||
             pthread_cond_init(&m_cond, NULL))
         {
@@ -439,7 +441,7 @@ public:
     int waitForChange(int prev)
     {
         pthread_mutex_lock(&m_mutex);
-        if (m_val == prev)
+        if (m_val == prev) // 注意没有用while,只要m_val 不等于prev 了就立马返回
             pthread_cond_wait(&m_cond, &m_mutex);
         pthread_mutex_unlock(&m_mutex);
         return m_val;
@@ -453,7 +455,7 @@ public:
         return ret;
     }
 
-    int getIncr(int n = 1)
+    int getIncr(int n = 1)//先读取，再自增n
     {
         pthread_mutex_lock(&m_mutex);
         int ret = m_val;
@@ -466,7 +468,7 @@ public:
     {
         pthread_mutex_lock(&m_mutex);
         m_val = newval;
-        pthread_cond_broadcast(&m_cond);
+        pthread_cond_broadcast(&m_cond);// set一个新的值 后唤醒正在等待条件变量的线程
         pthread_mutex_unlock(&m_mutex);
     }
 
@@ -474,7 +476,7 @@ public:
     {
         /* awaken all waiting threads, but make no change */
         pthread_mutex_lock(&m_mutex);
-        pthread_cond_broadcast(&m_cond);
+        pthread_cond_broadcast(&m_cond);// 仅仅唤醒正在等待条件变量的线程
         pthread_mutex_unlock(&m_mutex);
     }
 
@@ -482,7 +484,7 @@ public:
     {
         pthread_mutex_lock(&m_mutex);
         m_val++;
-        pthread_cond_broadcast(&m_cond);
+        pthread_cond_broadcast(&m_cond);// 先自增1，再唤醒
         pthread_mutex_unlock(&m_mutex);
     }
 
@@ -490,7 +492,7 @@ public:
     {
         pthread_mutex_lock(&m_mutex);
         m_val--;
-        pthread_cond_broadcast(&m_cond);
+        pthread_cond_broadcast(&m_cond);// 先自减，再唤醒
         pthread_mutex_unlock(&m_mutex);
     }
 
@@ -779,6 +781,7 @@ private:
 
 #endif // ifdef _WIN32
 
+//相当于c++ 里面的garuded_lock, 超出作用域后自动释放锁
 class ScopedLock
 {
 public:
@@ -803,6 +806,7 @@ protected:
 
 // Utility class which adds elapsed time of the scope of the object into the
 // accumulator provided to the constructor
+// 待时间统计的 可以自释放的锁
 struct ScopedElapsedTime
 {
     ScopedElapsedTime(int64_t& accum) : accumlatedTime(accum) { startTime = s265_mdate(); }
@@ -819,7 +823,7 @@ protected:
 };
 
 //< Simplistic portable thread class.  Shutdown signalling left to derived class
-class Thread
+class Thread // 对线程的一层对象化包装
 {
 private:
 
@@ -832,12 +836,13 @@ public:
     virtual ~Thread();
 
     //< Derived class must implement ThreadMain.
+    // 类运行主函数，重写
     virtual void threadMain() = 0;
 
     //< Returns true if thread was successfully created
-    bool start();
+    bool start();// 创建并执行线程（线程函数由派生类中的  threadMain 指定）
 
-    void stop();
+    void stop();// 调用p_thread_join 等待线程完成
 };
 } // end namespace S265_NS
 

@@ -56,8 +56,8 @@ public:
     int           m_numRows;
     int           m_numCols;
     int           m_saoRowDelay;
-    int           m_lastHeight;
-    int           m_lastWidth;
+    int           m_lastHeight;//最后一行的高度可能不足一个ctu 高度
+    int           m_lastWidth;//最后一列的宽度可能不足一个ctu宽度
     
     ThreadSafeInteger integralCompleted;     /* check if integral calculation is completed in this row */
 
@@ -69,7 +69,7 @@ public:
     public:
         uint32_t            m_rowHeight;
         int                 m_row;
-        uint32_t            m_rowAddr;
+        uint32_t            m_rowAddr;//对应filter 行的 首个cut地址
         FrameFilter*        m_frameFilter;
         FrameData*          m_encData;
         ParallelFilter*     m_prevRow;

@@ -164,12 +164,13 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_refLagRows = /*(m_param->maxSlices > 1 ? 1 : 0) +*/ 1 + ((range + m_param->maxCUSize - 1) / m_param->maxCUSize);
 
     // NOTE: 2 times of numRows because both Encoder and Filter in same queue
-    if (!WaveFront::init(m_numRows * 2))
+    //ctu 行级编码任务数量 以及 ctu 行级滤波 任务数量 放在一个队列 
+    if (!WaveFront::init(m_numRows * 2))//调用父类waveFront的init 函数
     {
         s265_log(m_param, S265_LOG_ERROR, "unable to initialize wavefront queue\n");
         m_pool = NULL;
     }
-
+    //filter 任务的初始化
     m_frameFilter.init(top, this, numRows, numCols);
 
     // initialize HRD parameters of SPS
@@ -275,7 +276,7 @@ bool FrameEncoder::startCompressFrame(Frame* curFrame)
         if (!initializeGeoms())
             return false;
     }
-
+    //仅仅一个启动的动作
     m_enable.trigger();
     return true;
 }
@@ -328,6 +329,7 @@ void FrameEncoder::threadMain()
     }
 
     m_done.trigger();     /* signal that thread is initialized */
+    //等待 m_enable.trigger() 信号
     m_enable.wait();      /* Encoder::encode() triggers this event */
 
     while (m_threadActive)
@@ -643,7 +645,7 @@ void FrameEncoder::compressFrame()
     m_rce.encodeOrder = m_frame->m_encodeOrder;
     int prevBPSEI = m_rce.encodeOrder ? m_top->m_lastBPSEI : 0;
 
-    if (m_frame->m_lowres.bKeyframe)
+    if (m_frame->m_lowres.bKeyframe)// I 帧
     {
         if (m_param->bEmitHRDSEI)
         {
@@ -761,8 +763,10 @@ void FrameEncoder::compressFrame()
     if (m_param->bEnableWavefront)
     {
         int i = 0;
+        //多个slice时，每个slice有多少个row,
         for (uint32_t rowInSlice = 0; rowInSlice < m_sliceGroupSize; rowInSlice++)
         {
+            //每个slice的同编号row对应到不同slice时
             for (uint32_t sliceId = 0; sliceId < m_param->maxSlices; sliceId++)
             {
                 const uint32_t sliceStartRow = m_sliceBaseRow[sliceId];
@@ -771,7 +775,7 @@ void FrameEncoder::compressFrame()
                 if (row > sliceEndRow)
                     continue;
                 m_row_to_idx[row] = i;
-                m_idx_to_row[i] = row;
+                m_idx_to_row[i] = row;// wpp下 每个任务的起始
                 i += 1;
             }
         }
@@ -1254,27 +1258,29 @@ void FrameEncoder::encodeSlice(uint32_t sliceAddr)
     if (!m_param->bEnableWavefront)
         m_entropyCoder.finishSlice();
 }
-
+// row 更应该使用 id 表示
 void FrameEncoder::processRow(int row, int threadId)
 {
     int64_t startTime = s265_mdate();
+    //先加1，再返回更新后的值
     if (ATOMIC_INC(&m_activeWorkerCount) == 1 && m_stallStartTime)
         m_totalNoWorkerTime += s265_mdate() - m_stallStartTime;
 
+    // 因为编码和滤波分开来了,row(其实表示的是id),没个row 对应有两个id的任务，如果偶数id为编码则基数id为filter,否则反之
     const uint32_t realRow = m_idx_to_row[row >> 1];
     const uint32_t typeNum = m_idx_to_row[row & 1];
 
-    if (!typeNum)
+    if (!typeNum)//0 表示:编码任务
         processRowEncoder(realRow, m_tld[threadId]);
-    else
+    else//否则 表示:filter 任务
     {
         m_frameFilter.processRow(realRow);
 
         // NOTE: Active next row
         if (realRow != m_sliceBaseRow[m_rows[realRow].sliceId + 1] - 1)
-            enqueueRowFilter(m_row_to_idx[realRow + 1]);
+            enqueueRowFilter(m_row_to_idx[realRow + 1]);//加1 表示启动的是filter任务
     }
-
+        // 先减1，再返回更新后的值
     if (ATOMIC_DEC(&m_activeWorkerCount) == 0)
         m_stallStartTime = s265_mdate();
 

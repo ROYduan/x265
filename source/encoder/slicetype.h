@@ -72,7 +72,7 @@ struct LookaheadTLD
     LookaheadTLD()
     {
         me.init(S265_CSP_I400);
-        me.setQP(S265_LOOKAHEAD_QP);
+        me.setQP(S265_LOOKAHEAD_QP);// 使用 qp=12 初始化 lookahead 阶段的bit_cost
         for (int i = 0; i < 4; i++)
             wbuffer[i] = NULL;
         widthInCU = heightInCU = ncu = paddedLines = 0;
