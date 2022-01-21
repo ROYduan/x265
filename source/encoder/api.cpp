@@ -1403,10 +1403,17 @@ FILE* s265_csvlog_open(const s265_param* param)
 // per frame CSV logging
 void s265_csvlog_frame(const s265_param* param, const s265_picture* pic)
 {
+    const s265_frame_stats* frameStats = &pic->frameData;
+
+    if (param->bEnablePsnr) 
+        s265_log(param, S265_LOG_INFO, "psnr:%.3lf, %.3lf, %.3lf, %.3lf,\n", frameStats->psnrY, frameStats->psnrU, frameStats->psnrV, frameStats->psnr);
+    
+    if (param->bEnableSsim) 
+        s265_log(param, S265_LOG_INFO, "ssim:%.6f, %6.3f,\n", frameStats->ssim, s265_ssim2dB(frameStats->ssim));
+
     if (!param->csvfpt)
         return;
 
-    const s265_frame_stats* frameStats = &pic->frameData;
     fprintf(param->csvfpt, "%d, %c-SLICE, %4d, %2.2lf, %10d, %d,", frameStats->encoderOrder, frameStats->sliceType, frameStats->poc,
                                                                    frameStats->qp, (int)frameStats->bits, frameStats->bScenecut);
     if (param->csvLogLevel >= 2)

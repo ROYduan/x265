@@ -122,6 +122,9 @@ void s265_param_default(s265_param* param)
     param->bEnableWavefront = 1;
     param->frameNumThreads = 0;
 
+    /*log */
+    param->pf_log = s265_log_default;
+    param->p_log_private = NULL;
     param->logLevel = S265_LOG_INFO;
     param->csvLogLevel = 0;
     param->csvfn = NULL;
@@ -2440,6 +2443,8 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bLogCuStats = src->bLogCuStats;
     dst->bEnablePsnr = src->bEnablePsnr;
     dst->bEnableSsim = src->bEnableSsim;
+    dst->pf_log = src->pf_log;
+    dst->p_log_private = src->p_log_private;
     dst->logLevel = src->logLevel;
     dst->csvLogLevel = src->csvLogLevel;
     if (src->csvfn) dst->csvfn = strdup(src->csvfn);
