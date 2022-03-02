@@ -775,7 +775,7 @@ namespace S265_NS {
         info.frameCount = 0;
         getParamAspectRatio(param, info.sarWidth, info.sarHeight);
 
-
+        // new 派生类后 转换成基类指针返回给input
         this->input = InputFile::open(info, this->bForceY4m);
         if (!this->input || this->input->isFail())
         {
@@ -845,7 +845,12 @@ namespace S265_NS {
 
             general_log(param, input->getName(), S265_LOG_INFO, "%s\n", buf);
         }
-
+       // 成员对象input 是一个 InputFile 的基类指针，这里
+       // 实例化后，input 指向派生类的对象(Y4MInput 或者 YUVInput）派生类都各自重写了
+       // startReader 同时派生类 还集成了thread类
+       // 所以 input->startReader 根据派生对象的不同调用不同派生类的startReader
+       // startReader 里面又通过调用继承自thread类的start()
+       // 接口启动线程 执行派生类各自重写的ThreadMain 进行frame的读入
         this->input->startReader();
 
         if (reconfn)

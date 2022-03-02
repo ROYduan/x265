@@ -1154,6 +1154,7 @@ void Lookahead::destroy()
 /* Called by API thread */
 void Lookahead::addPicture(Frame& curFrame, int sliceType)
 {
+    // 添加到inputQueue
     checkLookaheadQueue(m_inputCount);
     curFrame.m_lowres.sliceType = sliceType;
     addPicture(curFrame);
@@ -1232,17 +1233,17 @@ void Lookahead::findJob(int /*workerThreadID*/)
 Frame* Lookahead::getDecidedPicture()
 {
     if (m_filled)
-    {
+    {// 有帧才尝试取
         m_outputLock.acquire();
         Frame *out = m_outputQueue.popFront();
         m_outputLock.release();
-
+        //outputQueue 中还有 直接拿走
         if (out)
         {
             m_inputCount--;
             return out;
         }
-
+        //output 队列中没有了,需要调用帧类型决策来讲决策好的帧推到 outputQeue
         findJob(-1); /* run slicetypeDecide() if necessary */
 
         m_inputLock.acquire();
@@ -1496,12 +1497,12 @@ void Lookahead::slicetypeDecide()
 
         curFrame = m_inputQueue.first();
         frames[0] = m_lastNonB;
-        for (j = 0; j < maxSearch; j++)
+        for (j = 0; j < maxSearch; j++)//最多分析这么多帧
         {
-            if (!curFrame) break;
+            if (!curFrame) break;//遇到null了，后面没有帧了
             frames[j + 1] = &curFrame->m_lowres;
 
-            if (!curFrame->m_lowresInit)
+            if (!curFrame->m_lowresInit)//统计需要进行 pre-analysis的帧数量
                 pre.m_preframes[pre.m_jobTotal++] = curFrame;
 
             curFrame = curFrame->m_next;
@@ -1515,7 +1516,7 @@ void Lookahead::slicetypeDecide()
     {
         if (m_pool)
             pre.tryBondPeers(*m_pool, pre.m_jobTotal);
-        pre.processTasks(-1);
+        pre.processTasks(-1);//     启动pre-analysis 含有 lowres_init 和intra_cost_estimate
         pre.waitForExit();
     }
 
@@ -1573,7 +1574,7 @@ void Lookahead::slicetypeDecide()
          (m_param->lookaheadDepth && m_param->rc.vbvBufferSize)))
     {
         if(!m_param->rc.bStatRead)
-            slicetypeAnalyse(frames, false);
+            slicetypeAnalyse(frames, false);//真正的帧类型分析
         if (m_param->bliveVBV2pass)
         {
             int numFrames;
@@ -2803,7 +2804,7 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
             
         return;
     }
-    frames[framecnt + 1] = NULL;
+    frames[framecnt + 1] = NULL;//结尾标志
 
     if (m_param->bResetZoneConfig)
     {
@@ -3231,7 +3232,7 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     }
 
     if (m_param->bAQMotion)
-        aqMotion(frames, bKeyframe);
+        aqMotion(frames, bKeyframe);//在低分辨率上做过搜索后，每个8x8 should have an lowres mv，这里计算基于运动适量大小的aq
 
     if (m_param->rc.cuTree)
     {

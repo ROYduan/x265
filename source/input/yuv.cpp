@@ -135,7 +135,7 @@ void YUVInput::release()
     stop();
     delete this;
 }
-
+// 覆盖继承自 InputFile 的 startReader
 void YUVInput::startReader()
 {
 #if ENABLE_THREADING
@@ -143,7 +143,7 @@ void YUVInput::startReader()
         start();
 #endif
 }
-
+// 覆盖继承自thread 的threadMain
 void YUVInput::threadMain()
 {
     THREAD_NAME("YUVRead", 0);
@@ -151,6 +151,8 @@ void YUVInput::threadMain()
     {
         if (!populateFrameQueue())
             break;
+        //不断从文件一帧一帧读取然后写入queue,如果写入成功，则继续
+        //否则，退出循环    
     }
 
     threadActive = false;
@@ -158,21 +160,26 @@ void YUVInput::threadMain()
 }
 bool YUVInput::populateFrameQueue()
 {
+    // ifs 为file* 指针句柄
     if (!ifs || ferror(ifs))
         return false;
     /* wait for room in the ring buffer */
-    int written = writeCount.get();
-    int read = readCount.get();
+    int written = writeCount.get();// 看看已经写了多少个了
+    int read = readCount.get();//看看已经读了多少个了
+    //如果写了4帧了还没有读（多写了4帧了）
     while (written - read > QUEUE_SIZE - 2)
     {
+        //等读走至少一帧
         read = readCount.waitForChange(read);
         if (!threadActive)
             // release() has been called
             return false;
     }
     ProfileScopeEvent(frameRead);
+    //从文件读一帧到buf
     if (fread(buf[written % QUEUE_SIZE], framesize, 1, ifs) == 1)
     {
+        //写入buf的帧数自加
         writeCount.incr();
         return true;
     }

@@ -88,6 +88,7 @@ int no_atomic_add(int* ptr, int val)
 static void stackAlignMain(Thread *instance)
 {
     // defer processing to the virtual function implemented in the derived class
+    // threadMain 是基类Thread的纯虚函数，需要由派生类重新实现,所以这里通过基类指针接口统一调用不同派生类的实现
     instance->threadMain();
 }
 

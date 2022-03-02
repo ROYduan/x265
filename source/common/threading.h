@@ -836,11 +836,11 @@ public:
     virtual ~Thread();
 
     //< Derived class must implement ThreadMain.
-    // 类运行主函数，重写
+    // 所有继承了thread的子类 必须重写 运行主函数
     virtual void threadMain() = 0;
 
     //< Returns true if thread was successfully created
-    bool start();// 创建并执行线程（线程函数由派生类中的  threadMain 指定）
+    bool start();// 创建并执行线程（线程函数是一个虚接口需要由派生类中的  threadMain 重新实现）
 
     void stop();// 调用p_thread_join 等待线程完成
 };

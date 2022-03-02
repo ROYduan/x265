@@ -307,7 +307,7 @@ bool Y4MInput::parseHeader()
 
     return true;
 }
-
+// 覆盖继承自InputFile 的startReader
 void Y4MInput::startReader()
 {
 #if ENABLE_THREADING
@@ -315,7 +315,7 @@ void Y4MInput::startReader()
         start();
 #endif
 }
-
+// 覆盖继承自thread 的threadMain
 void Y4MInput::threadMain()
 {
     THREAD_NAME("Y4MRead", 0);
@@ -384,6 +384,7 @@ bool Y4MInput::readPicture(s265_picture& pic)
 
     if (read < written)
     {
+        //如果还有得读 则从循环buf中取一帧，注意不会有数据的copy
         int pixelbytes = depth > 8 ? 2 : 1;
         pic.bitDepth = depth;
         pic.framesize = framesize;
@@ -396,7 +397,7 @@ bool Y4MInput::readPicture(s265_picture& pic)
         pic.planes[0] = buf[read % QUEUE_SIZE];
         pic.planes[1] = (char*)pic.planes[0] + pic.stride[0] * height;
         pic.planes[2] = (char*)pic.planes[1] + pic.stride[1] * (height >> s265_cli_csps[colorSpace].height[1]);
-        readCount.incr();
+        readCount.incr();//读走帧的数量自增1
         return true;
     }
     else

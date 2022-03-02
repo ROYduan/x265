@@ -30,7 +30,7 @@ using namespace S265_NS;
 InputFile* InputFile::open(InputFileInfo& info, bool bForceY4m)
 {
     const char * s = strrchr(info.filename, '.');
-
+// new 派生类后 转换成基类指针返回
     if (bForceY4m || (s && !strcmp(s, ".y4m")))
         return new Y4MInput(info);
     else

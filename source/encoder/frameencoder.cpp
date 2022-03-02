@@ -280,7 +280,7 @@ bool FrameEncoder::startCompressFrame(Frame* curFrame)
     m_enable.trigger();
     return true;
 }
-
+// 子类FrameEncoder 的 threadMain 覆盖基类thread 的threadMain
 void FrameEncoder::threadMain()
 {
     THREAD_NAME("Frame", m_jpId);

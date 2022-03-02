@@ -65,10 +65,11 @@ public:
         , m_helpWanted(false)
         , m_isFrameEncoder(false)
     {}
-
+    // 虚析构函数
     virtual ~JobProvider() {}
 
     // Worker threads will call this method to perform work
+    // 作为基类的纯虚函数，需要由继承它的子类重写
     virtual void findJob(int workerThreadId) = 0;
 
     // Will awaken one idle thread, preferring a thread which most recently

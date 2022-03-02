@@ -1335,7 +1335,7 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
 
         if (m_reconfigureRc)
             inFrame->m_reconfigureRc = true;
-
+        // 添加到inputQeune 用于预分析
         m_lookahead->addPicture(*inFrame, sliceType);
         m_numDelayedPic++;
     }
@@ -1343,9 +1343,10 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
         m_lookahead->m_filled = true;
     else
         m_lookahead->flush();
-
+    
     FrameEncoder *curEncoder = m_frameEncoder[m_curEncoder];
-    m_curEncoder = (m_curEncoder + 1) % m_param->frameNumThreads;
+    m_curEncoder = (m_curEncoder + 1) % m_param->frameNumThreads;// 记录用于编码下一帧的encoder对象在数组中的位置
+
     int ret = 0;
 
     /* Normal operation is to wait for the current frame encoder to complete its current frame

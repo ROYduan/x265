@@ -107,7 +107,7 @@ public:
     WorkerThread(ThreadPool& pool, int id) : m_pool(pool), m_id(id) {}
     virtual ~WorkerThread() {}
 
-    void threadMain();
+    void threadMain();// 子类WorkerThread的threadMain 覆盖基类thread 的 threadMain
     void awaken()           { m_wakeEvent.trigger(); } // 调用 pthread_cond_signal(&m_cond); 唤醒一个被阻塞的线程
 };
 

@@ -47,31 +47,34 @@ fail:
     return false;
 }
 
+// 注意 low 和lower 的区别
 bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
 {
     isLowres = true;
     bframes = param->bframes;
     widthFullRes = origPic->m_picWidth;
     heightFullRes = origPic->m_picHeight;
-    width = origPic->m_picWidth / 2;
-    lines = origPic->m_picHeight / 2;
+    width = origPic->m_picWidth / 2;//lowreswith
+    lines = origPic->m_picHeight / 2;//lowres_height
     bEnableHME = param->bEnableHME ? 1 : 0;
-    lumaStride = width + 2 * origPic->m_lumaMarginX;
+    lumaStride = width + 2 * origPic->m_lumaMarginX;// lowres_stride
     if (lumaStride & 31)
         lumaStride += 32 - (lumaStride & 31);
     maxBlocksInRow = (width + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
     maxBlocksInCol = (lines + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
     maxBlocksInRowFullRes = maxBlocksInRow * 2;
     maxBlocksInColFullRes = maxBlocksInCol * 2;
-    int cuCount = maxBlocksInRow * maxBlocksInCol;
+    int cuCount = maxBlocksInRow * maxBlocksInCol;//lowres_cu count
     int cuCountFullRes = (qgSize > 8) ? cuCount : cuCount << 2;
     isHMELowres = param->bEnableHME ? 1 : 0;
 
     /* rounding the width to multiple of lowres CU size */
+
     width = maxBlocksInRow * S265_LOWRES_CU_SIZE;
     lines = maxBlocksInCol * S265_LOWRES_CU_SIZE;
-
+    //lowres planesize
     size_t planesize = lumaStride * (lines + 2 * origPic->m_lumaMarginY);
+    //起始偏移
     size_t padoffset = lumaStride * origPic->m_lumaMarginY + origPic->m_lumaMarginX;
     if (!!param->rc.aqMode || !!param->rc.hevcAq || !!param->bAQMotion)
     {
@@ -134,7 +137,7 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
     buffer[1] = buffer[0] + planesize;
     buffer[2] = buffer[1] + planesize;
     buffer[3] = buffer[2] + planesize;
-
+    //4个相位的luma 对应[h][v]: [0][0] [0][1/2] [1/2][0] [1/2][1/2]
     lowresPlane[0] = buffer[0] + padoffset;
     lowresPlane[1] = buffer[1] + padoffset;
     lowresPlane[2] = buffer[2] + padoffset;
@@ -142,6 +145,7 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
 
     if (bEnableHME)
     {
+        //lowres 的 继续lowres plane size
         intptr_t lumaStrideHalf = lumaStride / 2;
         if (lumaStrideHalf & 31)
             lumaStrideHalf += 32 - (lumaStrideHalf & 31);
