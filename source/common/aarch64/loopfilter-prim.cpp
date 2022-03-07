@@ -79,7 +79,7 @@ static void processSaoCUE0_neon(pixel *rec, int8_t *offsetEo, int width, int8_t 
             signRight = ((rec[x] - rec[x + 1]) < 0) ? -1 : ((rec[x] - rec[x + 1]) > 0) ? 1 : 0;
             edgeType = signRight + signLeft0 + 2;
             signLeft0 = -signRight;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
         }
         rec += stride;
     }
@@ -111,7 +111,7 @@ static void processSaoCUE1_neon(pixel *rec, int8_t *upBuff1, int8_t *offsetEo, i
         signDown = signOf(rec[x] - rec[x + stride]);
         edgeType = signDown + upBuff1[x] + 2;
         upBuff1[x] = -signDown;
-        rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+        rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
     }
 }
 
@@ -147,7 +147,7 @@ static void processSaoCUE1_2Rows_neon(pixel *rec, int8_t *upBuff1, int8_t *offse
             signDown = signOf(rec[x] - rec[x + stride]);
             edgeType = signDown + upBuff1[x] + 2;
             upBuff1[x] = -signDown;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
         }
         rec += stride;
     }
@@ -164,7 +164,7 @@ static void processSaoCUE2_neon(pixel *rec, int8_t *bufft, int8_t *buff1, int8_t
             int8_t signDown = signOf(rec[x] - rec[x + stride + 1]);
             int edgeType = signDown + buff1[x] + 2;
             bufft[x + 1] = -signDown;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);;
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);;
         }
     }
     else
@@ -189,7 +189,7 @@ static void processSaoCUE2_neon(pixel *rec, int8_t *bufft, int8_t *buff1, int8_t
             int8_t signDown = signOf(rec[x] - rec[x + stride + 1]);
             int edgeType = signDown + buff1[x] + 2;
             bufft[x + 1] = -signDown;
-            rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);;
+            rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);;
         }
 
     }
@@ -222,14 +222,14 @@ static void processSaoCUE3_neon(pixel *rec, int8_t *upBuff1, int8_t *offsetEo, i
         signDown = signOf(rec[x] - rec[x + stride]);
         edgeType = signDown + upBuff1[x] + 2;
         upBuff1[x - 1] = -signDown;
-        rec[x] = x265_clip(rec[x] + offsetEo[edgeType]);
+        rec[x] = s265_clip(rec[x] + offsetEo[edgeType]);
     }
 }
 
 static void processSaoCUB0_neon(pixel *rec, const int8_t *offset, int ctuWidth, int ctuHeight, intptr_t stride)
 {
 #define SAO_BO_BITS 5
-    const int boShift = X265_DEPTH - SAO_BO_BITS;
+    const int boShift = S265_DEPTH - SAO_BO_BITS;
     int x, y;
     int8x8x4_t table;
     table = *(int8x8x4_t *)offset;
@@ -249,7 +249,7 @@ static void processSaoCUB0_neon(pixel *rec, const int8_t *offset, int ctuWidth, 
         }
         for (; x < ctuWidth; x++)
         {
-            rec[x] = x265_clip(rec[x] + offset[rec[x] >> boShift]);
+            rec[x] = s265_clip(rec[x] + offset[rec[x] >> boShift]);
         }
         rec += stride;
     }
@@ -259,7 +259,7 @@ static void processSaoCUB0_neon(pixel *rec, const int8_t *offset, int ctuWidth, 
 
 
 
-namespace X265_NS
+namespace S265_NS
 {
 void setupLoopFilterPrimitives_neon(EncoderPrimitives &p)
 {
@@ -278,7 +278,7 @@ void setupLoopFilterPrimitives_neon(EncoderPrimitives &p)
 #else //HIGH_BIT_DEPTH
 
 
-namespace X265_NS
+namespace S265_NS
 {
 void setupLoopFilterPrimitives_neon(EncoderPrimitives &)
 {

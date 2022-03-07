@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_MC_H
-#define X265_MC_H
+#ifndef S265_MC_H
+#define S265_MC_H
 
 #define LOWRES(cpu) \
     void PFX(frame_init_lowres_core_ ## cpu)(const pixel* src0, pixel* dst0, pixel* dsth, pixel* dstv, pixel* dstc, \
@@ -62,4 +62,4 @@ FIX8PACK(avx2)
 
 #undef FIX8PACK
 
-#endif // ifndef X265_MC_H
+#endif // ifndef S265_MC_H

@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include <iostream>
@@ -27,7 +27,7 @@
 #include "primitives.h"
 #include "ppccommon.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 // ORIGINAL : for(col=0; col<16; col++) {sum[col]  = src[ocol+col + 0 * srcStride] * c[0];}
 #define multiply_pixel_coeff(/*vector int*/ v_sum_0, /*vector int*/ v_sum_1, /*vector int*/ v_sum_2, /*vector int*/ v_sum_3, /*const pixel * */ src, /*int*/ src_offset, /*vector signed short*/ v_coeff) \
@@ -100,7 +100,7 @@ void interp_vert_pp_altivec(const pixel* src, intptr_t srcStride, pixel* dst, in
     const int16_t* c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     const int shift = IF_FILTER_PREC;
     const int offset = 1 << (shift - 1);
-    const uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    const uint16_t maxVal = (1 << S265_DEPTH) - 1;
 
     src -= (N / 2 - 1) * srcStride;
 
@@ -236,7 +236,7 @@ void interp_vert_pp_altivec(const pixel* __restrict__ src, intptr_t srcStride, p
     const int16_t* __restrict__ c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int shift = IF_FILTER_PREC;
     int offset = 1 << (shift - 1);
-    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    uint16_t maxVal = (1 << S265_DEPTH) - 1;
 
     src -= (N / 2 - 1) * srcStride;
 
@@ -451,10 +451,10 @@ void interp_vert_pp_altivec(const pixel* __restrict__ src, intptr_t srcStride, p
 template <int N, int width, int height>
 void filterVertical_sp_altivec(const int16_t* src, intptr_t srcStride, pixel* dst, intptr_t dstStride, int coeffIdx)
 {
-    int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     unsigned int shift = IF_FILTER_PREC + headRoom;
     int offset = (1 << (shift - 1)) + (IF_INTERNAL_OFFS << IF_FILTER_PREC);
-    const uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    const uint16_t maxVal = (1 << S265_DEPTH) - 1;
     const int16_t* coeff = (N == 8 ? g_lumaFilter[coeffIdx] : g_chromaFilter[coeffIdx]);
 
     src -= (N / 2 - 1) * srcStride;
@@ -593,7 +593,7 @@ void interp_horiz_ps_altivec(const pixel* src, intptr_t srcStride, int16_t* dst,
 {
 
     const int16_t* coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
-    int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     unsigned int shift = IF_FILTER_PREC - headRoom;
     int offset = -IF_INTERNAL_OFFS << shift;
     int blkheight = height;
@@ -826,7 +826,7 @@ void interp_horiz_pp_altivec(const pixel* src, intptr_t srcStride, pixel* dst, i
     const int16_t* coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int headRoom = IF_FILTER_PREC;
     int offset =  (1 << (headRoom - 1));
-    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    uint16_t maxVal = (1 << S265_DEPTH) - 1;
     int cStride = 1;
 
     src -= (N / 2 - 1) * cStride;
@@ -1062,7 +1062,7 @@ void interp_horiz_pp_altivec(const pixel* __restrict__ src, intptr_t srcStride, 
     const int16_t* __restrict__ coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int headRoom = IF_FILTER_PREC;
     int offset =  (1 << (headRoom - 1));
-    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    uint16_t maxVal = (1 << S265_DEPTH) - 1;
     int cStride = 1;
 
     src -= (N / 2 - 1) * cStride;
@@ -1243,7 +1243,7 @@ void interp_horiz_pp_altivec(const pixel* __restrict__ src, intptr_t srcStride, 
 //    const int16_t* coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
 //    int headRoom = IF_FILTER_PREC;
 //    int offset =  (1 << (headRoom - 1));
-//    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+//    uint16_t maxVal = (1 << S265_DEPTH) - 1;
 //    int cStride = 1;
 //
 //    src -= (N / 2 - 1) * cStride;
@@ -1474,7 +1474,7 @@ void interp_horiz_pp_altivec(const pixel* __restrict__ src, intptr_t srcStride, 
 //} // interp_horiz_pp_altivec()
 
 
-namespace X265_NS {
+namespace S265_NS {
 
 void setupFilterPrimitives_altivec(EncoderPrimitives& p)
 {
@@ -1519,4 +1519,4 @@ void setupFilterPrimitives_altivec(EncoderPrimitives& p)
     p.pu[LUMA_64x16].luma_hpp   = interp_horiz_pp_altivec<8, 64, 16> ;
 }
 
-} // end namespace X265_NS
+} // end namespace S265_NS

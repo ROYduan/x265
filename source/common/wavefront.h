@@ -19,17 +19,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
-#ifndef X265_WAVEFRONT_H
-#define X265_WAVEFRONT_H
+#ifndef S265_WAVEFRONT_H
+#define S265_WAVEFRONT_H
 
 #include "common.h"
 #include "threadpool.h"
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 // Generic wave-front scheduler, manages busy-state of CU rows as a priority
 // queue (higher CU rows have priority over lower rows)
@@ -97,6 +97,6 @@ public:
     // derived classes.
     virtual void processRow(int row, int threadId) = 0;
 };
-} // end namespace X265_NS
+} // end namespace S265_NS
 
-#endif // ifndef X265_WAVEFRONT_H
+#endif // ifndef S265_WAVEFRONT_H

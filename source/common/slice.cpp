@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -27,7 +27,7 @@
 #include "picyuv.h"
 #include "slice.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 void Slice::setRefPicList(PicList& picList)
 {
@@ -69,7 +69,7 @@ void Slice::setRefPicList(PicList& picList)
         }
     }
 
-    X265_CHECK(m_rps.numberOfPictures == m_rps.numberOfNegativePictures + m_rps.numberOfPositivePictures,
+    S265_CHECK(m_rps.numberOfPictures == m_rps.numberOfNegativePictures + m_rps.numberOfPositivePictures,
                "unexpected picture in RPS\n");
 
     // ref_pic_list_init
@@ -87,7 +87,7 @@ void Slice::setRefPicList(PicList& picList)
     for (i = 0; i < numPocLtCurr; i++, cIdx++)
         rpsCurrList0[cIdx] = refPicSetLtCurr[i];
 
-    X265_CHECK(cIdx == numPocTotalCurr, "RPS index check fail\n");
+    S265_CHECK(cIdx == numPocTotalCurr, "RPS index check fail\n");
 
     if (m_sliceType == B_SLICE)
     {
@@ -101,13 +101,13 @@ void Slice::setRefPicList(PicList& picList)
         for (i = 0; i < numPocLtCurr; i++, cIdx++)
             rpsCurrList1[cIdx] = refPicSetLtCurr[i];
 
-        X265_CHECK(cIdx == numPocTotalCurr, "RPS index check fail\n");
+        S265_CHECK(cIdx == numPocTotalCurr, "RPS index check fail\n");
     }
 
     for (int rIdx = 0; rIdx < m_numRefIdx[0]; rIdx++)
     {
         cIdx = rIdx % numPocTotalCurr;
-        X265_CHECK(cIdx >= 0 && cIdx < numPocTotalCurr, "RPS index check fail\n");
+        S265_CHECK(cIdx >= 0 && cIdx < numPocTotalCurr, "RPS index check fail\n");
         m_refFrameList[0][rIdx] = rpsCurrList0[cIdx];
     }
 
@@ -121,7 +121,7 @@ void Slice::setRefPicList(PicList& picList)
         for (int rIdx = 0; rIdx < m_numRefIdx[1]; rIdx++)
         {
             cIdx = rIdx % numPocTotalCurr;
-            X265_CHECK(cIdx >= 0 && cIdx < numPocTotalCurr, "RPS index check fail\n");
+            S265_CHECK(cIdx >= 0 && cIdx < numPocTotalCurr, "RPS index check fail\n");
             m_refFrameList[1][rIdx] = rpsCurrList1[cIdx];
         }
     }

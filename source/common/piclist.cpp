@@ -18,18 +18,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "piclist.h"
 #include "frame.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 void PicList::pushFront(Frame& curFrame)
 {
-    X265_CHECK(!curFrame.m_next && !curFrame.m_prev, "piclist: picture already in list\n"); // ensure frame is not in a list
+    S265_CHECK(!curFrame.m_next && !curFrame.m_prev, "piclist: picture already in list\n"); // ensure frame is not in a list
     curFrame.m_next = m_start;
     curFrame.m_prev = NULL;
 
@@ -47,7 +47,7 @@ void PicList::pushFront(Frame& curFrame)
 
 void PicList::pushBack(Frame& curFrame)
 {
-    X265_CHECK(!curFrame.m_next && !curFrame.m_prev, "piclist: picture already in list\n"); // ensure frame is not in a list
+    S265_CHECK(!curFrame.m_next && !curFrame.m_prev, "piclist: picture already in list\n"); // ensure frame is not in a list
     curFrame.m_next = NULL;
     curFrame.m_prev = m_end;
 
@@ -135,7 +135,7 @@ void PicList::remove(Frame& curFrame)
         tmp = tmp->m_next;
     }
 
-    X265_CHECK(tmp == &curFrame, "piclist: pic being removed was not in list\n"); // verify pic is in this list
+    S265_CHECK(tmp == &curFrame, "piclist: pic being removed was not in list\n"); // verify pic is in this list
 #endif
 
     m_count--;

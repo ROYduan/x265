@@ -18,15 +18,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_PICLIST_H
-#define X265_PICLIST_H
+#ifndef S265_PICLIST_H
+#define S265_PICLIST_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 
 class Frame;
 
@@ -80,4 +80,4 @@ public:
 };
 }
 
-#endif // ifndef X265_PICLIST_H
+#endif // ifndef S265_PICLIST_H

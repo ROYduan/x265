@@ -19,7 +19,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "abrEncApp.h"
@@ -32,7 +32,7 @@
 
 #include <queue>
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 /* Ctrl-C handler */
 static volatile sig_atomic_t b_ctrl_c /* = 0 */;
@@ -41,23 +41,23 @@ static void sigint_handler(int)
     b_ctrl_c = 1;
 }
 
-namespace X265_NS {
+namespace S265_NS {
     // private namespace
-#define X265_INPUT_QUEUE_SIZE 250
+#define S265_INPUT_QUEUE_SIZE 250
 
     AbrEncoder::AbrEncoder(CLIOptions cliopt[], uint8_t numEncodes, int &ret)
     {
         m_numEncodes = numEncodes;
         m_numActiveEncodes.set(numEncodes);
-        m_queueSize = (numEncodes > 1) ? X265_INPUT_QUEUE_SIZE : 1;
-        m_passEnc = X265_MALLOC(PassEncoder*, m_numEncodes);
+        m_queueSize = (numEncodes > 1) ? S265_INPUT_QUEUE_SIZE : 1;
+        m_passEnc = S265_MALLOC(PassEncoder*, m_numEncodes);
 
         for (uint8_t i = 0; i < m_numEncodes; i++)
         {
             m_passEnc[i] = new PassEncoder(i, cliopt[i], this);
             if (!m_passEnc[i])
             {
-                x265_log(NULL, X265_LOG_ERROR, "Unable to allocate memory for passEncoder\n");
+                s265_log(NULL, S265_LOG_ERROR, "Unable to allocate memory for passEncoder\n");
                 ret = 4;
             }
             m_passEnc[i]->init(ret);
@@ -65,7 +65,7 @@ namespace X265_NS {
 
         if (!allocBuffers())
         {
-            x265_log(NULL, X265_LOG_ERROR, "Unable to allocate memory for buffers\n");
+            s265_log(NULL, S265_LOG_ERROR, "Unable to allocate memory for buffers\n");
             ret = 4;
         }
 
@@ -76,33 +76,33 @@ namespace X265_NS {
 
     bool AbrEncoder::allocBuffers()
     {
-        m_inputPicBuffer = X265_MALLOC(x265_picture**, m_numEncodes);
-        m_analysisBuffer = X265_MALLOC(x265_analysis_data*, m_numEncodes);
+        m_inputPicBuffer = S265_MALLOC(s265_picture**, m_numEncodes);
+        m_analysisBuffer = S265_MALLOC(s265_analysis_data*, m_numEncodes);
 
         m_picWriteCnt = new ThreadSafeInteger[m_numEncodes];
         m_picReadCnt = new ThreadSafeInteger[m_numEncodes];
         m_analysisWriteCnt = new ThreadSafeInteger[m_numEncodes];
         m_analysisReadCnt = new ThreadSafeInteger[m_numEncodes];
 
-        m_picIdxReadCnt = X265_MALLOC(ThreadSafeInteger*, m_numEncodes);
-        m_analysisWrite = X265_MALLOC(ThreadSafeInteger*, m_numEncodes);
-        m_analysisRead = X265_MALLOC(ThreadSafeInteger*, m_numEncodes);
-        m_readFlag = X265_MALLOC(int*, m_numEncodes);
+        m_picIdxReadCnt = S265_MALLOC(ThreadSafeInteger*, m_numEncodes);
+        m_analysisWrite = S265_MALLOC(ThreadSafeInteger*, m_numEncodes);
+        m_analysisRead = S265_MALLOC(ThreadSafeInteger*, m_numEncodes);
+        m_readFlag = S265_MALLOC(int*, m_numEncodes);
 
         for (uint8_t pass = 0; pass < m_numEncodes; pass++)
         {
-            m_inputPicBuffer[pass] = X265_MALLOC(x265_picture*, m_queueSize);
+            m_inputPicBuffer[pass] = S265_MALLOC(s265_picture*, m_queueSize);
             for (uint32_t idx = 0; idx < m_queueSize; idx++)
             {
-                m_inputPicBuffer[pass][idx] = x265_picture_alloc();
-                x265_picture_init(m_passEnc[pass]->m_param, m_inputPicBuffer[pass][idx]);
+                m_inputPicBuffer[pass][idx] = s265_picture_alloc();
+                s265_picture_init(m_passEnc[pass]->m_param, m_inputPicBuffer[pass][idx]);
             }
 
-            CHECKED_MALLOC_ZERO(m_analysisBuffer[pass], x265_analysis_data, m_queueSize);
+            CHECKED_MALLOC_ZERO(m_analysisBuffer[pass], s265_analysis_data, m_queueSize);
             m_picIdxReadCnt[pass] = new ThreadSafeInteger[m_queueSize];
             m_analysisWrite[pass] = new ThreadSafeInteger[m_queueSize];
             m_analysisRead[pass] = new ThreadSafeInteger[m_queueSize];
-            m_readFlag[pass] = X265_MALLOC(int, m_queueSize);
+            m_readFlag[pass] = S265_MALLOC(int, m_queueSize);
         }
         return true;
     fail:
@@ -111,38 +111,38 @@ namespace X265_NS {
 
     void AbrEncoder::destroy()
     {
-        x265_cleanup(); /* Free library singletons */
+        s265_cleanup(); /* Free library singletons */
         for (uint8_t pass = 0; pass < m_numEncodes; pass++)
         {
             for (uint32_t index = 0; index < m_queueSize; index++)
             {
-                X265_FREE(m_inputPicBuffer[pass][index]->planes[0]);
-                x265_picture_free(m_inputPicBuffer[pass][index]);
+                S265_FREE(m_inputPicBuffer[pass][index]->planes[0]);
+                s265_picture_free(m_inputPicBuffer[pass][index]);
             }
 
-            X265_FREE(m_inputPicBuffer[pass]);
-            X265_FREE(m_analysisBuffer[pass]);
-            X265_FREE(m_readFlag[pass]);
+            S265_FREE(m_inputPicBuffer[pass]);
+            S265_FREE(m_analysisBuffer[pass]);
+            S265_FREE(m_readFlag[pass]);
             delete[] m_picIdxReadCnt[pass];
             delete[] m_analysisWrite[pass];
             delete[] m_analysisRead[pass];
             m_passEnc[pass]->destroy();
             delete m_passEnc[pass];
         }
-        X265_FREE(m_inputPicBuffer);
-        X265_FREE(m_analysisBuffer);
-        X265_FREE(m_readFlag);
+        S265_FREE(m_inputPicBuffer);
+        S265_FREE(m_analysisBuffer);
+        S265_FREE(m_readFlag);
 
         delete[] m_picWriteCnt;
         delete[] m_picReadCnt;
         delete[] m_analysisWriteCnt;
         delete[] m_analysisReadCnt;
 
-        X265_FREE(m_picIdxReadCnt);
-        X265_FREE(m_analysisWrite);
-        X265_FREE(m_analysisRead);
+        S265_FREE(m_picIdxReadCnt);
+        S265_FREE(m_analysisWrite);
+        S265_FREE(m_analysisRead);
 
-        X265_FREE(m_passEnc);
+        S265_FREE(m_passEnc);
     }
 
     PassEncoder::PassEncoder(uint32_t id, CLIOptions cliopt, AbrEncoder *parent)
@@ -180,13 +180,13 @@ namespace X265_NS {
                 m_scaler = new Scaler(0, 1, m_id, src, dst, this);
                 if (!m_scaler)
                 {
-                    x265_log(m_param, X265_LOG_ERROR, "\n MALLOC failure in Scaler");
+                    s265_log(m_param, S265_LOG_ERROR, "\n MALLOC failure in Scaler");
                     result = 4;
                 }
             }
         }
 
-        /* note: we could try to acquire a different libx265 API here based on
+        /* note: we could try to acquire a different libs265 API here based on
         * the profile found during option parsing, but it must be done before
         * opening an encoder */
 
@@ -194,7 +194,7 @@ namespace X265_NS {
             m_encoder = m_cliopt.api->encoder_open(m_param);
         if (!m_encoder)
         {
-            x265_log(NULL, X265_LOG_ERROR, "x265_encoder_open() failed for Enc, \n");
+            s265_log(NULL, S265_LOG_ERROR, "s265_encoder_open() failed for Enc, \n");
             m_ret = 2;
             return -1;
         }
@@ -219,7 +219,7 @@ namespace X265_NS {
 
         if (m_cliopt.loadLevel)
         {
-            x265_param *refParam = m_parent->m_passEnc[m_cliopt.refId]->m_param;
+            s265_param *refParam = m_parent->m_passEnc[m_cliopt.refId]->m_param;
 
             if (m_param->sourceHeight == (refParam->sourceHeight - refParam->confWinBottomOffset) &&
                 m_param->sourceWidth == (refParam->sourceWidth - refParam->confWinRightOffset))
@@ -286,7 +286,7 @@ namespace X265_NS {
         }
     }
 
-    void PassEncoder::copyInfo(x265_analysis_data * src)
+    void PassEncoder::copyInfo(s265_analysis_data * src)
     {
 
         uint32_t written = m_parent->m_analysisWriteCnt[m_id].get();
@@ -315,11 +315,11 @@ namespace X265_NS {
             }
         }
 
-        x265_analysis_data *m_analysisInfo = &m_parent->m_analysisBuffer[m_id][index];
+        s265_analysis_data *m_analysisInfo = &m_parent->m_analysisBuffer[m_id][index];
 
-        x265_free_analysis_data(m_param, m_analysisInfo);
-        memcpy(m_analysisInfo, src, sizeof(x265_analysis_data));
-        x265_alloc_analysis_data(m_param, m_analysisInfo);
+        s265_free_analysis_data(m_param, m_analysisInfo);
+        memcpy(m_analysisInfo, src, sizeof(s265_analysis_data));
+        s265_alloc_analysis_data(m_param, m_analysisInfo);
 
         bool isVbv = m_param->rc.vbvBufferSize && m_param->rc.vbvMaxBitrate;
         if (m_param->bDisableLookahead && isVbv)
@@ -330,13 +330,13 @@ namespace X265_NS {
             memcpy(m_analysisInfo->lookahead.vbvCost, src->lookahead.vbvCost, src->numCUsInFrame * sizeof(uint32_t));
         }
 
-        if (src->sliceType == X265_TYPE_IDR || src->sliceType == X265_TYPE_I)
+        if (src->sliceType == S265_TYPE_IDR || src->sliceType == S265_TYPE_I)
         {
             if (m_param->analysisSaveReuseLevel < 2)
                 goto ret;
-            x265_analysis_intra_data *intraDst, *intraSrc;
-            intraDst = (x265_analysis_intra_data*)m_analysisInfo->intraData;
-            intraSrc = (x265_analysis_intra_data*)src->intraData;
+            s265_analysis_intra_data *intraDst, *intraSrc;
+            intraDst = (s265_analysis_intra_data*)m_analysisInfo->intraData;
+            intraSrc = (s265_analysis_intra_data*)src->intraData;
             memcpy(intraDst->depth, intraSrc->depth, sizeof(uint8_t) * src->depthBytes);
             memcpy(intraDst->modes, intraSrc->modes, sizeof(uint8_t) * src->numCUsInFrame * src->numPartitions);
             memcpy(intraDst->partSizes, intraSrc->partSizes, sizeof(char) * src->depthBytes);
@@ -346,14 +346,14 @@ namespace X265_NS {
         }
         else
         {
-            bool bIntraInInter = (src->sliceType == X265_TYPE_P || m_param->bIntraInBFrames);
-            int numDir = src->sliceType == X265_TYPE_P ? 1 : 2;
+            bool bIntraInInter = (src->sliceType == S265_TYPE_P || m_param->bIntraInBFrames);
+            int numDir = src->sliceType == S265_TYPE_P ? 1 : 2;
             memcpy(m_analysisInfo->wt, src->wt, sizeof(WeightParam) * 3 * numDir);
             if (m_param->analysisSaveReuseLevel < 2)
                 goto ret;
-            x265_analysis_inter_data *interDst, *interSrc;
-            interDst = (x265_analysis_inter_data*)m_analysisInfo->interData;
-            interSrc = (x265_analysis_inter_data*)src->interData;
+            s265_analysis_inter_data *interDst, *interSrc;
+            interDst = (s265_analysis_inter_data*)m_analysisInfo->interData;
+            interSrc = (s265_analysis_inter_data*)src->interData;
             memcpy(interDst->depth, interSrc->depth, sizeof(uint8_t) * src->depthBytes);
             memcpy(interDst->modes, interSrc->modes, sizeof(uint8_t) * src->depthBytes);
             if (m_param->rc.cuTree)
@@ -373,15 +373,15 @@ namespace X265_NS {
                     }
                     if (bIntraInInter)
                     {
-                        x265_analysis_intra_data *intraDst = (x265_analysis_intra_data*)m_analysisInfo->intraData;
-                        x265_analysis_intra_data *intraSrc = (x265_analysis_intra_data*)src->intraData;
+                        s265_analysis_intra_data *intraDst = (s265_analysis_intra_data*)m_analysisInfo->intraData;
+                        s265_analysis_intra_data *intraSrc = (s265_analysis_intra_data*)src->intraData;
                         memcpy(intraDst->modes, intraSrc->modes, sizeof(uint8_t) * src->numPartitions * src->numCUsInFrame);
                         memcpy(intraDst->chromaModes, intraSrc->chromaModes, sizeof(uint8_t) * src->depthBytes);
                     }
                }
             }
             if (m_param->analysisSaveReuseLevel != 10)
-                memcpy(interDst->ref, interSrc->ref, sizeof(int32_t) * src->numCUsInFrame * X265_MAX_PRED_MODE_PER_CTU * numDir);
+                memcpy(interDst->ref, interSrc->ref, sizeof(int32_t) * src->numCUsInFrame * S265_MAX_PRED_MODE_PER_CTU * numDir);
         }
 
 ret:
@@ -392,7 +392,7 @@ ret:
     }
 
 
-    bool PassEncoder::readPicture(x265_picture *dstPic)
+    bool PassEncoder::readPicture(s265_picture *dstPic)
     {
         /*Check and wait if there any input frames to read*/
         int ipread = m_parent->m_picReadCnt[m_id].get();
@@ -408,7 +408,7 @@ ret:
         {
             /*Get input index to read from inputQueue. If doesn't need analysis info, it need not wait to fetch poc from analysisQueue*/
             int readPos = ipread % m_parent->m_queueSize;
-            x265_analysis_data* analysisData = 0;
+            s265_analysis_data* analysisData = 0;
 
             if (isAbrLoad)
             {
@@ -470,9 +470,9 @@ ret:
             }
 
 
-            x265_picture *srcPic = (x265_picture*)(m_parent->m_inputPicBuffer[m_id][readPos]);
+            s265_picture *srcPic = (s265_picture*)(m_parent->m_inputPicBuffer[m_id][readPos]);
 
-            x265_picture *pic = (x265_picture*)(dstPic);
+            s265_picture *pic = (s265_picture*)(dstPic);
             pic->colorSpace = srcPic->colorSpace;
             pic->bitDepth = srcPic->bitDepth;
             pic->framesize = srcPic->framesize;
@@ -505,53 +505,53 @@ ret:
         {
 
 #if ENABLE_LIBVMAF
-            x265_vmaf_data* vmafdata = m_cliopt.vmafData;
+            s265_vmaf_data* vmafdata = m_cliopt.vmafData;
 #endif
             /* This allows muxers to modify bitstream format */
             m_cliopt.output->setParam(m_param);
-            const x265_api* api = m_cliopt.api;
+            const s265_api* api = m_cliopt.api;
             ReconPlay* reconPlay = NULL;
             if (m_cliopt.reconPlayCmd)
                 reconPlay = new ReconPlay(m_cliopt.reconPlayCmd, *m_param);
-            char* profileName = m_cliopt.encName ? m_cliopt.encName : (char *)"x265";
+            char* profileName = m_cliopt.encName ? m_cliopt.encName : (char *)"s265";
 
             if (m_cliopt.zoneFile)
             {
                 if (!m_cliopt.parseZoneFile())
                 {
-                    x265_log(NULL, X265_LOG_ERROR, "Unable to parse zonefile in %s\n", profileName);
+                    s265_log(NULL, S265_LOG_ERROR, "Unable to parse zonefile in %s\n", profileName);
                     fclose(m_cliopt.zoneFile);
                     m_cliopt.zoneFile = NULL;
                 }
             }
 
             if (signal(SIGINT, sigint_handler) == SIG_ERR)
-                x265_log(m_param, X265_LOG_ERROR, "Unable to register CTRL+C handler: %s in %s\n",
+                s265_log(m_param, S265_LOG_ERROR, "Unable to register CTRL+C handler: %s in %s\n",
                     strerror(errno), profileName);
 
-            x265_picture pic_orig, pic_out;
-            x265_picture *pic_in = &pic_orig;
+            s265_picture pic_orig, pic_out;
+            s265_picture *pic_in = &pic_orig;
             /* Allocate recon picture if analysis save/load is enabled */
             std::priority_queue<int64_t>* pts_queue = m_cliopt.output->needPTS() ? new std::priority_queue<int64_t>() : NULL;
-            x265_picture *pic_recon = (m_cliopt.recon || m_param->analysisSave || m_param->analysisLoad || pts_queue || reconPlay || m_param->csvLogLevel) ? &pic_out : NULL;
+            s265_picture *pic_recon = (m_cliopt.recon || m_param->analysisSave || m_param->analysisLoad || pts_queue || reconPlay || m_param->csvLogLevel) ? &pic_out : NULL;
             uint32_t inFrameCount = 0;
             uint32_t outFrameCount = 0;
-            x265_nal *p_nal;
-            x265_stats stats;
+            s265_nal *p_nal;
+            s265_stats stats;
             uint32_t nal;
             int16_t *errorBuf = NULL;
             bool bDolbyVisionRPU = false;
             uint8_t *rpuPayload = NULL;
             int inputPicNum = 1;
-            x265_picture picField1, picField2;
-            x265_analysis_data* analysisInfo = (x265_analysis_data*)(&pic_out.analysisData);
+            s265_picture picField1, picField2;
+            s265_analysis_data* analysisInfo = (s265_analysis_data*)(&pic_out.analysisData);
             bool isAbrSave = m_cliopt.saveLevel && (m_parent->m_numEncodes > 1);
 
             if (!m_param->bRepeatHeaders && !m_param->bEnableSvtHevc)
             {
                 if (api->encoder_headers(m_encoder, &p_nal, &nal) < 0)
                 {
-                    x265_log(m_param, X265_LOG_ERROR, "Failure generating stream headers in %s\n", profileName);
+                    s265_log(m_param, S265_LOG_ERROR, "Failure generating stream headers in %s\n", profileName);
                     m_ret = 3;
                     goto fail;
                 }
@@ -572,7 +572,7 @@ ret:
 
             if (m_param->dolbyProfile && m_cliopt.dolbyVisionRpu)
             {
-                rpuPayload = X265_MALLOC(uint8_t, 1024);
+                rpuPayload = S265_MALLOC(uint8_t, 1024);
                 pic_in->rpu.payload = rpuPayload;
                 if (pic_in->rpu.payload)
                     bDolbyVisionRPU = true;
@@ -580,7 +580,7 @@ ret:
 
             if (m_cliopt.bDither)
             {
-                errorBuf = X265_MALLOC(int16_t, m_param->sourceWidth + 1);
+                errorBuf = S265_MALLOC(int16_t, m_param->sourceWidth + 1);
                 if (errorBuf)
                     memset(errorBuf, 0, (m_param->sourceWidth + 1) * sizeof(int16_t));
                 else
@@ -595,7 +595,7 @@ ret:
                 {
                     if (!m_cliopt.parseQPFile(pic_orig))
                     {
-                        x265_log(NULL, X265_LOG_ERROR, "can't parse qpfile for frame %d in %s\n",
+                        s265_log(NULL, S265_LOG_ERROR, "can't parse qpfile for frame %d in %s\n",
                             pic_in->poc, profileName);
                         fclose(m_cliopt.qpfile);
                         m_cliopt.qpfile = NULL;
@@ -613,7 +613,7 @@ ret:
                 {
                     if (pic_in->bitDepth > m_param->internalBitDepth && m_cliopt.bDither)
                     {
-                        x265_dither_image(pic_in, m_cliopt.input->getWidth(), m_cliopt.input->getHeight(), errorBuf, m_param->internalBitDepth);
+                        s265_dither_image(pic_in, m_cliopt.input->getWidth(), m_cliopt.input->getHeight(), errorBuf, m_param->internalBitDepth);
                         pic_in->bitDepth = m_param->internalBitDepth;
                     }
                     /* Overwrite PTS */
@@ -638,20 +638,20 @@ ret:
                             picField1.framesize = picField2.framesize = pic_in->framesize >> 1;
 
                             size_t fieldFrameSize = (size_t)pic_in->framesize >> 1;
-                            char* field1Buf = X265_MALLOC(char, fieldFrameSize);
-                            char* field2Buf = X265_MALLOC(char, fieldFrameSize);
+                            char* field1Buf = S265_MALLOC(char, fieldFrameSize);
+                            char* field2Buf = S265_MALLOC(char, fieldFrameSize);
 
                             int stride = picField1.stride[0] = picField2.stride[0] = pic_in->stride[0];
-                            uint64_t framesize = stride * (height >> x265_cli_csps[pic_in->colorSpace].height[0]);
+                            uint64_t framesize = stride * (height >> s265_cli_csps[pic_in->colorSpace].height[0]);
                             picField1.planes[0] = field1Buf;
                             picField2.planes[0] = field2Buf;
-                            for (int i = 1; i < x265_cli_csps[pic_in->colorSpace].planes; i++)
+                            for (int i = 1; i < s265_cli_csps[pic_in->colorSpace].planes; i++)
                             {
                                 picField1.planes[i] = field1Buf + framesize;
                                 picField2.planes[i] = field2Buf + framesize;
 
                                 stride = picField1.stride[i] = picField2.stride[i] = pic_in->stride[i];
-                                framesize += (stride * (height >> x265_cli_csps[pic_in->colorSpace].height[i]));
+                                framesize += (stride * (height >> s265_cli_csps[pic_in->colorSpace].height[i]));
                             }
                             assert(framesize == picField1.framesize);
                         }
@@ -668,7 +668,7 @@ ret:
 
                         if (pic_in->framesize)
                         {
-                            for (int i = 0; i < x265_cli_csps[pic_in->colorSpace].planes; i++)
+                            for (int i = 0; i < s265_cli_csps[pic_in->colorSpace].planes; i++)
                             {
                                 char* srcP1 = (char*)pic_in->planes[i];
                                 char* srcP2 = (char*)pic_in->planes[i] + pic_in->stride[i];
@@ -677,7 +677,7 @@ ret:
 
                                 int stride = picField1.stride[i];
 
-                                for (int y = 0; y < (height >> x265_cli_csps[pic_in->colorSpace].height[i]); y++)
+                                for (int y = 0; y < (height >> s265_cli_csps[pic_in->colorSpace].height[i]); y++)
                                 {
                                     memcpy(p1, srcP1, stride);
                                     memcpy(p2, srcP2, stride);
@@ -709,7 +709,7 @@ ret:
 
                 for (int inputNum = 0; inputNum < inputPicNum; inputNum++)
                 {
-                    x265_picture *picInput = NULL;
+                    s265_picture *picInput = NULL;
                     if (inputPicNum == 2)
                         picInput = pic_in ? (inputNum ? &picField2 : &picField1) : NULL;
                     else
@@ -800,9 +800,9 @@ ret:
             if (bDolbyVisionRPU)
             {
                 if (fgetc(m_cliopt.dolbyVisionRpu) != EOF)
-                    x265_log(NULL, X265_LOG_WARNING, "Dolby Vision RPU count is greater than frame count in %s\n",
+                    s265_log(NULL, S265_LOG_WARNING, "Dolby Vision RPU count is greater than frame count in %s\n",
                         profileName);
-                x265_log(NULL, X265_LOG_INFO, "VES muxing with Dolby Vision RPU file successful in %s\n",
+                s265_log(NULL, S265_LOG_INFO, "VES muxing with Dolby Vision RPU file successful in %s\n",
                     profileName);
             }
 
@@ -837,13 +837,13 @@ ret:
             m_cliopt.output->closeFile(largest_pts, second_largest_pts);
 
             if (b_ctrl_c)
-                general_log(m_param, NULL, X265_LOG_INFO, "aborted at input frame %d, output frame %d in %s\n",
+                general_log(m_param, NULL, S265_LOG_INFO, "aborted at input frame %d, output frame %d in %s\n",
                     m_cliopt.seek + inFrameCount, stats.encodedPictureCount, profileName);
 
             api->param_free(m_param);
 
-            X265_FREE(errorBuf);
-            X265_FREE(rpuPayload);
+            S265_FREE(errorBuf);
+            S265_FREE(rpuPayload);
 
             m_threadActive = false;
             m_parent->m_numActiveEncodes.decr();
@@ -880,10 +880,10 @@ ret:
 
         int csp = dst->m_csp;
         uint32_t pixelbytes = dst->m_inputDepth > 8 ? 2 : 1;
-        for (int i = 0; i < x265_cli_csps[csp].planes; i++)
+        for (int i = 0; i < s265_cli_csps[csp].planes; i++)
         {
-            int w = dst->m_width >> x265_cli_csps[csp].width[i];
-            int h = dst->m_height >> x265_cli_csps[csp].height[i];
+            int w = dst->m_width >> s265_cli_csps[csp].width[i];
+            int h = dst->m_height >> s265_cli_csps[csp].height[i];
             m_scalePlanes[i] = w * h * pixelbytes;
             m_scaleFrameSize += m_scalePlanes[i];
         }
@@ -895,11 +895,11 @@ ret:
         }
     }
 
-    bool Scaler::scalePic(x265_picture * destination, x265_picture * source)
+    bool Scaler::scalePic(s265_picture * destination, s265_picture * source)
     {
         if (!destination || !source)
             return false;
-        x265_param* param = m_parentEnc->m_param;
+        s265_param* param = m_parentEnc->m_param;
         int pixelBytes = m_dstFormat->m_inputDepth > 8 ? 2 : 1;
         if (m_srcFormat->m_height != m_dstFormat->m_height || m_srcFormat->m_width != m_dstFormat->m_width)
         {
@@ -917,12 +917,12 @@ ret:
             srcStride[0] = source->stride[0];
             destination->stride[0] = m_dstFormat->m_width * pixelBytes;
             dstStride[0] = destination->stride[0];
-            if (param->internalCsp != X265_CSP_I400)
+            if (param->internalCsp != S265_CSP_I400)
             {
                 srcStride[1] = source->stride[1];
                 srcStride[2] = source->stride[2];
-                destination->stride[1] = destination->stride[0] >> x265_cli_csps[param->internalCsp].width[1];
-                destination->stride[2] = destination->stride[0] >> x265_cli_csps[param->internalCsp].width[2];
+                destination->stride[1] = destination->stride[0] >> s265_cli_csps[param->internalCsp].width[1];
+                destination->stride[2] = destination->stride[0] >> s265_cli_csps[param->internalCsp].width[2];
                 dstStride[1] = destination->stride[1];
                 dstStride[2] = destination->stride[2];
             }
@@ -932,7 +932,7 @@ ret:
                 return true;
             }
             else
-                x265_log(param, X265_LOG_INFO, "Empty frame received\n");
+                s265_log(param, S265_LOG_INFO, "Empty frame received\n");
         }
         return false;
     }
@@ -982,31 +982,31 @@ ret:
                     int csp = m_dstFormat->m_csp;
                     int stride[3];
                     stride[0] = m_dstFormat->m_width;
-                    stride[1] = stride[0] >> x265_cli_csps[csp].width[1];
-                    stride[2] = stride[0] >> x265_cli_csps[csp].width[2];
-                    for (int i = 0; i < x265_cli_csps[csp].planes; i++)
+                    stride[1] = stride[0] >> s265_cli_csps[csp].width[1];
+                    stride[2] = stride[0] >> s265_cli_csps[csp].width[2];
+                    for (int i = 0; i < s265_cli_csps[csp].planes; i++)
                     {
-                        uint32_t h = m_dstFormat->m_height >> x265_cli_csps[csp].height[i];
+                        uint32_t h = m_dstFormat->m_height >> s265_cli_csps[csp].height[i];
                         planesize[i] = h * stride[i];
                         framesize += planesize[i];
                     }
 
-                    m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx] = x265_picture_alloc();
-                    x265_picture_init(m_parentEnc->m_param, m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx]);
+                    m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx] = s265_picture_alloc();
+                    s265_picture_init(m_parentEnc->m_param, m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx]);
 
-                    ((x265_picture*)m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWritten % QDepth])->framesize = framesize;
-                    for (int32_t j = 0; j < x265_cli_csps[csp].planes; j++)
+                    ((s265_picture*)m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWritten % QDepth])->framesize = framesize;
+                    for (int32_t j = 0; j < s265_cli_csps[csp].planes; j++)
                     {
-                        m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWritten % QDepth]->planes[j] = X265_MALLOC(char, planesize[j]);
+                        m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWritten % QDepth]->planes[j] = S265_MALLOC(char, planesize[j]);
                     }
                 }
 
-                x265_picture *srcPic = m_parentEnc->m_parent->m_inputPicBuffer[srcId][scaledWritten % QDepth];
-                x265_picture* destPic = m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx];
+                s265_picture *srcPic = m_parentEnc->m_parent->m_inputPicBuffer[srcId][scaledWritten % QDepth];
+                s265_picture* destPic = m_parentEnc->m_parent->m_inputPicBuffer[m_id][scaledWriteIdx];
 
                 // Enqueue this picture up with the current encoder so that it will asynchronously encode
                 if (!scalePic(destPic, srcPic))
-                    x265_log(NULL, X265_LOG_ERROR, "Unable to copy scaled input picture to input queue \n");
+                    s265_log(NULL, S265_LOG_ERROR, "Unable to copy scaled input picture to input queue \n");
                 else
                     m_parentEnc->m_parent->m_picWriteCnt[m_id].incr();
                 m_scaledWriteCnt.incr();
@@ -1055,8 +1055,8 @@ ret:
         THREAD_NAME("Reader", m_id);
 
         int QDepth = m_parentEnc->m_parent->m_queueSize;
-        x265_picture* src = x265_picture_alloc();
-        x265_picture_init(m_parentEnc->m_param, src);
+        s265_picture* src = s265_picture_alloc();
+        s265_picture_init(m_parentEnc->m_param, src);
 
         while (m_threadActive)
         {
@@ -1073,7 +1073,7 @@ ret:
                 read = m_parentEnc->m_parent->m_picIdxReadCnt[m_id][writeIdx].waitForChange(read);
             }
 
-            x265_picture* dest = m_parentEnc->m_parent->m_inputPicBuffer[m_id][writeIdx];
+            s265_picture* dest = m_parentEnc->m_parent->m_inputPicBuffer[m_id][writeIdx];
             if (m_input->readPicture(*src))
             {
                 dest->poc = src->poc;
@@ -1092,11 +1092,11 @@ ret:
                 dest->stride[2] = src->stride[2];
 
                 if (!dest->planes[0])
-                    dest->planes[0] = X265_MALLOC(char, dest->framesize);
+                    dest->planes[0] = S265_MALLOC(char, dest->framesize);
 
                 memcpy(dest->planes[0], src->planes[0], src->framesize * sizeof(char));
                 dest->planes[1] = (char*)dest->planes[0] + src->stride[0] * src->height;
-                dest->planes[2] = (char*)dest->planes[1] + src->stride[1] * (src->height >> x265_cli_csps[src->colorSpace].height[1]);
+                dest->planes[2] = (char*)dest->planes[1] + src->stride[1] * (src->height >> s265_cli_csps[src->colorSpace].height[1]);
                 m_parentEnc->m_parent->m_picWriteCnt[m_id].incr();
             }
             else
@@ -1106,6 +1106,6 @@ ret:
                 m_parentEnc->m_parent->m_picWriteCnt[m_id].poke();
             }
         }
-        x265_picture_free(src);
+        s265_picture_free(src);
     }
 }

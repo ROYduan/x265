@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_CUDATA_H
-#define X265_CUDATA_H
+#ifndef S265_CUDATA_H
+#define S265_CUDATA_H
 
 #include "common.h"
 #include "slice.h"
@@ -30,7 +30,7 @@
 
 #define NUM_TU_DEPTH 21
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class FrameData;
@@ -232,7 +232,7 @@ public:
 
     CUData();
 
-    void     initialize(const CUDataMemPool& dataPool, uint32_t depth, const x265_param& param, int instance);
+    void     initialize(const CUDataMemPool& dataPool, uint32_t depth, const s265_param& param, int instance);
     static void calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUSize, uint32_t minCUSize, CUGeom cuDataArray[CUGeom::MAX_GEOMS]);
 
     void     initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t firstRowInSlice, uint32_t lastRowInSlice, uint32_t lastCUInSlice);
@@ -249,7 +249,7 @@ public:
 
     void     setPartSizeSubParts(PartSize size)    { m_partSet(m_partSize, (uint8_t)size); }
     void     setPredModeSubParts(PredMode mode)    { m_partSet(m_predMode, (uint8_t)mode); }
-    void     clearCbf()                            { m_partSet(m_cbf[0], 0); if (m_chromaFormat != X265_CSP_I400) { m_partSet(m_cbf[1], 0); m_partSet(m_cbf[2], 0);} }
+    void     clearCbf()                            { m_partSet(m_cbf[0], 0); if (m_chromaFormat != S265_CSP_I400) { m_partSet(m_cbf[1], 0); m_partSet(m_cbf[2], 0);} }
 
     /* these functions all take depth as an absolute depth from CTU, it is used to calculate the number of parts to copy */
     void     setQPSubParts(int8_t qp, uint32_t absPartIdx, uint32_t depth)                    { s_partSet[depth]((uint8_t*)m_qp + absPartIdx, (uint8_t)qp); }
@@ -268,7 +268,7 @@ public:
     void     setPURefIdx(int list, int8_t refIdx, int absPartIdx, int puIdx);
 
     uint8_t  getCbf(uint32_t absPartIdx, TextType ttype, uint32_t tuDepth) const { return (m_cbf[ttype][absPartIdx] >> tuDepth) & 0x1; }
-    bool     getQtRootCbf(uint32_t absPartIdx) const                             { return (m_cbf[0][absPartIdx] || ((m_chromaFormat != X265_CSP_I400) && (m_cbf[1][absPartIdx] || m_cbf[2][absPartIdx]))); }
+    bool     getQtRootCbf(uint32_t absPartIdx) const                             { return (m_cbf[0][absPartIdx] || ((m_chromaFormat != S265_CSP_I400) && (m_cbf[1][absPartIdx] || m_cbf[2][absPartIdx]))); }
     int8_t   getRefQP(uint32_t currAbsIdxInCTU) const;
     uint32_t getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MVField (*candMvField)[2], uint8_t* candDir) const;
     void     clipMv(MV& outMV) const;
@@ -361,12 +361,12 @@ struct CUDataMemPool
     CUDataMemPool() { charMemBlock = NULL; trCoeffMemBlock = NULL; mvMemBlock = NULL; distortionMemBlock = NULL; 
                       dynRefineRdBlock = NULL; dynRefCntBlock = NULL; dynRefVarBlock = NULL;}
 
-    bool create(uint32_t depth, uint32_t csp, uint32_t numInstances, const x265_param& param)
+    bool create(uint32_t depth, uint32_t csp, uint32_t numInstances, const s265_param& param)
     {
         uint32_t numPartition = param.num4x4Partitions >> (depth * 2);
         uint32_t cuSize = param.maxCUSize >> depth;
         uint32_t sizeL = cuSize * cuSize;
-        if (csp == X265_CSP_I400)
+        if (csp == S265_CSP_I400)
         {
             CHECKED_MALLOC(trCoeffMemBlock, coeff_t, (sizeL) * numInstances);
         }
@@ -385,12 +385,12 @@ struct CUDataMemPool
 
     void destroy()
     {
-        X265_FREE(trCoeffMemBlock);
-        X265_FREE(mvMemBlock);
-        X265_FREE(charMemBlock);
-        X265_FREE(distortionMemBlock);
+        S265_FREE(trCoeffMemBlock);
+        S265_FREE(mvMemBlock);
+        S265_FREE(charMemBlock);
+        S265_FREE(distortionMemBlock);
     }
 };
 }
 
-#endif // ifndef X265_CUDATA_H
+#endif // ifndef S265_CUDATA_H

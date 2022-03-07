@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -27,7 +27,7 @@
 #include "level.h"
 #include "svt.h"
 
-namespace X265_NS {
+namespace S265_NS {
 typedef struct
 {
     uint32_t maxLumaSamples;
@@ -61,7 +61,7 @@ LevelSpec levels[] =
 };
 
 /* determine minimum decoder level required to decode the described video */
-void determineLevel(const x265_param &param, VPS& vps)
+void determineLevel(const s265_param &param, VPS& vps)
 {
     vps.ptl.onePictureOnlyConstraintFlag = param.totalFrames == 1;
     vps.ptl.intraConstraintFlag = param.keyframeMax <= 1 || vps.ptl.onePictureOnlyConstraintFlag;
@@ -74,7 +74,7 @@ void determineLevel(const x265_param &param, VPS& vps)
 
     vps.maxTempSubLayers = param.bEnableTemporalSubLayers ? 2 : 1;
     
-    if (param.internalCsp == X265_CSP_I420 && param.internalBitDepth <= 10)
+    if (param.internalCsp == S265_CSP_I420 && param.internalBitDepth <= 10)
     {
         /* Probably an HEVC v1 profile, but must check to be sure */
         if (param.internalBitDepth <= 8)
@@ -159,11 +159,11 @@ void determineLevel(const x265_param &param, VPS& vps)
         uint32_t maxDpbSize = MaxDpbPicBuf;
 
         if (lumaSamples <= (levels[i].maxLumaSamples >> 2))
-            maxDpbSize = X265_MIN(4 * MaxDpbPicBuf, 16);
+            maxDpbSize = S265_MIN(4 * MaxDpbPicBuf, 16);
         else if (lumaSamples <= (levels[i].maxLumaSamples >> 1))
-            maxDpbSize = X265_MIN(2 * MaxDpbPicBuf, 16);
+            maxDpbSize = S265_MIN(2 * MaxDpbPicBuf, 16);
         else if (lumaSamples <= ((3 * levels[i].maxLumaSamples) >> 2))
-            maxDpbSize = X265_MIN((4 * MaxDpbPicBuf) / 3, 16);
+            maxDpbSize = S265_MIN((4 * MaxDpbPicBuf) / 3, 16);
 
         /* The value of sps_max_dec_pic_buffering_minus1[ HighestTid ] + 1 shall be less than
          * or equal to MaxDpbSize */
@@ -173,11 +173,11 @@ void determineLevel(const x265_param &param, VPS& vps)
         /* For level 5 and higher levels, the value of CtbSizeY shall be equal to 32 or 64 */
         if (levels[i].levelEnum >= Level::LEVEL5 && param.maxCUSize < 32)
         {
-            x265_log(&param, X265_LOG_WARNING, "level %s detected, but CTU size 16 is non-compliant\n", levels[i].name);
+            s265_log(&param, S265_LOG_WARNING, "level %s detected, but CTU size 16 is non-compliant\n", levels[i].name);
             vps.ptl.profileIdc = Profile::NONE;
             vps.ptl.levelIdc = Level::NONE;
             vps.ptl.tierFlag = Level::MAIN;
-            x265_log(&param, X265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
+            s265_log(&param, S265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
             return;
         }
 
@@ -185,11 +185,11 @@ void determineLevel(const x265_param &param, VPS& vps)
         int numPocTotalCurr = param.maxNumReferences + vps.numReorderPics;
         if (numPocTotalCurr > 8)
         {
-            x265_log(&param, X265_LOG_WARNING, "level %s detected, but NumPocTotalCurr (total references) is non-compliant\n", levels[i].name);
+            s265_log(&param, S265_LOG_WARNING, "level %s detected, but NumPocTotalCurr (total references) is non-compliant\n", levels[i].name);
             vps.ptl.profileIdc = Profile::NONE;
             vps.ptl.levelIdc = Level::NONE;
             vps.ptl.tierFlag = Level::MAIN;
-            x265_log(&param, X265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
+            s265_log(&param, S265_LOG_INFO, "NONE profile, Level-NONE (Main tier)\n");
             return;
         }
 
@@ -236,9 +236,9 @@ void determineLevel(const x265_param &param, VPS& vps)
             else
                 strcpy(profbuf, "Main 4:4:4 16");
         }
-        else if (param.internalCsp == X265_CSP_I420)
+        else if (param.internalCsp == S265_CSP_I420)
         {
-            X265_CHECK(vps.ptl.intraConstraintFlag || vps.ptl.bitDepthConstraint > 10, "rext fail\n");
+            S265_CHECK(vps.ptl.intraConstraintFlag || vps.ptl.bitDepthConstraint > 10, "rext fail\n");
             if (vps.ptl.bitDepthConstraint <= 8)
                 strcpy(profbuf, "Main");
             else if (vps.ptl.bitDepthConstraint <= 10)
@@ -246,7 +246,7 @@ void determineLevel(const x265_param &param, VPS& vps)
             else if (vps.ptl.bitDepthConstraint <= 12)
                 strcpy(profbuf, "Main 12");
         }
-        else if (param.internalCsp == X265_CSP_I422)
+        else if (param.internalCsp == S265_CSP_I422)
         {
             /* there is no Main 4:2:2 profile, so it must be signaled as Main10 4:2:2 */
             if (param.internalBitDepth <= 10)
@@ -254,7 +254,7 @@ void determineLevel(const x265_param &param, VPS& vps)
             else if (vps.ptl.bitDepthConstraint <= 12)
                 strcpy(profbuf, "Main 4:2:2 12");
         }
-        else if (param.internalCsp == X265_CSP_I444)
+        else if (param.internalCsp == S265_CSP_I444)
         {
             if (vps.ptl.bitDepthConstraint <= 8)
             {
@@ -277,7 +277,7 @@ void determineLevel(const x265_param &param, VPS& vps)
         if (vps.ptl.intraConstraintFlag && !bStillPicture)
             strcat(profbuf, " Intra");
     }
-    x265_log(&param, X265_LOG_INFO, "%s profile, Level-%s (%s tier)\n",
+    s265_log(&param, S265_LOG_INFO, "%s profile, Level-%s (%s tier)\n",
              profbuf, levels[i].name, tiers[vps.ptl.tierFlag]);
 }
 
@@ -287,10 +287,10 @@ void determineLevel(const x265_param &param, VPS& vps)
  * decoder meeting this level of requirement.  Some parameters (resolution and
  * frame rate) are non-negotiable and thus this function may fail. In those
  * circumstances it will be quite noisy */
-bool enforceLevel(x265_param& param, VPS& vps)
+bool enforceLevel(s265_param& param, VPS& vps)
 {
     vps.numReorderPics = (param.bBPyramid && param.bframes > 1) ? 2 : !!param.bframes;
-    vps.maxDecPicBuffering = X265_MIN(MAX_NUM_REF, X265_MAX(vps.numReorderPics + 2, (uint32_t)param.maxNumReferences) + 1);
+    vps.maxDecPicBuffering = S265_MIN(MAX_NUM_REF, S265_MAX(vps.numReorderPics + 2, (uint32_t)param.maxNumReferences) + 1);
 
     /* no level specified by user, just auto-detect from the configuration */
     if (param.levelIdc <= 0)
@@ -301,7 +301,7 @@ bool enforceLevel(x265_param& param, VPS& vps)
         level++;
     if (levels[level].levelIdc != param.levelIdc)
     {
-        x265_log(&param, X265_LOG_ERROR, "specified level %d does not exist\n", param.levelIdc);
+        s265_log(&param, S265_LOG_ERROR, "specified level %d does not exist\n", param.levelIdc);
         return false;
     }
 
@@ -321,12 +321,12 @@ bool enforceLevel(x265_param& param, VPS& vps)
         ok = false;
     if (!ok)
     {
-        x265_log(&param, X265_LOG_ERROR, "picture dimensions are out of range for specified level\n");
+        s265_log(&param, S265_LOG_ERROR, "picture dimensions are out of range for specified level\n");
         return false;
     }
     else if (samplesPerSec > l.maxLumaSamplesPerSecond)
     {
-        x265_log(&param, X265_LOG_ERROR, "frame rate is out of range for specified level\n");
+        s265_log(&param, S265_LOG_ERROR, "frame rate is out of range for specified level\n");
         return false;
     }
 
@@ -337,43 +337,43 @@ bool enforceLevel(x265_param& param, VPS& vps)
     if ((uint32_t)param.rc.vbvMaxBitrate > (allowHighTier ? l.maxBitrateHigh : l.maxBitrateMain))
     {
         param.rc.vbvMaxBitrate = allowHighTier ? l.maxBitrateHigh : l.maxBitrateMain;
-        x265_log(&param, X265_LOG_WARNING, "lowering VBV max bitrate to %dKbps\n", param.rc.vbvMaxBitrate);
+        s265_log(&param, S265_LOG_WARNING, "lowering VBV max bitrate to %dKbps\n", param.rc.vbvMaxBitrate);
     }
     if ((uint32_t)param.rc.vbvBufferSize > (allowHighTier ? l.maxCpbSizeHigh : l.maxCpbSizeMain))
     {
         param.rc.vbvBufferSize = allowHighTier ? l.maxCpbSizeHigh : l.maxCpbSizeMain;
-        x265_log(&param, X265_LOG_WARNING, "lowering VBV buffer size to %dKb\n", param.rc.vbvBufferSize);
+        s265_log(&param, S265_LOG_WARNING, "lowering VBV buffer size to %dKb\n", param.rc.vbvBufferSize);
     }
 
     switch (param.rc.rateControlMode)
     {
-    case X265_RC_ABR:
+    case S265_RC_ABR:
         if ((uint32_t)param.rc.bitrate > (allowHighTier ? l.maxBitrateHigh : l.maxBitrateMain))
         {
             param.rc.bitrate =  allowHighTier ? l.maxBitrateHigh : l.maxBitrateMain;
-            x265_log(&param, X265_LOG_WARNING, "lowering target bitrate to High tier limit of %dKbps\n", param.rc.bitrate);
+            s265_log(&param, S265_LOG_WARNING, "lowering target bitrate to High tier limit of %dKbps\n", param.rc.bitrate);
         }
         break;
 
-    case X265_RC_CQP:
-        x265_log(&param, X265_LOG_ERROR, "Constant QP is inconsistent with specifying a decoder level, no bitrate guarantee is possible.\n");
+    case S265_RC_CQP:
+        s265_log(&param, S265_LOG_ERROR, "Constant QP is inconsistent with specifying a decoder level, no bitrate guarantee is possible.\n");
         return false;
 
-    case X265_RC_CRF:
+    case S265_RC_CRF:
         if (!param.rc.vbvBufferSize || !param.rc.vbvMaxBitrate)
         {
             if (!param.rc.vbvMaxBitrate)
                 param.rc.vbvMaxBitrate = allowHighTier ? l.maxBitrateHigh : l.maxBitrateMain;
             if (!param.rc.vbvBufferSize)
                 param.rc.vbvBufferSize = allowHighTier ? l.maxCpbSizeHigh : l.maxCpbSizeMain;
-            x265_log(&param, X265_LOG_WARNING, "Specifying a decoder level with constant rate factor rate-control requires\n");
-            x265_log(&param, X265_LOG_WARNING, "enabling VBV with vbv-bufsize=%dkb vbv-maxrate=%dkbps. VBV outputs are non-deterministic!\n",
+            s265_log(&param, S265_LOG_WARNING, "Specifying a decoder level with constant rate factor rate-control requires\n");
+            s265_log(&param, S265_LOG_WARNING, "enabling VBV with vbv-bufsize=%dkb vbv-maxrate=%dkbps. VBV outputs are non-deterministic!\n",
                      param.rc.vbvBufferSize, param.rc.vbvMaxBitrate);
         }
         break;
 
     default:
-        x265_log(&param, X265_LOG_ERROR, "Unknown rate control mode is inconsistent with specifying a decoder level\n");
+        s265_log(&param, S265_LOG_ERROR, "Unknown rate control mode is inconsistent with specifying a decoder level\n");
         return false;
     }
 
@@ -383,27 +383,27 @@ bool enforceLevel(x265_param& param, VPS& vps)
     if (!param.uhdBluray) /* Do not change MaxDpbPicBuf for UHD-Bluray */
     {
         if (lumaSamples <= (l.maxLumaSamples >> 2))
-            maxDpbSize = X265_MIN(4 * MaxDpbPicBuf, 16);
+            maxDpbSize = S265_MIN(4 * MaxDpbPicBuf, 16);
         else if (lumaSamples <= (l.maxLumaSamples >> 1))
-            maxDpbSize = X265_MIN(2 * MaxDpbPicBuf, 16);
+            maxDpbSize = S265_MIN(2 * MaxDpbPicBuf, 16);
         else if (lumaSamples <= ((3 * l.maxLumaSamples) >> 2))
-            maxDpbSize = X265_MIN((4 * MaxDpbPicBuf) / 3, 16);
+            maxDpbSize = S265_MIN((4 * MaxDpbPicBuf) / 3, 16);
     }
 
     int savedRefCount = param.maxNumReferences;
     while (vps.maxDecPicBuffering > maxDpbSize && param.maxNumReferences > 1)
     {
         param.maxNumReferences--;
-        vps.maxDecPicBuffering = X265_MIN(MAX_NUM_REF, X265_MAX(vps.numReorderPics + 1, (uint32_t)param.maxNumReferences) + 1);
+        vps.maxDecPicBuffering = S265_MIN(MAX_NUM_REF, S265_MAX(vps.numReorderPics + 1, (uint32_t)param.maxNumReferences) + 1);
     }
     if (param.maxNumReferences != savedRefCount)
-        x265_log(&param, X265_LOG_WARNING, "Lowering max references to %d to meet level requirement\n", param.maxNumReferences);
+        s265_log(&param, S265_LOG_WARNING, "Lowering max references to %d to meet level requirement\n", param.maxNumReferences);
 
     /* For level 5 and higher levels, the value of CtbSizeY shall be equal to 32 or 64 */
     if (param.levelIdc >= 50 && param.maxCUSize < 32)
     {
         param.maxCUSize = 32;
-        x265_log(&param, X265_LOG_WARNING, "Levels 5.0 and above require a maximum CTU size of at least 32, using --ctu 32\n");
+        s265_log(&param, S265_LOG_WARNING, "Levels 5.0 and above require a maximum CTU size of at least 32, using --ctu 32\n");
     }
 
     /* The value of NumPocTotalCurr shall be less than or equal to 8 */
@@ -411,7 +411,7 @@ bool enforceLevel(x265_param& param, VPS& vps)
     if (numPocTotalCurr > 8)
     {
         param.maxNumReferences = 8 - !!param.bframes;
-        x265_log(&param, X265_LOG_WARNING, "Lowering max references to %d to meet numPocTotalCurr requirement\n", param.maxNumReferences);
+        s265_log(&param, S265_LOG_WARNING, "Lowering max references to %d to meet numPocTotalCurr requirement\n", param.maxNumReferences);
     }
 
     return true;
@@ -421,17 +421,17 @@ bool enforceLevel(x265_param& param, VPS& vps)
 #if EXPORT_C_API
 
 /* these functions are exported as C functions (default) */
-using namespace X265_NS;
+using namespace S265_NS;
 extern "C" {
 
 #else
 
 /* these functions exist within private namespace (multilib) */
-namespace X265_NS {
+namespace S265_NS {
 
 #endif
 
-int x265_param_apply_profile(x265_param *param, const char *profile)
+int s265_param_apply_profile(s265_param *param, const char *profile)
 {
     if (!param || !profile)
         return 0;
@@ -444,7 +444,7 @@ int x265_param_apply_profile(x265_param *param, const char *profile)
         else if (!strcmp(profile, "main10"))    svtParam->profile = 2;
         else
         {
-            x265_log(param, X265_LOG_ERROR, "SVT-HEVC encoder: Unsupported profile %s \n", profile);
+            s265_log(param, S265_LOG_ERROR, "SVT-HEVC encoder: Unsupported profile %s \n", profile);
             return -1;
         }
         return 0;
@@ -453,18 +453,18 @@ int x265_param_apply_profile(x265_param *param, const char *profile)
 
     /* Check if profile bit-depth requirement is exceeded by internal bit depth */
     bool bInvalidDepth = false;
-#if X265_DEPTH > 8
+#if S265_DEPTH > 8
     if (!strcmp(profile, "main") || !strcmp(profile, "mainstillpicture") || !strcmp(profile, "msp") ||
         !strcmp(profile, "main444-8") || !strcmp(profile, "main-intra") ||
         !strcmp(profile, "main444-intra") || !strcmp(profile, "main444-stillpicture"))
         bInvalidDepth = true;
 #endif
-#if X265_DEPTH > 10
+#if S265_DEPTH > 10
     if (!strcmp(profile, "main10") || !strcmp(profile, "main422-10") || !strcmp(profile, "main444-10") ||
         !strcmp(profile, "main10-intra") || !strcmp(profile, "main422-10-intra") || !strcmp(profile, "main444-10-intra"))
         bInvalidDepth = true;
 #endif
-#if X265_DEPTH > 12
+#if S265_DEPTH > 12
     if (!strcmp(profile, "main12") || !strcmp(profile, "main422-12") || !strcmp(profile, "main444-12") ||
         !strcmp(profile, "main12-intra") || !strcmp(profile, "main422-12-intra") || !strcmp(profile, "main444-12-intra"))
         bInvalidDepth = true;
@@ -472,7 +472,7 @@ int x265_param_apply_profile(x265_param *param, const char *profile)
 
     if (bInvalidDepth)
     {
-        x265_log(param, X265_LOG_ERROR, "%s profile not supported, internal bit depth %d.\n", profile, X265_DEPTH);
+        s265_log(param, S265_LOG_ERROR, "%s profile not supported, internal bit depth %d.\n", profile, S265_DEPTH);
         return -1;
     }
 
@@ -491,20 +491,20 @@ int x265_param_apply_profile(x265_param *param, const char *profile)
         !strcmp(profile, "main12") || !strcmp(profile, "main12-intra") ||
         !strcmp(profile, "mainstillpicture") || !strcmp(profile, "msp"))
     {
-        if (param->internalCsp != X265_CSP_I420)
+        if (param->internalCsp != S265_CSP_I420)
         {
-            x265_log(param, X265_LOG_ERROR, "%s profile not compatible with %s input chroma subsampling.\n",
-                     profile, x265_source_csp_names[param->internalCsp]);
+            s265_log(param, S265_LOG_ERROR, "%s profile not compatible with %s input chroma subsampling.\n",
+                     profile, s265_source_csp_names[param->internalCsp]);
             return -1;
         }
     }
     else if (!strcmp(profile, "main422-10") || !strcmp(profile, "main422-10-intra") ||
              !strcmp(profile, "main422-12") || !strcmp(profile, "main422-12-intra"))
     {
-        if (param->internalCsp != X265_CSP_I420 && param->internalCsp != X265_CSP_I422)
+        if (param->internalCsp != S265_CSP_I420 && param->internalCsp != S265_CSP_I422)
         {
-            x265_log(param, X265_LOG_ERROR, "%s profile not compatible with %s input chroma subsampling.\n",
-                     profile, x265_source_csp_names[param->internalCsp]);
+            s265_log(param, S265_LOG_ERROR, "%s profile not compatible with %s input chroma subsampling.\n",
+                     profile, s265_source_csp_names[param->internalCsp]);
             return -1;
         }
     }
@@ -518,7 +518,7 @@ int x265_param_apply_profile(x265_param *param, const char *profile)
     }
     else
     {
-        x265_log(param, X265_LOG_ERROR, "unknown profile <%s>\n", profile);
+        s265_log(param, S265_LOG_ERROR, "unknown profile <%s>\n", profile);
         return -1;
     }
 

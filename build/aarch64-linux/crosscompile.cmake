@@ -1,4 +1,4 @@
-# CMake toolchain file for cross compiling x265 for aarch64
+# CMake toolchain file for cross compiling s265 for aarch64
 # This feature is only supported as experimental. Use with caution.
 # Please report bugs on bitbucket
 # Run cmake with: cmake -DCMAKE_TOOLCHAIN_FILE=crosscompile.cmake -G "Unix Makefiles" ../../source && ccmake ../../source

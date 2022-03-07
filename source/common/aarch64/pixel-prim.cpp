@@ -1,7 +1,7 @@
 #include "common.h"
 #include "slicetype.h"      // LOWRES_COST_MASK
 #include "primitives.h"
-#include "x265.h"
+#include "s265.h"
 
 #include "pixel-prim.h"
 #include "arm64-utils.h"
@@ -9,7 +9,7 @@
 
 #include <arm_neon.h>
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 
 
@@ -36,7 +36,7 @@ static inline void transpose_4s(int16x8_t &t1, int16x8_t &t2, const int16x8_t s1
     t2 = vtrn2q_s32(s1, s2);
 }
 
-#if (X265_DEPTH <= 10)
+#if (S265_DEPTH <= 10)
 static inline void transpose_2d(int16x8_t &t1, int16x8_t &t2, const int16x8_t s1, const int16x8_t s2)
 {
     t1 = vtrn1q_s64(s1, s2);
@@ -164,7 +164,7 @@ static void _satd_8x4v_8x8h_neon(int16x8_t &v0, int16x8_t &v1, int16x8_t &v2, in
 
 #if HIGH_BIT_DEPTH
 
-#if (X265_DEPTH > 10)
+#if (S265_DEPTH > 10)
 static inline void transpose_2d(int32x4_t &t1, int32x4_t &t2, const int32x4_t s1, const int32x4_t s2)
 {
     t1 = vtrn1q_s64(s1, s2);
@@ -538,7 +538,7 @@ static inline void _sa8d_8x8_neon_end(int16x8_t &v0, int16x8_t &v1, int16x8_t v2
     transpose_8h(v22, v23, v18, v19);
     transpose_8h(v6,  v7,  v2,  v3);
 
-#if (X265_DEPTH <= 10)
+#if (S265_DEPTH <= 10)
 
     int16x8_t v24, v25;
 
@@ -1173,7 +1173,7 @@ sse_t sse_neon(const T1 *pix1, intptr_t stride_pix1, const T2 *pix2, intptr_t st
             }
             else
             {
-                X265_CHECK(false, "unsupported sse");
+                S265_CHECK(false, "unsupported sse");
             }
             vsum1 = vmlal_s16(vsum1, vget_low_s16(tmp), vget_low_s16(tmp));
             vsum2 = vmlal_high_s16(vsum2, tmp, tmp);
@@ -1309,7 +1309,7 @@ void pixel_add_ps_neon(pixel *a, intptr_t dstride, const pixel *b0, const int16_
 #if HIGH_BIT_DEPTH
             b0e = *(int16x8_t *)&b0[x];
             t = vaddq_s16(b0e, b1e);
-            t = vminq_s16(t, vdupq_n_s16((1 << X265_DEPTH) - 1));
+            t = vminq_s16(t, vdupq_n_s16((1 << S265_DEPTH) - 1));
             t = vmaxq_s16(t, vdupq_n_s16(0));
             *(int16x8_t *)&a[x] = t;
 #else
@@ -1320,7 +1320,7 @@ void pixel_add_ps_neon(pixel *a, intptr_t dstride, const pixel *b0, const int16_
         }
         for (; x < bx; x++)
         {
-            a[x] = (int16_t)x265_clip(b0[x] + b1[x]);
+            a[x] = (int16_t)s265_clip(b0[x] + b1[x]);
         }
 
         b0 += sstride0;
@@ -1334,7 +1334,7 @@ void addAvg_neon(const int16_t *src0, const int16_t *src1, pixel *dst, intptr_t 
                  intptr_t dstStride)
 {
 
-    const int shiftNum = IF_INTERNAL_PREC + 1 - X265_DEPTH;
+    const int shiftNum = IF_INTERNAL_PREC + 1 - S265_DEPTH;
     const int offset = (1 << (shiftNum - 1)) + 2 * IF_INTERNAL_OFFS;
 
     const int32x4_t addon = vdupq_n_s32(offset);
@@ -1354,7 +1354,7 @@ void addAvg_neon(const int16_t *src0, const int16_t *src1, pixel *dst, intptr_t 
             t2 = vshrq_n_s32(t2, shiftNum);
             int16x8_t t = vuzp1q_s16(t1, t2);
 #if HIGH_BIT_DEPTH
-            t = vminq_s16(t, vdupq_n_s16((1 << X265_DEPTH) - 1));
+            t = vminq_s16(t, vdupq_n_s16((1 << S265_DEPTH) - 1));
             t = vmaxq_s16(t, vdupq_n_s16(0));
             *(int16x8_t *)&dst[x] = t;
 #else
@@ -1363,8 +1363,8 @@ void addAvg_neon(const int16_t *src0, const int16_t *src1, pixel *dst, intptr_t 
         }
         for (; x < bx; x += 2)
         {
-            dst[x + 0] = x265_clip((src0[x + 0] + src1[x + 0] + offset) >> shiftNum);
-            dst[x + 1] = x265_clip((src0[x + 1] + src1[x + 1] + offset) >> shiftNum);
+            dst[x + 0] = s265_clip((src0[x + 0] + src1[x + 0] + offset) >> shiftNum);
+            dst[x + 1] = s265_clip((src0[x + 1] + src1[x + 1] + offset) >> shiftNum);
         }
 
         src0 += src0Stride;
@@ -1413,9 +1413,9 @@ void pixelavg_pp_neon(pixel *dst, intptr_t dstride, const pixel *src0, intptr_t 
 template<int size>
 void cpy1Dto2D_shl_neon(int16_t *dst, const int16_t *src, intptr_t dstStride, int shift)
 {
-    X265_CHECK((((intptr_t)dst | (dstStride * sizeof(*dst))) & 15) == 0 || size == 4, "dst alignment error\n");
-    X265_CHECK(((intptr_t)src & 15) == 0, "src alignment error\n");
-    X265_CHECK(shift >= 0, "invalid shift\n");
+    S265_CHECK((((intptr_t)dst | (dstStride * sizeof(*dst))) & 15) == 0 || size == 4, "dst alignment error\n");
+    S265_CHECK(((intptr_t)src & 15) == 0, "src alignment error\n");
+    S265_CHECK(shift >= 0, "invalid shift\n");
 
     for (int i = 0; i < size; i++)
     {
@@ -1562,9 +1562,9 @@ int sa8d16(const pixel *pix1, intptr_t i_pix1, const pixel *pix2, intptr_t i_pix
 template<int size>
 void cpy2Dto1D_shl_neon(int16_t *dst, const int16_t *src, intptr_t srcStride, int shift)
 {
-    X265_CHECK(((intptr_t)dst & 15) == 0, "dst alignment error\n");
-    X265_CHECK((((intptr_t)src | (srcStride * sizeof(*src))) & 15) == 0 || size == 4, "src alignment error\n");
-    X265_CHECK(shift >= 0, "invalid shift\n");
+    S265_CHECK(((intptr_t)dst & 15) == 0, "dst alignment error\n");
+    S265_CHECK((((intptr_t)src | (srcStride * sizeof(*src))) & 15) == 0 || size == 4, "src alignment error\n");
+    S265_CHECK(shift >= 0, "invalid shift\n");
 
     for (int i = 0; i < size; i++)
     {
@@ -1701,7 +1701,7 @@ sse_t pixel_ssd_s_neon(const int16_t *a, intptr_t dstride)
 
 
 
-namespace X265_NS
+namespace S265_NS
 {
 
 
@@ -1869,9 +1869,9 @@ void setupPixelPrimitives_neon(EncoderPrimitives &p)
 
 
 #define CHROMA_PU_420(W, H) \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].addAvg[NONALIGNED]  = addAvg_neon<W, H>;         \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].addAvg[ALIGNED]  = addAvg_neon<W, H>;         \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].addAvg[NONALIGNED]  = addAvg_neon<W, H>;         \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].addAvg[ALIGNED]  = addAvg_neon<W, H>;         \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
 
 
     CHROMA_PU_420(4, 4);
@@ -1900,55 +1900,55 @@ void setupPixelPrimitives_neon(EncoderPrimitives &p)
 
 
 
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_2x2].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_4x4].satd   = pixel_satd_4x4_neon;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x8].satd   = satd8_neon<8, 8>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_16x16].satd = satd8_neon<16, 16>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x32].satd = satd8_neon<32, 32>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_2x2].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_4x4].satd   = pixel_satd_4x4_neon;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x8].satd   = satd8_neon<8, 8>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_16x16].satd = satd8_neon<16, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x32].satd = satd8_neon<32, 32>;
 
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_4x2].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_2x4].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x4].satd   = pixel_satd_8x4_neon;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_16x8].satd  = satd8_neon<16, 8>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x16].satd  = satd8_neon<8, 16>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x16].satd = satd8_neon<32, 16>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_16x32].satd = satd8_neon<16, 32>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_4x2].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_2x4].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x4].satd   = pixel_satd_8x4_neon;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_16x8].satd  = satd8_neon<16, 8>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x16].satd  = satd8_neon<8, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x16].satd = satd8_neon<32, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_16x32].satd = satd8_neon<16, 32>;
 
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x6].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_6x8].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x2].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_2x8].satd   = NULL;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_16x12].satd = satd4_neon<16, 12>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_16x4].satd  = satd4_neon<16, 4>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x24].satd = satd8_neon<32, 24>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_24x32].satd = satd8_neon<24, 32>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x8].satd  = satd8_neon<32, 8>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_8x32].satd  = satd8_neon<8, 32>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x6].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_6x8].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x2].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_2x8].satd   = NULL;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_16x12].satd = satd4_neon<16, 12>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_16x4].satd  = satd4_neon<16, 4>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x24].satd = satd8_neon<32, 24>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_24x32].satd = satd8_neon<24, 32>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x8].satd  = satd8_neon<32, 8>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_8x32].satd  = satd8_neon<8, 32>;
     
 #if HIGH_BIT_DEPTH
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_4x8].satd   = satd4_neon<4, 8>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_4x16].satd  = satd4_neon<4, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_4x8].satd   = satd4_neon<4, 8>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_4x16].satd  = satd4_neon<4, 16>;
 #endif // HIGH_BIT_DEPTH
 
 #if !defined(__APPLE__) || HIGH_BIT_DEPTH
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_12x16].satd = satd4_neon<12, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_12x16].satd = satd4_neon<12, 16>;
 #endif // !defined(__APPLE__)
 
 
 #define CHROMA_CU_420(W, H) \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sse_pp  = sse_neon<W, H, pixel, pixel>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>;  \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sse_pp  = sse_neon<W, H, pixel, pixel>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>;  \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
     
 #define CHROMA_CU_S_420(W, H) \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>;  \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>;  \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I420].cu[BLOCK_420_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
 
 
     CHROMA_CU_S_420(4, 4)
@@ -1957,16 +1957,16 @@ void setupPixelPrimitives_neon(EncoderPrimitives &p)
     CHROMA_CU_420(32, 32)
 
 
-    p.chroma[X265_CSP_I420].cu[BLOCK_8x8].sa8d   = p.chroma[X265_CSP_I420].pu[CHROMA_420_4x4].satd;
-    p.chroma[X265_CSP_I420].cu[BLOCK_16x16].sa8d = sa8d8<8, 8>;
-    p.chroma[X265_CSP_I420].cu[BLOCK_32x32].sa8d = sa8d16<16, 16>;
-    p.chroma[X265_CSP_I420].cu[BLOCK_64x64].sa8d = sa8d16<32, 32>;
+    p.chroma[S265_CSP_I420].cu[BLOCK_8x8].sa8d   = p.chroma[S265_CSP_I420].pu[CHROMA_420_4x4].satd;
+    p.chroma[S265_CSP_I420].cu[BLOCK_16x16].sa8d = sa8d8<8, 8>;
+    p.chroma[S265_CSP_I420].cu[BLOCK_32x32].sa8d = sa8d16<16, 16>;
+    p.chroma[S265_CSP_I420].cu[BLOCK_64x64].sa8d = sa8d16<32, 32>;
 
 
 #define CHROMA_PU_422(W, H) \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].addAvg[NONALIGNED]  = addAvg_neon<W, H>;         \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].addAvg[ALIGNED]  = addAvg_neon<W, H>;         \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].addAvg[NONALIGNED]  = addAvg_neon<W, H>;         \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].addAvg[ALIGNED]  = addAvg_neon<W, H>;         \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
 
 
     CHROMA_PU_422(4, 8);
@@ -1995,51 +1995,51 @@ void setupPixelPrimitives_neon(EncoderPrimitives &p)
     CHROMA_PU_422(8,  64);
 
 
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_2x4].satd   = NULL;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x16].satd  = satd8_neon<8, 16>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_16x32].satd = satd8_neon<16, 32>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x64].satd = satd8_neon<32, 64>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_4x4].satd   = pixel_satd_4x4_neon;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_2x8].satd   = NULL;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x8].satd   = satd8_neon<8, 8>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_16x16].satd = satd8_neon<16, 16>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x32].satd  = satd8_neon<8, 32>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x32].satd = satd8_neon<32, 32>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_16x64].satd = satd8_neon<16, 64>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_6x16].satd  = NULL;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x4].satd   = satd4_neon<8, 4>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_2x16].satd  = NULL;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_16x8].satd  = satd8_neon<16, 8>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x16].satd = satd8_neon<32, 16>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_2x4].satd   = NULL;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x16].satd  = satd8_neon<8, 16>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_16x32].satd = satd8_neon<16, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x64].satd = satd8_neon<32, 64>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_4x4].satd   = pixel_satd_4x4_neon;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_2x8].satd   = NULL;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x8].satd   = satd8_neon<8, 8>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_16x16].satd = satd8_neon<16, 16>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x32].satd  = satd8_neon<8, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x32].satd = satd8_neon<32, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_16x64].satd = satd8_neon<16, 64>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_6x16].satd  = NULL;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x4].satd   = satd4_neon<8, 4>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_2x16].satd  = NULL;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_16x8].satd  = satd8_neon<16, 8>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x16].satd = satd8_neon<32, 16>;
     
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x12].satd  = satd4_neon<8, 12>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_8x64].satd  = satd8_neon<8, 64>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_12x32].satd = satd4_neon<12, 32>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_16x24].satd = satd8_neon<16, 24>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_24x64].satd = satd8_neon<24, 64>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x48].satd = satd8_neon<32, 48>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x12].satd  = satd4_neon<8, 12>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_8x64].satd  = satd8_neon<8, 64>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_12x32].satd = satd4_neon<12, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_16x24].satd = satd8_neon<16, 24>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_24x64].satd = satd8_neon<24, 64>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x48].satd = satd8_neon<32, 48>;
 
 #if HIGH_BIT_DEPTH
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_4x8].satd   = satd4_neon<4, 8>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_4x16].satd  = satd4_neon<4, 16>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_4x32].satd  = satd4_neon<4, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_4x8].satd   = satd4_neon<4, 8>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_4x16].satd  = satd4_neon<4, 16>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_4x32].satd  = satd4_neon<4, 32>;
 #endif // HIGH_BIT_DEPTH
 
 
 #define CHROMA_CU_422(W, H) \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sse_pp  = sse_neon<W, H, pixel, pixel>;  \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sse_pp  = sse_neon<W, H, pixel, pixel>;  \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
 
 #define CHROMA_CU_S_422(W, H) \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
-    p.chroma[X265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_pp = blockcopy_pp_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].copy_ps = blockcopy_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].sub_ps = pixel_sub_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[NONALIGNED] = pixel_add_ps_neon<W, H>; \
+    p.chroma[S265_CSP_I422].cu[BLOCK_422_ ## W ## x ## H].add_ps[ALIGNED] = pixel_add_ps_neon<W, H>;
     
     
     CHROMA_CU_S_422(4, 8)
@@ -2047,10 +2047,10 @@ void setupPixelPrimitives_neon(EncoderPrimitives &p)
     CHROMA_CU_422(16, 32)
     CHROMA_CU_422(32, 64)
 
-    p.chroma[X265_CSP_I422].cu[BLOCK_8x8].sa8d   = p.chroma[X265_CSP_I422].pu[CHROMA_422_4x8].satd;
-    p.chroma[X265_CSP_I422].cu[BLOCK_16x16].sa8d = sa8d8<8, 16>;
-    p.chroma[X265_CSP_I422].cu[BLOCK_32x32].sa8d = sa8d16<16, 32>;
-    p.chroma[X265_CSP_I422].cu[BLOCK_64x64].sa8d = sa8d16<32, 64>;
+    p.chroma[S265_CSP_I422].cu[BLOCK_8x8].sa8d   = p.chroma[S265_CSP_I422].pu[CHROMA_422_4x8].satd;
+    p.chroma[S265_CSP_I422].cu[BLOCK_16x16].sa8d = sa8d8<8, 16>;
+    p.chroma[S265_CSP_I422].cu[BLOCK_32x32].sa8d = sa8d16<16, 32>;
+    p.chroma[S265_CSP_I422].cu[BLOCK_64x64].sa8d = sa8d16<32, 64>;
 
 
 }

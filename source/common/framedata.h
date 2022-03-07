@@ -18,17 +18,17 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_FRAMEDATA_H
-#define X265_FRAMEDATA_H
+#ifndef S265_FRAMEDATA_H
+#define S265_FRAMEDATA_H
 
 #include "common.h"
 #include "slice.h"
 #include "cudata.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class PicYuv;
@@ -112,7 +112,7 @@ public:
 
     Slice*         m_slice;
     SAOParam*      m_saoParam;
-    const x265_param* m_param;
+    const s265_param* m_param;
 
     FrameData*     m_freeListNext;
     PicYuv*        m_reconPic;
@@ -173,11 +173,11 @@ public:
 
     FrameData();
 
-    bool create(const x265_param& param, const SPS& sps, int csp);
+    bool create(const s265_param& param, const SPS& sps, int csp);
     void reinit(const SPS& sps);
     void destroy();
     inline CUData* getPicCTU(uint32_t ctuAddr) { return &m_picCTU[ctuAddr]; }
 };
 
 }
-#endif // ifndef X265_FRAMEDATA_H
+#endif // ifndef S265_FRAMEDATA_H

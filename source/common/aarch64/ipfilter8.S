@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -357,7 +357,7 @@ loop12_hps_\filterhps\()_\w\()x\h\()_rowext1:
 
 // void interp_horiz_ps_c(const pixel* src, intptr_t srcStride, int16_t* dst, intptr_t dstStride, int coeffIdx, int isRowExt)
 .macro LUMA_HPS w h
-function x265_interp_8tap_horiz_ps_\w\()x\h\()_neon
+function s265_interp_8tap_horiz_ps_\w\()x\h\()_neon
     mov             w10, #\h
     cmp             w5, #0
     b.eq            6f

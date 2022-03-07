@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_INPUT_H
-#define X265_INPUT_H
+#ifndef S265_INPUT_H
+#define S265_INPUT_H
 
 #define MIN_FRAME_WIDTH 64
 #define MAX_FRAME_WIDTH 8192
@@ -33,8 +33,8 @@
 
 #include "common.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 struct InputFileInfo
 {
@@ -72,7 +72,7 @@ public:
 
     virtual void release() = 0;
 
-    virtual bool readPicture(x265_picture& pic) = 0;
+    virtual bool readPicture(s265_picture& pic) = 0;
 
     virtual bool isEof() const = 0;
 
@@ -86,4 +86,4 @@ public:
 };
 }
 
-#endif // ifndef X265_INPUT_H
+#endif // ifndef S265_INPUT_H

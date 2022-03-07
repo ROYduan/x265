@@ -7,9 +7,9 @@
 #include "contexts.h"   // costCoeffNxN_c
 #include "threading.h"  // CLZ
 
-namespace X265_NS
+namespace S265_NS
 {
-// x265 private namespace
+// s265 private namespace
 void setupDCTPrimitives_neon(EncoderPrimitives &p);
 };
 

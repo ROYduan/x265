@@ -21,7 +21,7 @@
 ;* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 ;*
 ;* This program is also available under a commercial proprietary license.
-;* For more information, contact us at license @ x265.com.
+;* For more information, contact us at license @ s265.com.
 ;*****************************************************************************/
 
 %include "x86inc.asm"
@@ -1728,7 +1728,7 @@ cglobal dequant_normal, 5,5,7
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_4x4_sse2(const int16_t *quantCoeff);
+; int s265_count_nonzero_4x4_sse2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_XMM sse2
 cglobal count_nonzero_4x4, 1,1,2
@@ -1747,7 +1747,7 @@ cglobal count_nonzero_4x4, 1,1,2
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_4x4_avx2(const int16_t *quantCoeff);
+; int s265_count_nonzero_4x4_avx2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_YMM avx2
 cglobal count_nonzero_4x4, 1,1,2
@@ -1761,7 +1761,7 @@ cglobal count_nonzero_4x4, 1,1,2
     RET
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_8x8_sse2(const int16_t *quantCoeff);
+; int s265_count_nonzero_8x8_sse2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_XMM sse2
 cglobal count_nonzero_8x8, 1,1,3
@@ -1784,7 +1784,7 @@ cglobal count_nonzero_8x8, 1,1,3
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_8x8_avx2(const int16_t *quantCoeff);
+; int s265_count_nonzero_8x8_avx2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_YMM avx2
 cglobal count_nonzero_8x8, 1,1,3
@@ -1811,7 +1811,7 @@ cglobal count_nonzero_8x8, 1,1,3
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_16x16_sse2(const int16_t *quantCoeff);
+; int s265_count_nonzero_16x16_sse2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_XMM sse2
 cglobal count_nonzero_16x16, 1,1,3
@@ -1834,7 +1834,7 @@ cglobal count_nonzero_16x16, 1,1,3
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_16x16_avx2(const int16_t *quantCoeff);
+; int s265_count_nonzero_16x16_avx2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_YMM avx2
 cglobal count_nonzero_16x16, 1,1,3
@@ -1859,7 +1859,7 @@ cglobal count_nonzero_16x16, 1,1,3
     RET
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_16x16_avx512(const int16_t *quantCoeff);
+; int s265_count_nonzero_16x16_avx512(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 %if ARCH_X86_64
 INIT_ZMM avx512
@@ -1883,7 +1883,7 @@ cglobal count_nonzero_16x16, 1,4,2
     RET
 %endif
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_32x32_sse2(const int16_t *quantCoeff);
+; int s265_count_nonzero_32x32_sse2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_XMM sse2
 cglobal count_nonzero_32x32, 1,1,3
@@ -1906,7 +1906,7 @@ cglobal count_nonzero_32x32, 1,1,3
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_32x32_avx2(const int16_t *quantCoeff);
+; int s265_count_nonzero_32x32_avx2(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 INIT_YMM avx2
 cglobal count_nonzero_32x32, 1,1,3
@@ -1932,7 +1932,7 @@ cglobal count_nonzero_32x32, 1,1,3
 
 
 ;-----------------------------------------------------------------------------
-; int x265_count_nonzero_32x32_avx512(const int16_t *quantCoeff);
+; int s265_count_nonzero_32x32_avx512(const int16_t *quantCoeff);
 ;-----------------------------------------------------------------------------
 %if ARCH_X86_64
 INIT_ZMM avx512
@@ -8412,7 +8412,7 @@ cglobal findPosFirstLast, 3,3,4
 ;
 ;        const uint32_t mstate = baseCtx[ctxSig];
 ;        const uint32_t mps = mstate & 1;
-;        const uint32_t stateBits = x265_entropyStateBits[mstate ^ sig];
+;        const uint32_t stateBits = s265_entropyStateBits[mstate ^ sig];
 ;        uint32_t nextState = (stateBits >> 24) + mps;
 ;        if ((mstate ^ sig) == 1)
 ;            nextState = sig;
@@ -8477,7 +8477,7 @@ cglobal costCoeffNxN, 6,11,6
     ; m0 - Zigzag
     ; m1 - sigCtx
     ; {m3,m2} - abs(coeff)
-    ; r0 - x265_entropyStateBits
+    ; r0 - s265_entropyStateBits
     ; r1 - baseCtx
     ; r2 - scanPosSigOff
     ; r3 - absCoeff
@@ -8499,7 +8499,7 @@ cglobal costCoeffNxN, 6,11,6
 ;        ctxSig = cnt & posZeroMask;
 ;        const uint32_t mstate = baseCtx[ctxSig];
 ;        const uint32_t mps = mstate & 1;
-;        const uint32_t stateBits = x265_entropyStateBits[mstate ^ sig];
+;        const uint32_t stateBits = s265_entropyStateBits[mstate ^ sig];
 ;        uint32_t nextState = (stateBits >> 24) + mps;
 ;        if ((mstate ^ sig) == 1)
 ;            nextState = sig;
@@ -8524,7 +8524,7 @@ cglobal costCoeffNxN, 6,11,6
     mov         r10d, r9d
     and         r10d, 1                         ; mps = mstate & 1
     xor         r9d, r8d                        ; r9 = mstate ^ sig
-    add         r6d, [r0 + r9 * 4]              ; sum += x265_entropyStateBits[mstate ^ sig]
+    add         r6d, [r0 + r9 * 4]              ; sum += s265_entropyStateBits[mstate ^ sig]
     add         r10b, byte [r0 + r9 * 4 + 3]    ; nextState = (stateBits >> 24) + mps
     cmp         r9b, 1
     cmove       r10d, r8d
@@ -8550,7 +8550,7 @@ cglobal costCoeffNxN, 6,11,6
     mov         r4d, r5d
     xor         r5d, r3d                        ; r0 = mstate ^ sig
     and         r3d, 1                          ; mps = mstate & 1
-    add         r6d, [r0 + r5 * 4]              ; sum += x265_entropyStateBits[mstate ^ sig]
+    add         r6d, [r0 + r5 * 4]              ; sum += s265_entropyStateBits[mstate ^ sig]
     add         r3b, [r0 + r5 * 4 + 3]          ; nextState = (stateBits >> 24) + mps
     cmp         r5b, 1
     cmove       r3d, r4d
@@ -8657,7 +8657,7 @@ cglobal costCoeffNxN, 6,10,5
     ; register mapping
     ; m0 - Zigzag
     ; m1 - sigCtx
-    ; r0 - x265_entropyStateBits
+    ; r0 - s265_entropyStateBits
     ; r1 - baseCtx
     ; r2 - scanPosSigOff
     ; r5 - scanFlagMask
@@ -8677,7 +8677,7 @@ cglobal costCoeffNxN, 6,10,5
 ;        ctxSig = cnt & posZeroMask;
 ;        const uint32_t mstate = baseCtx[ctxSig];
 ;        const uint32_t mps = mstate & 1;
-;        const uint32_t stateBits = x265_entropyStateBits[mstate ^ sig];
+;        const uint32_t stateBits = s265_entropyStateBits[mstate ^ sig];
 ;        uint32_t nextState = (stateBits >> 24) + mps;
 ;        if ((mstate ^ sig) == 1)
 ;            nextState = sig;
@@ -8721,7 +8721,7 @@ cglobal costCoeffNxN, 6,10,5
     mov             r4d, r5d
     xor             r5d, r3d                        ; r0 = mstate ^ sig
     and             r3b, 1                          ; mps = mstate & 1
-    add             r6d, [r0 + r5 * 4]              ; sum += x265_entropyStateBits[mstate ^ sig]
+    add             r6d, [r0 + r5 * 4]              ; sum += s265_entropyStateBits[mstate ^ sig]
     add             r3b, [r0 + r5 * 4 + 3]          ; nextState = (stateBits >> 24) + mps
     cmp             r5b, 1
     cmove           r3d, r4d
@@ -8909,7 +8909,7 @@ cglobal costC1C2Flag, 4,12,2
 
     ; register mapping
     ; r4d       - nextC1
-    ; r5        - x265_entropyStateBits
+    ; r5        - s265_entropyStateBits
     ; r6d       - sum
     ; r[7-10]   - tmp
     ; r11d      - firstC2Idx (not use in loop)
@@ -8918,7 +8918,7 @@ cglobal costC1C2Flag, 4,12,2
 .loop:
     ; const uint32_t mstate = baseCtx[ctxSig];
     ; const uint32_t mps = mstate & 1;
-    ; const uint32_t stateBits = x265_entropyStateBits[mstate ^ sig];
+    ; const uint32_t stateBits = s265_entropyStateBits[mstate ^ sig];
     ; uint32_t nextState = (stateBits >> 24) + mps;
     ; if ((mstate ^ sig) == 1)
     ;     nextState = sig;
@@ -8935,7 +8935,7 @@ cglobal costC1C2Flag, 4,12,2
     mov         r9d, r7d                        ; sig = symbol1
     xor         r7d, r8d                        ; mstate ^ sig
     and         r8d, 1                          ; mps = mstate & 1
-    add         r6d, [r5 + r7 * 4]              ; sum += x265_entropyStateBits[mstate ^ sig]
+    add         r6d, [r5 + r7 * 4]              ; sum += s265_entropyStateBits[mstate ^ sig]
     add         r8b, [r5 + r7 * 4 + 3]          ; nextState = (stateBits >> 24) + mps
     cmp         r7b, 1                          ; if ((mstate ^ sig) == 1) nextState = sig;
     cmove       r8d, r9d
@@ -8960,7 +8960,7 @@ cglobal costC1C2Flag, 4,12,2
     mov         r1d, r7d                        ; sig = symbol1
     xor         r7d, r8d                        ; mstate ^ sig
     and         r8d, 1                          ; mps = mstate & 1
-    add         r6d, [r5 + r7 * 4]              ; sum += x265_entropyStateBits[mstate ^ sig]
+    add         r6d, [r5 + r7 * 4]              ; sum += s265_entropyStateBits[mstate ^ sig]
     add         r8b, [r5 + r7 * 4 + 3]          ; nextState = (stateBits >> 24) + mps
     cmp         r7b, 1                          ; if ((mstate ^ sig) == 1) nextState = sig;
     cmove       r8d, r1d

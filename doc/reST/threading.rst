@@ -7,10 +7,10 @@ Threading
 Thread Pools
 ============
 
-x265 creates one or more thread pools per encoder, one pool per NUMA
+s265 creates one or more thread pools per encoder, one pool per NUMA
 node (typically a CPU socket). :option:`--pools` specifies the number of
 pools and the number of threads per pool the encoder will allocate. By
-default x265 allocates one thread per (hyperthreaded) CPU core on each
+default s265 allocates one thread per (hyperthreaded) CPU core on each
 NUMA node.
 
 If you are running multiple encoders on a system with multiple NUMA
@@ -34,12 +34,12 @@ expected to drop that job so the worker thread may go back to the pool
 and find more work.
 
 On Windows, the native APIs offer sufficient functionality to discover
-the NUMA topology and enforce the thread affinity that libx265 needs (so
+the NUMA topology and enforce the thread affinity that libs265 needs (so
 long as you have not chosen to target XP or Vista), but on POSIX systems
 it relies on libnuma for this functionality. If your target POSIX system
 is single socket, then building without libnuma is a perfectly
 reasonable option, as it will have no effect on the runtime behavior. On
-a multiple-socket system, a POSIX build of libx265 without libnuma will
+a multiple-socket system, a POSIX build of libs265 without libnuma will
 be less work efficient, but will still function correctly. You lose the
 work isolation effect that keeps each frame encoder from only using the
 threads of a single socket and so you incur a heavier context switching
@@ -80,7 +80,7 @@ Because of these stall issues you rarely get the full parallelisation
 benefit one would expect from row threading. 30% to 50% of the
 theoretical perfect threading is typical.
 
-In x265 WPP is enabled by default since it not only improves performance
+In s265 WPP is enabled by default since it not only improves performance
 at encode but it also makes it possible for the decoder to be threaded.
 
 If WPP is disabled by :option:`--no-wpp` the frame will be encoded in
@@ -135,10 +135,10 @@ could be encoded at the same time as its reference frames so long as it
 stayed one row behind the encode progress of its references (glossing
 over a few details). 
 
-x265 has the same frame threading mechanism, but we generally have much
+s265 has the same frame threading mechanism, but we generally have much
 less frame parallelism to exploit than x264 because of the size of our
 CTU rows. For instance, with 1080p video x264 has 68 16x16 macroblock
-rows available each frame while x265 only has 17 64x64 CTU rows.
+rows available each frame while s265 only has 17 64x64 CTU rows.
 
 The second extenuating circumstance is the loop filters. The pixels used
 for motion reference must be processed by the loop filters and the loop
@@ -235,7 +235,7 @@ blocked in one of 4 possible locations:
 Lookahead
 =========
 
-The lookahead module of x265 (the lowres pre-encode which determines
+The lookahead module of s265 (the lowres pre-encode which determines
 scene cuts and slice types) uses the thread pool to distribute the
 lowres cost analysis to worker threads. It will use bonded task groups
 to perform batches of frame cost estimates, and it may optionally use
@@ -244,7 +244,7 @@ bonded task groups to measure single frame cost estimates using slices.
 
 The main slicetypeDecide() function itself is also performed by a worker
 thread if your encoder has a thread pool, else it runs within the
-context of the thread which calls the x265_encoder_encode().
+context of the thread which calls the s265_encoder_encode().
 
 SAO
 ===

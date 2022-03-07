@@ -19,17 +19,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_QUANT_H
-#define X265_QUANT_H
+#ifndef S265_QUANT_H
+#define S265_QUANT_H
 
 #include "common.h"
 #include "scalinglist.h"
 #include "contexts.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class CUData;
@@ -53,9 +53,9 @@ struct QpParam
             rem = qpScaled % 6;
             per = qpScaled / 6;
             qp  = qpScaled;
-            lambda2 = (int64_t)(x265_lambda2_tab[qp - QP_BD_OFFSET] * 256. + 0.5);
-            lambda  = (int32_t)(x265_lambda_tab[qp - QP_BD_OFFSET] * 256. + 0.5);
-            X265_CHECK((x265_lambda_tab[qp - QP_BD_OFFSET] * 256. + 0.5) < (double)MAX_INT, "x265_lambda_tab[] value too large\n");
+            lambda2 = (int64_t)(s265_lambda2_tab[qp - QP_BD_OFFSET] * 256. + 0.5);
+            lambda  = (int32_t)(s265_lambda_tab[qp - QP_BD_OFFSET] * 256. + 0.5);
+            S265_CHECK((s265_lambda_tab[qp - QP_BD_OFFSET] * 256. + 0.5) < (double)MAX_INT, "s265_lambda_tab[] value too large\n");
         }
     }
 };
@@ -101,7 +101,7 @@ public:
 
     /* one-time setup */
     bool init(double psyScale, const ScalingList& scalingList, Entropy& entropy);
-    bool allocNoiseReduction(const x265_param& param);
+    bool allocNoiseReduction(const s265_param& param);
 
     /* CU setup */
     void setQPforQuant(const CUData& ctu, int qp);
@@ -120,8 +120,8 @@ public:
         if (trSizeCG == 1)
             return 0;
 
-        X265_CHECK(trSizeCG <= 8, "transform CG is too large\n");
-        X265_CHECK(cgBlkPos < 64, "cgBlkPos is too large\n");
+        S265_CHECK(trSizeCG <= 8, "transform CG is too large\n");
+        S265_CHECK(cgBlkPos < 64, "cgBlkPos is too large\n");
         // NOTE: cgBlkPos+1 may more than 63, it is invalid for shift,
         //       but in this case, both cgPosX and cgPosY equal to (trSizeCG - 1),
         //       the sigRight and sigLower will clear value to zero, the final result will be correct
@@ -136,7 +136,7 @@ public:
     /* Context derivation process of coeff_abs_significant_flag */
     static uint32_t getSigCoeffGroupCtxInc(uint64_t cgGroupMask, uint32_t cgPosX, uint32_t cgPosY, uint32_t cgBlkPos, uint32_t trSizeCG)
     {
-        X265_CHECK(cgBlkPos < 64, "cgBlkPos is too large\n");
+        S265_CHECK(cgBlkPos < 64, "cgBlkPos is too large\n");
         // NOTE: unsafe shift operator, see NOTE in calcPatternSigCtx
         const uint32_t sigPos = (uint32_t)(cgGroupMask >> (cgBlkPos + 1)); // just need lowest 8-bits valid
         const uint32_t sigRight = (cgPosX != (trSizeCG - 1)) & sigPos;
@@ -165,4 +165,4 @@ private:
 };
 }
 
-#endif // ifndef X265_QUANT_H
+#endif // ifndef S265_QUANT_H

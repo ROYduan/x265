@@ -18,17 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_MV_H
-#define X265_MV_H
+#ifndef S265_MV_H
+#define S265_MV_H
 
 #include "common.h"
 #include "primitives.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 #if _MSC_VER
 #pragma warning(disable: 4201) // non-standard extension used (nameless struct/union)
@@ -108,4 +108,4 @@ public:
 };
 }
 
-#endif // ifndef X265_MV_H
+#endif // ifndef S265_MV_H

@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -41,7 +41,7 @@ sad12_mask:
  * r3   - srcStride */
 
 .macro SAD4_ARMV6 h
-function x265_pixel_sad_4x\h\()_armv6
+function s265_pixel_sad_4x\h\()_armv6
     push        {r4-r6,lr}
     ldr         r4, [r2], r3
     ldr         r5, [r0], r1
@@ -66,7 +66,7 @@ SAD4_ARMV6 8
 SAD4_ARMV6 16
 
 .macro SAD8_NEON h
-function x265_pixel_sad_8x\h\()_neon
+function s265_pixel_sad_8x\h\()_neon
     vld1.8          d0, [r0], r1        // row 0
     vld1.8          d1, [r2], r3        // row 1
     vabdl.u8        q1, d0, d1
@@ -91,7 +91,7 @@ SAD8_NEON 16
 SAD8_NEON 32
 
 .macro SAD16_NEON h
-function x265_pixel_sad_16x\h\()_neon
+function s265_pixel_sad_16x\h\()_neon
     vld1.8          {q0}, [r0], r1      // row 0
     vld1.8          {q1}, [r2], r3
     vld1.8          {q2}, [r0], r1      // row 1
@@ -140,7 +140,7 @@ SAD16_NEON 32
 SAD16_NEON 64
 
 .macro SAD32_NEON h
-function x265_pixel_sad_32x\h\()_neon
+function s265_pixel_sad_32x\h\()_neon
     veor.u8         q8, q8
     veor.u8         q9, q9
     veor.u8         q10, q10
@@ -203,7 +203,7 @@ SAD32_NEON 32
 SAD32_NEON 64
 
 .macro SAD64_NEON h
-function x265_pixel_sad_64x\h\()_neon
+function s265_pixel_sad_64x\h\()_neon
     veor.u8         q8, q8
     veor.u8         q9, q9
     veor.u8         q10, q10
@@ -271,7 +271,7 @@ SAD64_NEON 32
 SAD64_NEON 48
 SAD64_NEON 64
 
-function x265_pixel_sad_24x32_neon
+function s265_pixel_sad_24x32_neon
     veor.u8         q0, q0
     veor.u8         q1, q1
     veor.u8         q2, q2
@@ -310,7 +310,7 @@ function x265_pixel_sad_24x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_sad_48x64_neon
+function s265_pixel_sad_48x64_neon
     veor.u8         q3, q3
     veor.u8         q11, q11
     veor.u8         q12, q12
@@ -395,7 +395,7 @@ endfunc
 .endm
 
 .macro SAD_X_4xN x, h
-function x265_sad_x\x\()_4x\h\()_neon
+function s265_sad_x\x\()_4x\h\()_neon
     push            {r4, r5, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #12]
@@ -464,7 +464,7 @@ SAD_X_4xN 4 16
 .endm
 
 .macro SAD_X_8xN x, h
-function x265_sad_x\x\()_8x\h\()_neon
+function s265_sad_x\x\()_8x\h\()_neon
     push            {r4, r5, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #12]
@@ -543,7 +543,7 @@ SAD_X_8xN 4 32
 .endm
 
 .macro SAD_X_16xN x, h
-function x265_sad_x\x\()_16x\h\()_neon
+function s265_sad_x\x\()_16x\h\()_neon
     push            {r4, r5, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #12]
@@ -614,7 +614,7 @@ SAD_X_16xN 4 4
 SAD_X_16xN 4 12
 
 .macro SAD_X_16xN_LOOP x, h
-function x265_sad_x\x\()_16x\h\()_neon
+function s265_sad_x\x\()_16x\h\()_neon
     push            {r4-r6, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #16]
@@ -737,7 +737,7 @@ SAD_X_16xN_LOOP 4 64
 .endm
 
 .macro SAD_X_32xN x, h
-function x265_sad_x\x\()_32x\h\()_neon
+function s265_sad_x\x\()_32x\h\()_neon
     push            {r4-r6, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #16]
@@ -907,7 +907,7 @@ SAD_X_32xN 4 64
 .endm
 
 .macro SAD_X_64xN x, h
-function x265_sad_x\x\()_64x\h\()_neon
+function s265_sad_x\x\()_64x\h\()_neon
     push            {r4-r6, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #16]
@@ -1048,7 +1048,7 @@ SAD_X_64xN 4 64
 .endm
 
 .macro SAD_X_48x64 x
-function x265_sad_x\x\()_48x64_neon
+function s265_sad_x\x\()_48x64_neon
     push            {r4-r6, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #16]
@@ -1156,7 +1156,7 @@ SAD_X_48x64 4
 .endm
 
 .macro SAD_X_24x32 x
-function x265_sad_x\x\()_24x32_neon
+function s265_sad_x\x\()_24x32_neon
      push           {r4-r6, lr}
 .if \x == 3
     ldrd            r4, r5, [sp, #16]
@@ -1280,7 +1280,7 @@ SAD_X_24x32 4
 .endm
 
 .macro SAD_X_12x16 x
-function x265_sad_x\x\()_12x16_neon
+function s265_sad_x\x\()_12x16_neon
     push            {r4-r5, lr}
     vpush           {q5}
 .if \x == 3
@@ -1327,7 +1327,7 @@ endfunc
 SAD_X_12x16 3
 SAD_X_12x16 4
 
-function x265_pixel_sad_12x16_neon
+function s265_pixel_sad_12x16_neon
     veor.u8         q8, q8
     veor.u8         q9, q9
     movrel          r12, sad12_mask

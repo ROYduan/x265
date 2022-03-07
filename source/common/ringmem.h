@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
-#ifndef X265_RINGMEM_H
-#define X265_RINGMEM_H
+#ifndef S265_RINGMEM_H
+#define S265_RINGMEM_H
 
 #include "common.h"
 #include "threading.h"
@@ -32,7 +32,7 @@
 #define strdup _strdup
 #endif
 
-namespace X265_NS {
+namespace S265_NS {
 
 #define MAX_SHR_NAME_LEN                         256
 
@@ -87,4 +87,4 @@ namespace X265_NS {
     };
 };
 
-#endif // ifndef X265_RINGMEM_H
+#endif // ifndef S265_RINGMEM_H

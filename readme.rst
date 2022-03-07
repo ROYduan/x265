@@ -1,14 +1,12 @@
 =================
-x265 HEVC Encoder
+s265 HEVC Encoder
 =================
 
-| **Read:** | Online `documentation <http://x265.readthedocs.org/en/master/>`_ | Developer `wiki <http://bitbucket.org/multicoreware/x265_git/wiki/>`_
-| **Download:** | `releases <http://ftp.videolan.org/pub/videolan/x265/>`_ 
-| **Interact:** | #x265 on freenode.irc.net | `x265-devel@videolan.org <http://mailman.videolan.org/listinfo/x265-devel>`_ | `Report an issue <https://bitbucket.org/multicoreware/x265/issues?status=new&status=open>`_
+| **Download:** | `releases <https://git.garena.com/shopee/live-tech/s265>`_
 
-`x265 <https://www.videolan.org/developers/x265.html>`_ is an open
-source HEVC encoder. See the developer wiki for instructions for
+`s265 <https://git.garena.com/shopee/live-tech/s265>`_ is an inner-open
+source HEVC/H.265 video encoder in Shopee, which aims at less bandwidth,
+higher quality and more speed. s265 supports almost the same operating systems
+like X265 and can be compiled on 32bit/64bit x86 platforms,See the build/readme.txt instructions for
 downloading and building the source.
 
-x265 is free to use under the `GNU GPL <http://www.gnu.org/licenses/gpl-2.0.html>`_ 
-and is also available under a commercial `license <http://x265.org>`_ 

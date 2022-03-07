@@ -18,7 +18,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "scaler.h"
@@ -32,7 +32,7 @@
 #define SHORT_MAX ((1 << 15) - 1)
 #define SHORT_MAX_10 ((1 << 10) - 1)
 
-namespace X265_NS{
+namespace S265_NS{
 
 ScalerFilterManager::ScalerFilterManager() :
     m_bitDepth(0),
@@ -62,7 +62,7 @@ inline static void filter_copy_c(int64_t* filter, int64_t* filter2, int size)
         filter2[i] = filter[i];
 }
 
-#if X265_DEPTH == 8
+#if S265_DEPTH == 8
 static void doScaling_c(int16_t *dst, int dstW, const uint8_t *src, const int16_t *filter, const int32_t *filterPos, int filterSize)
 {
     for (int i = 0; i < dstW; i++)
@@ -72,7 +72,7 @@ static void doScaling_c(int16_t *dst, int dstW, const uint8_t *src, const int16_
         for (int j = 0; j < filterSize; j++)
             val += ((int)src[sourcePos + j]) * filter[filterSize * i + j];
         // the cubic equation does overflow ...
-        dst[i] = x265_clip3(SHORT_MIN, SHORT_MAX, val >> 7);
+        dst[i] = s265_clip3(SHORT_MIN, SHORT_MAX, val >> 7);
     }
 }
 static uint8_t clipUint8(int a)
@@ -102,7 +102,7 @@ static void yuv2PlaneX_c_h(const int16_t *filter, int filterSize, const int16_t 
         uint16_t* dst16bit = (uint16_t *)dest;
         for (int j = 0; j < filterSize; j++)
             val += src[j][i] * filter[j];
-        uint16_t d = x265_clip3(0, SHORT_MAX_10, val >> 17);
+        uint16_t d = s265_clip3(0, SHORT_MAX_10, val >> 17);
         ((uint8_t*)(&dst16bit[i]))[0] = (d);
         ((uint8_t*)(&dst16bit[i]))[1] = (d) >> 8;
     }
@@ -117,7 +117,7 @@ static void doScaling_c_h(int16_t *dst, int dstW, const uint8_t *src, const int1
         for (int j = 0; j < filterSize; j++)
             val += ((int)srcLocal[sourcePos + j]) * filter[filterSize * i + j];
         // the cubic equation does overflow
-        dst[i] = x265_clip3(SHORT_MIN, SHORT_MAX, val >> 9);
+        dst[i] = s265_clip3(SHORT_MIN, SHORT_MAX, val >> 9);
     }
 }
 #endif
@@ -186,7 +186,7 @@ void VFilterScaler8Bit::yuv2PlaneX(const int16_t *filter, int filterSize, const 
     (dstW % 4 == 0) && (filterSize == 6) && (IdxF = FIL_6) && (IdxW = FACTOR_4);
     (dstW % 4 == 0) && (filterSize == 8) && (IdxF = FIL_8) && (IdxW = FACTOR_4);
 
-#if X265_DEPTH == 8
+#if S265_DEPTH == 8
     yuv2PlaneX_c(filter, filterSize, src, dest, dstW);
 #else
     yuv2PlaneX_c_h(filter, filterSize, src, dest, dstW);
@@ -201,7 +201,7 @@ void VFilterScaler10Bit::yuv2PlaneX(const int16_t *filter, int filterSize, const
     (dstW % 4 == 0) && (filterSize == 6) && (IdxF = FIL_6) && (IdxW = FACTOR_4);
     (dstW % 4 == 0) && (filterSize == 8) && (IdxF = FIL_8) && (IdxW = FACTOR_4);
 
-#if X265_DEPTH == 8
+#if S265_DEPTH == 8
     yuv2PlaneX_c(filter, filterSize, src, dest, dstW);
 #else
     yuv2PlaneX_c_h(filter, filterSize, src, dest, dstW);
@@ -211,7 +211,7 @@ void VFilterScaler10Bit::yuv2PlaneX(const int16_t *filter, int filterSize, const
 void ScalerVLumFilter::process(int sliceVer, int sliceHor)
 {
     (void)sliceHor;
-    int first = X265_MAX(1 - m_filtLen, m_filtPos[sliceVer]);
+    int first = S265_MAX(1 - m_filtLen, m_filtPos[sliceVer]);
     int sp = first - m_sourceSlice->m_plane[0].sliceVer;
     int dp = sliceVer - m_destSlice->m_plane[0].sliceVer;
     uint8_t **src = m_sourceSlice->m_plane[0].lineBuf + sp;
@@ -232,7 +232,7 @@ void ScalerVCrFilter::process(int sliceVer, int sliceHor)
     {
         int dstW = m_destSlice->m_width >> m_destSlice->m_hCrSubSample;
         int crSliceVer = sliceVer >> m_destSlice->m_vCrSubSample;
-        int first = X265_MAX(1 - m_filtLen, m_filtPos[crSliceVer]);
+        int first = S265_MAX(1 - m_filtLen, m_filtPos[crSliceVer]);
         int sp1 = first - m_sourceSlice->m_plane[1].sliceVer;
         int sp2 = first - m_sourceSlice->m_plane[2].sliceVer;
         int dp1 = crSliceVer - m_destSlice->m_plane[1].sliceVer;
@@ -255,7 +255,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
     int minFilterSize;
     int64_t *filter = NULL;
     int64_t *filter2 = NULL;
-    const int64_t fone = 1LL << (54 - x265_min((int)X265_LOG2(srcW / dstW), 8));
+    const int64_t fone = 1LL << (54 - s265_min((int)S265_LOG2(srcW / dstW), 8));
     int *outFilterSize = &m_filtLen;
     int64_t xDstInSrc;
     int sizeFactor = flag;
@@ -269,8 +269,8 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
     else
         filterSize = 1 + (sizeFactor * srcW + dstW - 1) / dstW;
 
-    filterSize = x265_min(filterSize, srcW - 2);
-    filterSize = x265_max(filterSize, 1);
+    filterSize = s265_min(filterSize, srcW - 2);
+    filterSize = s265_max(filterSize, 1);
     filter = new int64_t[dstW * sizeof(*filter) * filterSize];
 
     xDstInSrc = ((destPos*(int64_t)inc) >> 7) - ((sourcePos * 0x10000LL) >> 7);
@@ -280,7 +280,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
         (*filterPos)[i] = xx;
         for (int j = 0; j < filterSize; j++)
         {
-            int64_t d = (X265_ABS(((int64_t)xx * (1 << 17)) - xDstInSrc)) << 13;
+            int64_t d = (S265_ABS(((int64_t)xx * (1 << 17)) - xDstInSrc)) << 13;
             int64_t coeff = 0;
 
             if (inc > 1 << 16)
@@ -322,7 +322,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
     }
 
     //apply src & dst Filter to filter -> filter2
-    X265_CHECK(filterSize > 0, "invalid filterSize value.\n");
+    S265_CHECK(filterSize > 0, "invalid filterSize value.\n");
     filter2Size = filterSize;
     filter2 = new int64_t[dstW * sizeof(*filter2) * filter2Size];
 
@@ -352,7 +352,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
         for (int j = 0; j < filter2Size; j++)
         {
             int k;
-            cutOff += X265_ABS(filter2[i * filter2Size]);
+            cutOff += S265_ABS(filter2[i * filter2Size]);
 
             if (cutOff > SCALER_MAX_REDUCE_CUTOFF * fone)
                 break;
@@ -371,7 +371,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
         // count near zeros on the right
         for (int j = filter2Size - 1; j > 0; j--)
         {
-            cutOff += X265_ABS(filter2[i * filter2Size + j]);
+            cutOff += S265_ABS(filter2[i * filter2Size + j]);
 
             if (cutOff > SCALER_MAX_REDUCE_CUTOFF * fone)
                 break;
@@ -382,9 +382,9 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
             minFilterSize = min;
     }
 
-    X265_CHECK(minFilterSize > 0, "invalid minFilterSize value.\n");
+    S265_CHECK(minFilterSize > 0, "invalid minFilterSize value.\n");
     filterSize = (minFilterSize + (filtAlign - 1)) & (~(filtAlign - 1));
-    X265_CHECK(filterSize > 0, "invalid filterSize value.\n");
+    S265_CHECK(filterSize > 0, "invalid filterSize value.\n");
     filter = new int64_t[dstW*filterSize * sizeof(*filter)];
 
     *outFilterSize = filterSize;
@@ -412,7 +412,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
             // move filter coefficients left to compensate for filterPos
             for (j = 1; j < filterSize; j++)
             {
-                int left = x265_max(j + (*filterPos)[i], 0);
+                int left = s265_max(j + (*filterPos)[i], 0);
                 filter[i * filterSize + left] += filter[i * filterSize + j];
                 filter[i * filterSize + j] = 0;
             }
@@ -421,7 +421,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
 
         if ((*filterPos)[i] + filterSize > srcW)
         {
-            int shift = (*filterPos)[i] + x265_min(filterSize - srcW, 0);
+            int shift = (*filterPos)[i] + s265_min(filterSize - srcW, 0);
             int64_t acc = 0;
 
             for (j = filterSize - 1; j >= 0; j--)
@@ -444,14 +444,14 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
             filter[i * filterSize + srcW - 1 - (*filterPos)[i]] += acc;
         }
 
-        X265_CHECK((*filterPos)[i] >= 0, "invalid: Value of (*filterPos)[%d] < 0.\n", i);
-        X265_CHECK((*filterPos)[i] < srcW, "invalid: Value of (*filterPos)[%d] > %d .\n", i, srcW);
+        S265_CHECK((*filterPos)[i] >= 0, "invalid: Value of (*filterPos)[%d] < 0.\n", i);
+        S265_CHECK((*filterPos)[i] < srcW, "invalid: Value of (*filterPos)[%d] > %d .\n", i, srcW);
         if ((*filterPos)[i] + filterSize > srcW)
         {
             for (j = 0; j < filterSize; j++)
             {
-                X265_CHECK(!filter[i * filterSize + j], "invalid: Value of filter[%d * filterSize + %d] != 0.\n", i, j);
-                X265_CHECK((*filterPos)[i] + j < srcW, "invalid: (*filterPos)[%d] + %d > %d .\n", i, i, srcW);
+                S265_CHECK(!filter[i * filterSize + j], "invalid: Value of filter[%d * filterSize + %d] != 0.\n", i, j);
+                S265_CHECK((*filterPos)[i] + j < srcW, "invalid: (*filterPos)[%d] + %d > %d .\n", i, i, srcW);
             }
         }
     }
@@ -471,7 +471,7 @@ int ScalerFilter::initCoeff(int flag, int inc, int srcW, int dstW, int filtAlign
         sum = (sum + one / 2) / one;
         if (!sum)
         {
-            x265_log(NULL, X265_LOG_WARNING, "Scaler: zero vector in scaling\n");
+            s265_log(NULL, S265_LOG_WARNING, "Scaler: zero vector in scaling\n");
             sum = 1;
         }
         for (int j = 0; j < *outFilterSize; j++)
@@ -526,10 +526,10 @@ int ScalerFilterManager::init(int algorithmFlags, VideoDesc *srcVideoDesc, Video
     dstVCrPos = -513;
 
     int srcCsp = srcVideoDesc->m_csp;
-    if (x265_cli_csps[srcCsp].planes > 1)
+    if (s265_cli_csps[srcCsp].planes > 1)
     {
-        m_crSrcHSubSample = x265_cli_csps[srcCsp].width[1];
-        m_crSrcVSubSample = x265_cli_csps[srcCsp].height[1];
+        m_crSrcHSubSample = s265_cli_csps[srcCsp].width[1];
+        m_crSrcVSubSample = s265_cli_csps[srcCsp].height[1];
         m_crSrcW = srcVideoDesc->m_width >> m_crSrcHSubSample;
         m_crSrcH = srcVideoDesc->m_height >> m_crSrcVSubSample;
         if (srcCsp == 1)// i420
@@ -543,10 +543,10 @@ int ScalerFilterManager::init(int algorithmFlags, VideoDesc *srcVideoDesc, Video
         m_crSrcVSubSample = 0;
     }
     int dstCsp = dstVideoDesc->m_csp;
-    if (x265_cli_csps[dstCsp].planes > 1)
+    if (s265_cli_csps[dstCsp].planes > 1)
     {
-        m_crDstHSubSample = x265_cli_csps[dstCsp].width[1];
-        m_crDstVSubSample = x265_cli_csps[dstCsp].height[1];
+        m_crDstHSubSample = s265_cli_csps[dstCsp].width[1];
+        m_crDstVSubSample = s265_cli_csps[dstCsp].height[1];
         m_crDstW = dstVideoDesc->m_width >> m_crDstHSubSample;
         m_crDstH = dstVideoDesc->m_height >> m_crDstVSubSample;
         if (dstCsp == 1)// i420
@@ -562,7 +562,7 @@ int ScalerFilterManager::init(int algorithmFlags, VideoDesc *srcVideoDesc, Video
     // Only srcCsp == dstCsp is supported at present
     if (srcCsp != dstCsp)
     {
-        x265_log(NULL, X265_LOG_ERROR, "wrong, source csp != destination csp \n");
+        s265_log(NULL, S265_LOG_ERROR, "wrong, source csp != destination csp \n");
         return false;
     }
 
@@ -629,7 +629,7 @@ void HFilterScaler8Bit::doScaling(int16_t *dst, int dstW, const uint8_t *src, co
     (dstW % 4 == 0) && (filterSize == 19) && (IdxF = FIL_19) && (IdxW = FACTOR_4);
     (dstW % 4 == 0) && (filterSize == 17) && (IdxF = FIL_17) && (IdxW = FACTOR_4);
 
-#if X265_DEPTH == 8
+#if S265_DEPTH == 8
     doScaling_c(dst, dstW, src, filter, filterPos, filterSize);
 #else
     doScaling_c_h(dst, dstW, src, filter, filterPos, filterSize);
@@ -661,7 +661,7 @@ void HFilterScaler10Bit::doScaling(int16_t *dst, int dstW, const uint8_t *src, c
     (dstW % 4 == 0) && (filterSize == 19) && (IdxF = FIL_19) && (IdxW = FACTOR_4);
     (dstW % 4 == 0) && (filterSize == 17) && (IdxF = FIL_17) && (IdxW = FACTOR_4);
 
-#if X265_DEPTH == 8
+#if S265_DEPTH == 8
     doScaling_c(dst, dstW, src, filter, filterPos, filterSize);
 #else
     doScaling_c_h(dst, dstW, src, filter, filterPos, filterSize);
@@ -713,13 +713,13 @@ int ScalerFilterManager::scale_pic(void ** src, void ** dst, int * srcStride, in
     for (int dstY = 0; dstY < dstH; dstY++)
     {
         const int crDstY = dstY >> m_crDstVSubSample;
-        const int firstLumSrcY = x265_max(1 - vLumFilterSize, vLumFilterPos[dstY]);
-        const int firstLumSrcY2 = x265_max(1 - vLumFilterSize, vLumFilterPos[x265_min(dstY | ((1 << m_crDstVSubSample) - 1), dstH - 1)]);
-        const int firstCrSrcY = x265_max(1 - vCrFilterSize, vCrFilterPos[crDstY]);
+        const int firstLumSrcY = s265_max(1 - vLumFilterSize, vLumFilterPos[dstY]);
+        const int firstLumSrcY2 = s265_max(1 - vLumFilterSize, vLumFilterPos[s265_min(dstY | ((1 << m_crDstVSubSample) - 1), dstH - 1)]);
+        const int firstCrSrcY = s265_max(1 - vCrFilterSize, vCrFilterPos[crDstY]);
 
-        int lastLumSrcY = x265_min(m_srcH, firstLumSrcY + vLumFilterSize) - 1;
-        int lastLumSrcY2 = x265_min(m_srcH, firstLumSrcY2 + vLumFilterSize) - 1;
-        int lastCrSrcY = x265_min(m_crSrcH, firstCrSrcY + vCrFilterSize) - 1;
+        int lastLumSrcY = s265_min(m_srcH, firstLumSrcY + vLumFilterSize) - 1;
+        int lastLumSrcY2 = s265_min(m_srcH, firstLumSrcY2 + vLumFilterSize) - 1;
+        int lastCrSrcY = s265_min(m_crSrcH, firstCrSrcY + vCrFilterSize) - 1;
 
         // handle holes
         if (firstLumSrcY > lastInLumBuf)
@@ -755,18 +755,18 @@ int ScalerFilterManager::scale_pic(void ** src, void ** dst, int * srcStride, in
         {
             lastLumSrcY = 0 + srcsliceHor - 1;
             lastCrSrcY = 0 + crSrcsliceHor - 1;
-            x265_log(NULL, X265_LOG_INFO, "buffering slice: lastLumSrcY %d lastCrSrcY %d\n", lastLumSrcY, lastCrSrcY);
+            s265_log(NULL, S265_LOG_INFO, "buffering slice: lastLumSrcY %d lastCrSrcY %d\n", lastLumSrcY, lastCrSrcY);
         }
 
-        X265_CHECK(((lastLumSrcY - firstLumSrcY + 1) <= hout_slice->m_plane[0].availLines), "invalid value %d", lastLumSrcY - firstLumSrcY + 1);
-        X265_CHECK((lastCrSrcY - firstCrSrcY + 1) <= hout_slice->m_plane[1].availLines, "invalid value %d", lastCrSrcY - firstCrSrcY + 1);
+        S265_CHECK(((lastLumSrcY - firstLumSrcY + 1) <= hout_slice->m_plane[0].availLines), "invalid value %d", lastLumSrcY - firstLumSrcY + 1);
+        S265_CHECK((lastCrSrcY - firstCrSrcY + 1) <= hout_slice->m_plane[1].availLines, "invalid value %d", lastCrSrcY - firstCrSrcY + 1);
 
         int firstPosY, lastPosY, firstCPosY, lastCPosY;
         int posY = hout_slice->m_plane[0].sliceVer + hout_slice->m_plane[0].sliceHor;
         if (posY <= lastLumSrcY && !hasLumHoles)
         {
-            firstPosY = x265_max(firstLumSrcY, posY);
-            lastPosY = x265_min(firstLumSrcY + hout_slice->m_plane[0].availLines - 1, 0 + srcsliceHor - 1);
+            firstPosY = s265_max(firstLumSrcY, posY);
+            lastPosY = s265_min(firstLumSrcY + hout_slice->m_plane[0].availLines - 1, 0 + srcsliceHor - 1);
         }
         else
         {
@@ -777,8 +777,8 @@ int ScalerFilterManager::scale_pic(void ** src, void ** dst, int * srcStride, in
         int cPosY = hout_slice->m_plane[1].sliceVer + hout_slice->m_plane[1].sliceHor;
         if (cPosY <= lastCrSrcY && !hasCrHoles)
         {
-            firstCPosY = x265_max(firstCrSrcY, cPosY);
-            lastCPosY = x265_min(firstCrSrcY + hout_slice->m_plane[1].availLines - 1, UH_CEIL_SHIFTR(0 + srcsliceHor, m_crSrcVSubSample) - 1);
+            firstCPosY = s265_max(firstCrSrcY, cPosY);
+            lastCPosY = s265_min(firstCrSrcY + hout_slice->m_plane[1].availLines - 1, UH_CEIL_SHIFTR(0 + srcsliceHor, m_crSrcVSubSample) - 1);
         }
         else
         {
@@ -832,12 +832,12 @@ void ScalerFilterManager::getMinBufferSize(int *out_lum_size, int *out_cr_size)
     for (lumY = 0; lumY < dstH; lumY++)
     {
         int crY = (int64_t)lumY * crDstH / dstH;
-        int nextSlice = x265_max(lumFilterPos[lumY] + lumFilterSize - 1, ((crFilterPos[crY] + crFilterSize - 1) << crSubSample));
+        int nextSlice = s265_max(lumFilterPos[lumY] + lumFilterSize - 1, ((crFilterPos[crY] + crFilterSize - 1) << crSubSample));
 
         nextSlice >>= crSubSample;
         nextSlice <<= crSubSample;
-        (*out_lum_size) = x265_max((*out_lum_size), nextSlice - lumFilterPos[lumY]);
-        (*out_cr_size) = x265_max((*out_cr_size), (nextSlice >> crSubSample) - crFilterPos[crY]);
+        (*out_lum_size) = s265_max((*out_lum_size), nextSlice - lumFilterPos[lumY]);
+        (*out_cr_size) = s265_max((*out_cr_size), (nextSlice >> crSubSample) - crFilterPos[crY]);
     }
 }
 
@@ -853,15 +853,15 @@ int ScalerFilterManager::initScalerSlice()
     int vLumFilterSize = m_ScalerFilters[2]->m_filtLen; // Vertical filter size for luma pixels.
     int vCrFilterSize = m_ScalerFilters[3]->m_filtLen;  // Vertical filter size for chroma pixels.
     getMinBufferSize(&lumBufSize, &crBufSize);
-    lumBufSize = X265_MAX(lumBufSize, vLumFilterSize + MAX_NUM_LINES_AHEAD);
-    crBufSize = X265_MAX(crBufSize, vCrFilterSize + MAX_NUM_LINES_AHEAD);
+    lumBufSize = S265_MAX(lumBufSize, vLumFilterSize + MAX_NUM_LINES_AHEAD);
+    crBufSize = S265_MAX(crBufSize, vCrFilterSize + MAX_NUM_LINES_AHEAD);
 
     for (int i = 0; i < m_numSlice; i++)
         m_slices[i] = new ScalerSlice;
     ret = m_slices[0]->create(m_srcH, m_crSrcH, m_crSrcHSubSample, m_crSrcVSubSample, 0);
     if (ret < 0)
     {
-        x265_log(NULL, X265_LOG_ERROR, "alloc_slice m_slice[0] failed\n");
+        s265_log(NULL, S265_LOG_ERROR, "alloc_slice m_slice[0] failed\n");
         return -1;
     }
 
@@ -869,13 +869,13 @@ int ScalerFilterManager::initScalerSlice()
     ret = m_slices[1]->create(lumBufSize, crBufSize, m_crDstHSubSample, m_crDstVSubSample, 1);
     if (ret < 0)
     {
-        x265_log(NULL, X265_LOG_ERROR, "m_slice[1].create failed\n");
+        s265_log(NULL, S265_LOG_ERROR, "m_slice[1].create failed\n");
         return -1;
     }
     ret = m_slices[1]->createLines(dst_stride, m_dstW);
     if (ret < 0)
     {
-        x265_log(NULL, X265_LOG_ERROR, "m_slice[1].createLines failed\n");
+        s265_log(NULL, S265_LOG_ERROR, "m_slice[1].createLines failed\n");
         return -1;
     }
 
@@ -885,7 +885,7 @@ int ScalerFilterManager::initScalerSlice()
     ret = m_slices[2]->create(m_dstH, m_crDstH, m_crDstHSubSample, m_crDstVSubSample, 0);
     if (ret < 0)
     {
-        x265_log(NULL, X265_LOG_ERROR, "m_slice[2].create failed\n");
+        s265_log(NULL, S265_LOG_ERROR, "m_slice[2].create failed\n");
         return -1;
     }
 
@@ -923,7 +923,7 @@ void ScalerSlice::destroy()
     for (int i = 0; i < m_numSlicePlane; i++)
     {
         if (m_plane[i].lineBuf)
-            X265_FREE(m_plane[i].lineBuf);
+            S265_FREE(m_plane[i].lineBuf);
     }
 }
 
@@ -940,7 +940,7 @@ int ScalerSlice::create(int lumLines, int crLines, int h_sub_sample, int v_sub_s
     for (i = 0; i < m_numSlicePlane; ++i)
     {
         int n = size[i] * (ring == 0 ? 1 : 3);
-        m_plane[i].lineBuf = X265_MALLOC(uint8_t*, n);
+        m_plane[i].lineBuf = S265_MALLOC(uint8_t*, n);
         if (!m_plane[i].lineBuf)
             return -1;
 
@@ -971,7 +971,7 @@ int ScalerSlice::createLines(int size, int width)
         for (j = 0; j < n; ++j)
         {
             // chroma plane line U and V are expected to be contiguous in memory
-            m_plane[i].lineBuf[j] = (uint8_t*)X265_MALLOC(uint8_t, size * 2 + 32);
+            m_plane[i].lineBuf[j] = (uint8_t*)S265_MALLOC(uint8_t, size * 2 + 32);
             if (!m_plane[i].lineBuf[j])
             {
                 destroyLines();
@@ -998,7 +998,7 @@ void ScalerSlice::destroyLines()
         int j;
         for (j = 0; j < n; ++j)
         {
-            X265_FREE(m_plane[i].lineBuf[j]);
+            S265_FREE(m_plane[i].lineBuf[j]);
             m_plane[i].lineBuf[j] = NULL;
             if (m_isRing)
                 m_plane[i].lineBuf[j + n] = NULL;
@@ -1092,7 +1092,7 @@ int ScalerSlice::initFromSrc(uint8_t *src[4], const int stride[4], int srcW, int
 
         if (start[i] >= first && n >= tot_lines)
         {
-            m_plane[i].sliceHor = x265_max(tot_lines, m_plane[i].sliceHor);
+            m_plane[i].sliceHor = s265_max(tot_lines, m_plane[i].sliceHor);
             for (j = 0; j < lines; j += 1)
                 m_plane[i].lineBuf[start[i] - first + j] = src_[i] + j * stride[i];
         }

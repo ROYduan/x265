@@ -20,11 +20,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_LOOPFILTER_H
-#define X265_LOOPFILTER_H
+#ifndef S265_LOOPFILTER_H
+#define S265_LOOPFILTER_H
 
 #define DECL_SAO(cpu) \
     void PFX(saoCuOrgE0_ ## cpu)(pixel * rec, int8_t * offsetEo, int endX, int8_t* signLeft, intptr_t stride); \
@@ -51,4 +51,4 @@ void PFX(pelFilterLumaStrong_H_sse4)(pixel* src, intptr_t srcStep, intptr_t offs
 void PFX(pelFilterChroma_V_sse4)(pixel* src, intptr_t srcStep, intptr_t offset, int32_t tc, int32_t maskP, int32_t maskQ);
 void PFX(pelFilterChroma_H_sse4)(pixel* src, intptr_t srcStep, intptr_t offset, int32_t tc, int32_t maskP, int32_t maskQ);
 
-#endif // ifndef X265_LOOPFILTER_H
+#endif // ifndef S265_LOOPFILTER_H

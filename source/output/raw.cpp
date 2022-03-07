@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 #include "raw.h"
 #if _WIN32
@@ -30,7 +30,7 @@
 #endif
 #endif
 
-using namespace X265_NS;
+using namespace S265_NS;
 using namespace std;
 RAWOutput::RAWOutput(const char* fname, InputFileInfo&)
 {
@@ -43,17 +43,17 @@ RAWOutput::RAWOutput(const char* fname, InputFileInfo&)
 #endif
         return;
     }
-    ofs = x265_fopen(fname, "wb");
+    ofs = s265_fopen(fname, "wb");
     if (!ofs || ferror(ofs))
         b_fail = true;
 }
 
-void RAWOutput::setParam(x265_param* param)
+void RAWOutput::setParam(s265_param* param)
 {
     param->bAnnexB = true;
 }
 
-int RAWOutput::writeHeaders(const x265_nal* nal, uint32_t nalcount)
+int RAWOutput::writeHeaders(const s265_nal* nal, uint32_t nalcount)
 {
     uint32_t bytes = 0;
 
@@ -67,7 +67,7 @@ int RAWOutput::writeHeaders(const x265_nal* nal, uint32_t nalcount)
     return bytes;
 }
 
-int RAWOutput::writeFrame(const x265_nal* nal, uint32_t nalcount, x265_picture&)
+int RAWOutput::writeFrame(const s265_nal* nal, uint32_t nalcount, s265_picture&)
 {
     uint32_t bytes = 0;
 

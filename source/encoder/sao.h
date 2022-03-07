@@ -20,17 +20,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_SAO_H
-#define X265_SAO_H
+#ifndef S265_SAO_H
+#define S265_SAO_H
 
 #include "common.h"
 #include "frame.h"
 #include "entropy.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 enum SAOType
@@ -50,8 +50,8 @@ public:
     enum { SAO_MAX_DEPTH = 4 };
     enum { SAO_BO_BITS  = 5 };
     enum { MAX_NUM_SAO_CLASS = 32 };
-    enum { SAO_BIT_INC = 0 }; /* in HM12.0, it wrote as X265_MAX(X265_DEPTH - 10, 0) */
-    enum { OFFSET_THRESH = 1 << X265_MIN(X265_DEPTH - 5, 5) };
+    enum { SAO_BIT_INC = 0 }; /* in HM12.0, it wrote as S265_MAX(S265_DEPTH - 10, 0) */
+    enum { OFFSET_THRESH = 1 << S265_MIN(S265_DEPTH - 5, 5) };
     enum { NUM_EDGETYPE = 5 };
     enum { NUM_PLANE = 3 };
     enum { SAO_DEPTHRATE_SIZE = 4 };
@@ -99,13 +99,13 @@ public:
     Entropy     m_entropyCoder;
     SAOContexts m_rdContexts;
 
-    x265_param* m_param;
+    s265_param* m_param;
     int         m_refDepth;
     int         m_numNoSao[2];
 
     SAO();
 
-    bool create(x265_param* param, int initCommon);
+    bool create(s265_param* param, int initCommon);
     void createFromRootNode(SAO *root);
     void destroy(int destoryCommon);
 
@@ -136,4 +136,4 @@ public:
 
 }
 
-#endif // ifndef X265_SAO_H
+#endif // ifndef S265_SAO_H

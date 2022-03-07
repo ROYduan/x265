@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_MOTIONESTIMATE_H
-#define X265_MOTIONESTIMATE_H
+#ifndef S265_MOTIONESTIMATE_H
+#define S265_MOTIONESTIMATE_H
 
 #include "primitives.h"
 #include "reference.h"
@@ -31,8 +31,8 @@
 #include "bitcost.h"
 #include "yuv.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class MotionEstimate : public BitCost
 {
@@ -114,4 +114,4 @@ protected:
 };
 }
 
-#endif // ifndef X265_MOTIONESTIMATE_H
+#endif // ifndef S265_MOTIONESTIMATE_H

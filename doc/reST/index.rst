@@ -1,4 +1,4 @@
-x265 Documentation
+s265 Documentation
 ======================
 .. toctree::
    :maxdepth: 2

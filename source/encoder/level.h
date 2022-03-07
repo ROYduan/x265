@@ -18,22 +18,22 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_LEVEL_H
-#define X265_LEVEL_H 1
+#ifndef S265_LEVEL_H
+#define S265_LEVEL_H 1
 
 #include "common.h"
-#include "x265.h"
+#include "s265.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // encoder private namespace
 
 struct VPS;
-void determineLevel(const x265_param &param, VPS& vps);
-bool enforceLevel(x265_param& param, VPS& vps);
+void determineLevel(const s265_param &param, VPS& vps);
+bool enforceLevel(s265_param& param, VPS& vps);
 
 }
 
-#endif // ifndef X265_LEVEL_H
+#endif // ifndef S265_LEVEL_H

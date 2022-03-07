@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -27,7 +27,7 @@
 
 #include <signal.h>
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #if _WIN32
 #define popen  _popen
@@ -43,16 +43,16 @@ bool ReconPlay::pipeValid;
 static void sigpipe_handler(int)
 {
     if (ReconPlay::pipeValid)
-        general_log(NULL, "exec", X265_LOG_ERROR, "pipe closed\n");
+        general_log(NULL, "exec", S265_LOG_ERROR, "pipe closed\n");
     ReconPlay::pipeValid = false;
 }
 #endif
 
-ReconPlay::ReconPlay(const char* commandLine, x265_param& param)
+ReconPlay::ReconPlay(const char* commandLine, s265_param& param)
 {
 #ifndef _WIN32
     if (signal(SIGPIPE, sigpipe_handler) == SIG_ERR)
-        general_log(&param, "exec", X265_LOG_ERROR, "Unable to register SIGPIPE handler: %s\n", strerror(errno));
+        general_log(&param, "exec", S265_LOG_ERROR, "Unable to register SIGPIPE handler: %s\n", strerror(errno));
 #endif
 
     width = param.sourceWidth;
@@ -60,8 +60,8 @@ ReconPlay::ReconPlay(const char* commandLine, x265_param& param)
     colorSpace = param.internalCsp;
 
     frameSize = 0;
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
-        frameSize += (uint32_t)((width >> x265_cli_csps[colorSpace].width[i]) * (height >> x265_cli_csps[colorSpace].height[i]));
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
+        frameSize += (uint32_t)((width >> s265_cli_csps[colorSpace].width[i]) * (height >> s265_cli_csps[colorSpace].height[i]));
 
     for (int i = 0; i < RECON_BUF_SIZE; i++)
     {
@@ -72,7 +72,7 @@ ReconPlay::ReconPlay(const char* commandLine, x265_param& param)
     outputPipe = popen(commandLine, pipemode);
     if (outputPipe)
     {
-        const char* csp = (colorSpace >= X265_CSP_I444) ? "444" : (colorSpace >= X265_CSP_I422) ? "422" : "420";
+        const char* csp = (colorSpace >= S265_CSP_I444) ? "444" : (colorSpace >= S265_CSP_I422) ? "422" : "420";
         const char* depth = (param.internalBitDepth == 10) ? "p10" : "";
 
         fprintf(outputPipe, "YUV4MPEG2 W%d H%d F%d:%d Ip C%s%s\n", width, height, param.fpsNum, param.fpsDenom, csp, depth);
@@ -83,7 +83,7 @@ ReconPlay::ReconPlay(const char* commandLine, x265_param& param)
         return;
     }
     else
-        general_log(&param, "exec", X265_LOG_ERROR, "popen(%s) failed\n", commandLine);
+        general_log(&param, "exec", S265_LOG_ERROR, "popen(%s) failed\n", commandLine);
 
 fail:
     threadActive = false;
@@ -102,10 +102,10 @@ ReconPlay::~ReconPlay()
         pclose(outputPipe);
 
     for (int i = 0; i < RECON_BUF_SIZE; i++)
-        X265_FREE(frameData[i]);
+        S265_FREE(frameData[i]);
 }
 
-bool ReconPlay::writePicture(const x265_picture& pic)
+bool ReconPlay::writePicture(const s265_picture& pic)
 {
     if (!threadActive || !pipeValid)
         return false;
@@ -123,16 +123,16 @@ bool ReconPlay::writePicture(const x265_picture& pic)
             return false;
     }
 
-    X265_CHECK(pic.colorSpace == colorSpace, "invalid color space\n");
-    X265_CHECK(pic.bitDepth == X265_DEPTH,   "invalid bit depth\n");
+    S265_CHECK(pic.colorSpace == colorSpace, "invalid color space\n");
+    S265_CHECK(pic.bitDepth == S265_DEPTH,   "invalid bit depth\n");
 
     pixel* buf = frameData[currentCursor];
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
     {
         char* src = (char*)pic.planes[i];
-        int pwidth = width >> x265_cli_csps[colorSpace].width[i];
+        int pwidth = width >> s265_cli_csps[colorSpace].width[i];
 
-        for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+        for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
         {
             memcpy(buf, src, pwidth * sizeof(pixel));
             src += pic.stride[i];

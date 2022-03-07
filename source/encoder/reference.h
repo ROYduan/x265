@@ -19,19 +19,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_REFERENCE_H
-#define X265_REFERENCE_H
+#ifndef S265_REFERENCE_H
+#define S265_REFERENCE_H
 
 #include "primitives.h"
 #include "picyuv.h"
 #include "lowres.h"
 #include "mv.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 struct WeightParam;
 
@@ -41,7 +41,7 @@ public:
 
     MotionReference();
     ~MotionReference();
-    int  init(PicYuv*, WeightParam* wp, const x265_param& p);
+    int  init(PicYuv*, WeightParam* wp, const s265_param& p);
     void applyWeight(uint32_t finishedRows, uint32_t maxNumRows, uint32_t maxNumRowsInSlice, uint32_t sliceId);
 
     pixel*      weightBuffer[3];
@@ -54,4 +54,4 @@ protected:
 };
 }
 
-#endif // ifndef X265_REFERENCE_H
+#endif // ifndef S265_REFERENCE_H

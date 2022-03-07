@@ -19,16 +19,16 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_RDCOST_H
-#define X265_RDCOST_H
+#ifndef S265_RDCOST_H
+#define S265_RDCOST_H
 
 #include "common.h"
 #include "slice.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class RDCost
@@ -49,9 +49,9 @@ public:
 
     void setQP(const Slice& slice, int qp)
     {
-        x265_emms(); /* TODO: if the lambda tables were ints, this would not be necessary */
+        s265_emms(); /* TODO: if the lambda tables were ints, this would not be necessary */
         m_qp = qp;
-        setLambda(x265_lambda2_tab[qp], x265_lambda_tab[qp]);
+        setLambda(s265_lambda2_tab[qp], s265_lambda_tab[qp]);
 
         /* Scale PSY RD factor by a slice type factor */
         static const uint32_t psyScaleFix8[3] = { 300, 256, 96 }; /* B, P, I */
@@ -65,25 +65,25 @@ public:
         }
 
         int qpCb, qpCr;
-        if (slice.m_sps->chromaFormatIdc == X265_CSP_I420)
+        if (slice.m_sps->chromaFormatIdc == S265_CSP_I420)
         {
-            qpCb = (int)g_chromaScale[x265_clip3(QP_MIN, QP_MAX_MAX, qp + slice.m_pps->chromaQpOffset[0] + slice.m_chromaQpOffset[0])];
-            qpCr = (int)g_chromaScale[x265_clip3(QP_MIN, QP_MAX_MAX, qp + slice.m_pps->chromaQpOffset[1] + slice.m_chromaQpOffset[1])];
+            qpCb = (int)g_chromaScale[s265_clip3(QP_MIN, QP_MAX_MAX, qp + slice.m_pps->chromaQpOffset[0] + slice.m_chromaQpOffset[0])];
+            qpCr = (int)g_chromaScale[s265_clip3(QP_MIN, QP_MAX_MAX, qp + slice.m_pps->chromaQpOffset[1] + slice.m_chromaQpOffset[1])];
         }
         else
         {
-            qpCb = x265_clip3(QP_MIN, QP_MAX_SPEC, qp + slice.m_pps->chromaQpOffset[0] + slice.m_chromaQpOffset[0]);
-            qpCr = x265_clip3(QP_MIN, QP_MAX_SPEC, qp + slice.m_pps->chromaQpOffset[1] + slice.m_chromaQpOffset[1]);
+            qpCb = s265_clip3(QP_MIN, QP_MAX_SPEC, qp + slice.m_pps->chromaQpOffset[0] + slice.m_chromaQpOffset[0]);
+            qpCr = s265_clip3(QP_MIN, QP_MAX_SPEC, qp + slice.m_pps->chromaQpOffset[1] + slice.m_chromaQpOffset[1]);
         }
 
-        if (slice.m_sps->chromaFormatIdc == X265_CSP_I444)
+        if (slice.m_sps->chromaFormatIdc == S265_CSP_I444)
         {
-            int chroma_offset_idx = X265_MIN(qp - qpCb + 12, MAX_CHROMA_LAMBDA_OFFSET);
-            uint16_t lambdaOffset = m_psyRd ? x265_chroma_lambda2_offset_tab[chroma_offset_idx] : 256;
+            int chroma_offset_idx = S265_MIN(qp - qpCb + 12, MAX_CHROMA_LAMBDA_OFFSET);
+            uint16_t lambdaOffset = m_psyRd ? s265_chroma_lambda2_offset_tab[chroma_offset_idx] : 256;
             m_chromaDistWeight[0] = lambdaOffset;
 
-            chroma_offset_idx = X265_MIN(qp - qpCr + 12, MAX_CHROMA_LAMBDA_OFFSET);
-            lambdaOffset = m_psyRd ? x265_chroma_lambda2_offset_tab[chroma_offset_idx] : 256;
+            chroma_offset_idx = S265_MIN(qp - qpCr + 12, MAX_CHROMA_LAMBDA_OFFSET);
+            lambdaOffset = m_psyRd ? s265_chroma_lambda2_offset_tab[chroma_offset_idx] : 256;
             m_chromaDistWeight[1] = lambdaOffset;
         }
         else
@@ -98,13 +98,13 @@ public:
 
     inline uint64_t calcRdCost(sse_t distortion, uint32_t bits) const
     {
-#if X265_DEPTH < 10
-        X265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda2,
-                   "calcRdCost wrap detected dist: %u, bits %u, lambda: " X265_LL "\n",
+#if S265_DEPTH < 10
+        S265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda2,
+                   "calcRdCost wrap detected dist: %u, bits %u, lambda: " S265_LL "\n",
                    distortion, bits, m_lambda2);
 #else
-        X265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda2,
-                   "calcRdCost wrap detected dist: " X265_LL ", bits %u, lambda: " X265_LL "\n",
+        S265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda2,
+                   "calcRdCost wrap detected dist: " S265_LL ", bits %u, lambda: " S265_LL "\n",
                    distortion, bits, m_lambda2);
 #endif
         return distortion + ((bits * m_lambda2 + 128) >> 8);
@@ -119,13 +119,13 @@ public:
     /* return the RD cost of this prediction, including the effect of psy-rd */
     inline uint64_t calcPsyRdCost(sse_t distortion, uint32_t bits, uint32_t psycost) const
     {
-#if X265_DEPTH < 10
-        X265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (psycost <= UINT64_MAX / (m_lambda * m_psyRd)),
-                   "calcPsyRdCost wrap detected dist: %u, bits: %u, lambda: " X265_LL ", lambda2: " X265_LL "\n",
+#if S265_DEPTH < 10
+        S265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (psycost <= UINT64_MAX / (m_lambda * m_psyRd)),
+                   "calcPsyRdCost wrap detected dist: %u, bits: %u, lambda: " S265_LL ", lambda2: " S265_LL "\n",
                    distortion, bits, m_lambda, m_lambda2);
 #else
-        X265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (psycost <= UINT64_MAX / (m_lambda * m_psyRd)),
-                   "calcPsyRdCost wrap detected dist: " X265_LL ", bits: %u, lambda: " X265_LL ", lambda2: " X265_LL "\n",
+        S265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (psycost <= UINT64_MAX / (m_lambda * m_psyRd)),
+                   "calcPsyRdCost wrap detected dist: " S265_LL ", bits: %u, lambda: " S265_LL ", lambda2: " S265_LL "\n",
                    distortion, bits, m_lambda, m_lambda2);
 #endif
         return distortion + ((m_lambda * m_psyRd * psycost) >> 24) + ((bits * m_lambda2) >> 8);
@@ -133,13 +133,13 @@ public:
 
     inline uint64_t calcSsimRdCost(uint64_t distortion, uint32_t bits, uint32_t ssimCost) const
     {
-#if X265_DEPTH < 10
-        X265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (ssimCost <= UINT64_MAX / m_lambda),
-                   "calcPsyRdCost wrap detected dist: " X265_LL " bits: %u, lambda: " X265_LL ", lambda2: " X265_LL "\n",
+#if S265_DEPTH < 10
+        S265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (ssimCost <= UINT64_MAX / m_lambda),
+                   "calcPsyRdCost wrap detected dist: " S265_LL " bits: %u, lambda: " S265_LL ", lambda2: " S265_LL "\n",
                    distortion, bits, m_lambda, m_lambda2);
 #else
-        X265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (ssimCost <= UINT64_MAX / m_lambda),
-                   "calcPsyRdCost wrap detected dist: " X265_LL ", bits: %u, lambda: " X265_LL ", lambda2: " X265_LL "\n",
+        S265_CHECK((bits <= (UINT64_MAX / m_lambda2)) && (ssimCost <= UINT64_MAX / m_lambda),
+                   "calcPsyRdCost wrap detected dist: " S265_LL ", bits: %u, lambda: " S265_LL ", lambda2: " S265_LL "\n",
                    distortion, bits, m_lambda, m_lambda2);
 #endif
         return distortion + ((m_lambda * ssimCost) >> 14) + ((bits * m_lambda2) >> 8);
@@ -147,20 +147,20 @@ public:
 
     inline uint64_t calcRdSADCost(uint32_t sadCost, uint32_t bits) const
     {
-        X265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda,
-                   "calcRdSADCost wrap detected dist: %u, bits %u, lambda: " X265_LL "\n", sadCost, bits, m_lambda);
+        S265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda,
+                   "calcRdSADCost wrap detected dist: %u, bits %u, lambda: " S265_LL "\n", sadCost, bits, m_lambda);
         return sadCost + ((bits * m_lambda + 128) >> 8);
     }
 
     inline sse_t scaleChromaDist(uint32_t plane, sse_t dist) const
     {
-#if X265_DEPTH < 10
-        X265_CHECK(dist <= (UINT64_MAX - 128) / m_chromaDistWeight[plane - 1],
+#if S265_DEPTH < 10
+        S265_CHECK(dist <= (UINT64_MAX - 128) / m_chromaDistWeight[plane - 1],
                    "scaleChromaDist wrap detected dist: %u, lambda: %u\n",
                    dist, m_chromaDistWeight[plane - 1]);
 #else
-        X265_CHECK(dist <= (UINT64_MAX - 128) / m_chromaDistWeight[plane - 1],
-                   "scaleChromaDist wrap detected dist: " X265_LL " lambda: %u\n",
+        S265_CHECK(dist <= (UINT64_MAX - 128) / m_chromaDistWeight[plane - 1],
+                   "scaleChromaDist wrap detected dist: " S265_LL " lambda: %u\n",
                    dist, m_chromaDistWeight[plane - 1]);
 #endif
         return (sse_t)((dist * (uint64_t)m_chromaDistWeight[plane - 1] + 128) >> 8);
@@ -168,11 +168,11 @@ public:
 
     inline uint32_t getCost(uint32_t bits) const
     {
-        X265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda,
-                   "getCost wrap detected bits: %u, lambda: " X265_LL "\n", bits, m_lambda);
+        S265_CHECK(bits <= (UINT64_MAX - 128) / m_lambda,
+                   "getCost wrap detected bits: %u, lambda: " S265_LL "\n", bits, m_lambda);
         return (uint32_t)((bits * m_lambda + 128) >> 8);
     }
 };
 }
 
-#endif // ifndef X265_TCOMRDCOST_H
+#endif // ifndef S265_TCOMRDCOST_H

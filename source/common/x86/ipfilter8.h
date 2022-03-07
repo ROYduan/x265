@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_IPFILTER8_H
-#define X265_IPFILTER8_H
+#ifndef S265_IPFILTER8_H
+#define S265_IPFILTER8_H
 
 #define SETUP_FUNC_DEF(cpu) \
     FUNCDEF_PU(void, interp_8tap_horiz_pp, cpu, const pixel* src, intptr_t srcStride, pixel* dst, intptr_t dstStride, int coeffIdx); \
@@ -48,4 +48,4 @@ SETUP_FUNC_DEF(sse4);
 SETUP_FUNC_DEF(avx2);
 SETUP_FUNC_DEF(avx512);
 
-#endif // ifndef X265_IPFILTER8_H
+#endif // ifndef S265_IPFILTER8_H

@@ -18,24 +18,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_PICYUV_H
-#define X265_PICYUV_H
+#ifndef S265_PICYUV_H
+#define S265_PICYUV_H
 
 #include "common.h"
 #include "md5.h"
-#include "x265.h"
-struct x265_picyuv {};
+#include "s265.h"
+struct s265_picyuv {};
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class ShortYuv;
 struct SPS;
 
-class PicYuv : public x265_picyuv
+class PicYuv : public s265_picyuv
 {
 public:
 
@@ -73,16 +73,16 @@ public:
     pixel   m_minChromaVLevel;
     double  m_avgChromaVLevel;
     double  m_vmafScore;
-    x265_param *m_param;
+    s265_param *m_param;
 
     PicYuv();
 
-    bool  create(x265_param* param, bool picAlloc = true, pixel *pixelbuf = NULL);
+    bool  create(s265_param* param, bool picAlloc = true, pixel *pixelbuf = NULL);
     bool  createOffsets(const SPS& sps);
     void  destroy();
     int   getLumaBufLen(uint32_t picWidth, uint32_t picHeight, uint32_t picCsp);
 
-    void  copyFromPicture(const x265_picture&, const x265_param& param, int padx, int pady);
+    void  copyFromPicture(const s265_picture&, const s265_param& param, int padx, int pady);
 
     intptr_t getChromaAddrOffset(uint32_t ctuAddr, uint32_t absPartIdx) const { return m_cuOffsetC[ctuAddr] + m_buOffsetC[absPartIdx]; }
 
@@ -116,4 +116,4 @@ void checksumFinish(uint32_t checksum, uint8_t digest[16]);
 void updateMD5Plane(MD5Context& md5, const pixel* plane, uint32_t width, uint32_t height, intptr_t stride);
 }
 
-#endif // ifndef X265_PICYUV_H
+#endif // ifndef S265_PICYUV_H

@@ -8,7 +8,7 @@
 
 namespace
 {
-using namespace X265_NS;
+using namespace S265_NS;
 
 
 static int16x8_t rev16(const int16x8_t a)
@@ -43,7 +43,7 @@ static int scanPosLast_opt(const uint16_t *scan, const coeff_t *coeff, uint16_t 
                            uint8_t *coeffNum, int numSig, const uint16_t * /*scanCG4x4*/, const int /*trSize*/)
 {
 
-    // This is an optimized function for scanPosLast, which removes the rmw dependency, once integrated into mainline x265, should replace reference implementation
+    // This is an optimized function for scanPosLast, which removes the rmw dependency, once integrated into mainline s265, should replace reference implementation
     // For clarity, left the original reference code in comments
     int scanPosLast = 0;
 
@@ -102,7 +102,7 @@ template<int log2TrSize>
 static void nonPsyRdoQuant_neon(int16_t *m_resiDctCoeff, int64_t *costUncoded, int64_t *totalUncodedCost,
                                 int64_t *totalRdCost, uint32_t blkPos)
 {
-    const int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH -
+    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH -
                                log2TrSize; /* Represents scaling through forward transform */
     const int scaleBits = SCALE_BITS - 2 * transformShift;
     const uint32_t trSize = 1 << log2TrSize;
@@ -131,12 +131,12 @@ template<int log2TrSize>
 static void psyRdoQuant_neon(int16_t *m_resiDctCoeff, int16_t *m_fencDctCoeff, int64_t *costUncoded,
                              int64_t *totalUncodedCost, int64_t *totalRdCost, int64_t *psyScale, uint32_t blkPos)
 {
-    const int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH -
+    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH -
                                log2TrSize; /* Represents scaling through forward transform */
     const int scaleBits = SCALE_BITS - 2 * transformShift;
     const uint32_t trSize = 1 << log2TrSize;
     //using preprocessor to bypass clang bug
-    const int max = X265_MAX(0, (2 * transformShift + 1));
+    const int max = S265_MAX(0, (2 * transformShift + 1));
 
     int64x2_t vcost_sum_0 = vdupq_n_s64(0);
     int64x2_t vcost_sum_1 = vdupq_n_s64(0);
@@ -181,7 +181,7 @@ static void psyRdoQuant_neon(int16_t *m_resiDctCoeff, int16_t *m_fencDctCoeff, i
 template<int trSize>
 int  count_nonzero_neon(const int16_t *quantCoeff)
 {
-    X265_CHECK(((intptr_t)quantCoeff & 15) == 0, "quant buffer not aligned\n");
+    S265_CHECK(((intptr_t)quantCoeff & 15) == 0, "quant buffer not aligned\n");
     int count = 0;
     int16x8_t vcount = vdupq_n_s16(0);
     const int numCoeff = trSize * trSize;
@@ -437,10 +437,10 @@ static void partialButterflyInverse4(const int16_t *src, int16_t *dst, int shift
         E[1] = g_t4[0][1] * src[0] + g_t4[2][1] * src[2 * line];
 
         /* Combining even and odd terms at each hierarchy levels to calculate the final spatial domain vector */
-        dst[0] = (int16_t)(x265_clip3(-32768, 32767, (E[0] + O[0] + add) >> shift));
-        dst[1] = (int16_t)(x265_clip3(-32768, 32767, (E[1] + O[1] + add) >> shift));
-        dst[2] = (int16_t)(x265_clip3(-32768, 32767, (E[1] - O[1] + add) >> shift));
-        dst[3] = (int16_t)(x265_clip3(-32768, 32767, (E[0] - O[0] + add) >> shift));
+        dst[0] = (int16_t)(s265_clip3(-32768, 32767, (E[0] + O[0] + add) >> shift));
+        dst[1] = (int16_t)(s265_clip3(-32768, 32767, (E[1] + O[1] + add) >> shift));
+        dst[2] = (int16_t)(s265_clip3(-32768, 32767, (E[1] - O[1] + add) >> shift));
+        dst[3] = (int16_t)(s265_clip3(-32768, 32767, (E[0] - O[0] + add) >> shift));
 
         src++;
         dst += 4;
@@ -796,7 +796,7 @@ static void partialButterflyInverse32_neon(const int16_t *src, int16_t *orig_dst
 
 static void dct8_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 {
-    const int shift_1st = 2 + X265_DEPTH - 8;
+    const int shift_1st = 2 + S265_DEPTH - 8;
     const int shift_2nd = 9;
 
     ALIGN_VAR_32(int16_t, coef[8 * 8]);
@@ -813,7 +813,7 @@ static void dct8_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 
 static void dct16_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 {
-    const int shift_1st = 3 + X265_DEPTH - 8;
+    const int shift_1st = 3 + S265_DEPTH - 8;
     const int shift_2nd = 10;
 
     ALIGN_VAR_32(int16_t, coef[16 * 16]);
@@ -830,7 +830,7 @@ static void dct16_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 
 static void dct32_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 {
-    const int shift_1st = 4 + X265_DEPTH - 8;
+    const int shift_1st = 4 + S265_DEPTH - 8;
     const int shift_2nd = 11;
 
     ALIGN_VAR_32(int16_t, coef[32 * 32]);
@@ -848,7 +848,7 @@ static void dct32_neon(const int16_t *src, int16_t *dst, intptr_t srcStride)
 static void idct4_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 {
     const int shift_1st = 7;
-    const int shift_2nd = 12 - (X265_DEPTH - 8);
+    const int shift_2nd = 12 - (S265_DEPTH - 8);
 
     ALIGN_VAR_32(int16_t, coef[4 * 4]);
     ALIGN_VAR_32(int16_t, block[4 * 4]);
@@ -865,7 +865,7 @@ static void idct4_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 static void idct16_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 {
     const int shift_1st = 7;
-    const int shift_2nd = 12 - (X265_DEPTH - 8);
+    const int shift_2nd = 12 - (S265_DEPTH - 8);
 
     ALIGN_VAR_32(int16_t, coef[16 * 16]);
     ALIGN_VAR_32(int16_t, block[16 * 16]);
@@ -882,7 +882,7 @@ static void idct16_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 static void idct32_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 {
     const int shift_1st = 7;
-    const int shift_2nd = 12 - (X265_DEPTH - 8);
+    const int shift_2nd = 12 - (S265_DEPTH - 8);
 
     ALIGN_VAR_32(int16_t, coef[32 * 32]);
     ALIGN_VAR_32(int16_t, block[32 * 32]);
@@ -900,9 +900,9 @@ static void idct32_neon(const int16_t *src, int16_t *dst, intptr_t dstStride)
 
 }
 
-namespace X265_NS
+namespace S265_NS
 {
-// x265 private namespace
+// s265 private namespace
 void setupDCTPrimitives_neon(EncoderPrimitives &p)
 {
     p.cu[BLOCK_4x4].nonPsyRdoQuant   = nonPsyRdoQuant_neon<2>;

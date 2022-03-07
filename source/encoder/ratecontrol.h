@@ -20,17 +20,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_RATECONTROL_H
-#define X265_RATECONTROL_H
+#ifndef S265_RATECONTROL_H
+#define S265_RATECONTROL_H
 
 #include "common.h"
 #include "sei.h"
 #include "ringmem.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // encoder namespace
 
 class Encoder;
@@ -45,7 +45,7 @@ struct SPS;
 
 #define MIN_AMORTIZE_FRAME 10
 #define MIN_AMORTIZE_FRACTION 0.2
-#define CLIP_DURATION(f) x265_clip3(MIN_FRAME_DURATION, MAX_FRAME_DURATION, f)
+#define CLIP_DURATION(f) s265_clip3(MIN_FRAME_DURATION, MAX_FRAME_DURATION, f)
 
 /*Scenecut Aware QP*/
 #define WINDOW1_DELTA           1.0 /* The offset for the frames coming in the window-1*/
@@ -131,7 +131,7 @@ class RateControl
 {
 public:
 
-    x265_param* m_param;
+    s265_param* m_param;
     Slice*      m_curSlice;      /* all info about the current frame */
     SliceType   m_sliceType;     /* Current frame type */
     int         m_ncu;           /* number of CUs in a frame */
@@ -257,7 +257,7 @@ public:
                                 * This value is the current position (0 or 1). */
     } m_cuTreeStats;
 
-    RateControl(x265_param& p, Encoder *enc);
+    RateControl(s265_param& p, Encoder *enc);
     bool init(const SPS& sps);
     void initHRD(SPS& sps);
     void reconfigureRC();
@@ -295,7 +295,7 @@ protected:
     int    m_residualCost;
     int    m_partialResidualCost;
 
-    x265_zone* getZone();
+    s265_zone* getZone();
     double getQScale(RateControlEntry *rce, double rateFactor);
     double rateEstimateQscale(Frame* pic, RateControlEntry *rce); // main logic for calculating QP based on ABR
     double tuneAbrQScaleFromFeedback(double qScale);
@@ -322,4 +322,4 @@ protected:
     void   splitbUsed(char deltapoc[], RateControlEntry *rce);
 };
 }
-#endif // ifndef X265_RATECONTROL_H
+#endif // ifndef S265_RATECONTROL_H

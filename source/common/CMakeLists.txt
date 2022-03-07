@@ -1,6 +1,6 @@
 # vim: syntax=cmake
 
-list(APPEND VFLAGS "-DX265_VERSION=${X265_VERSION}")
+list(APPEND VFLAGS "-DS265_VERSION=${S265_VERSION}")
 if(EXTRA_LIB)
     if(LINKED_8BIT)
         list(APPEND VFLAGS "-DLINKED_8BIT=1")
@@ -118,7 +118,7 @@ if(ENABLE_ASSEMBLY AND (ARM64 OR CROSS_COMPILE_ARM64))
 endif(ENABLE_ASSEMBLY AND (ARM64 OR CROSS_COMPILE_ARM64))
 
 if(POWER)
-    set_source_files_properties(version.cpp PROPERTIES COMPILE_FLAGS -DX265_VERSION=${X265_VERSION})
+    set_source_files_properties(version.cpp PROPERTIES COMPILE_FLAGS -DS265_VERSION=${S265_VERSION})
     if(ENABLE_ALTIVEC)
         set(ALTIVEC_SRCS pixel_altivec.cpp dct_altivec.cpp ipfilter_altivec.cpp intrapred_altivec.cpp)
         foreach(SRC ${ALTIVEC_SRCS})

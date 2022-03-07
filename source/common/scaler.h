@@ -18,23 +18,23 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_SCALER_H
-#define X265_SCALER_H
+#ifndef S265_SCALER_H
+#define S265_SCALER_H
 
 #include "common.h"
 
-namespace X265_NS {
-//x265 private namespace
+namespace S265_NS {
+//s265 private namespace
 
 class ScalerSlice;
 class VideoDesc;
 
 #define MAX_NUM_LINES_AHEAD 4
 #define SCALER_ALIGN(x, j) (((x)+(j)-1)&~((j)-1))
-#define X265_ABS(j) ((j) >= 0 ? (j) : (-(j)))
+#define S265_ABS(j) ((j) >= 0 ? (j) : (-(j)))
 #define SCALER_MAX_REDUCE_CUTOFF 0.002
 #define SCALER_BITEXACT  0x80000
 #define ROUNDED_DIVISION(i,j) (((i)>0 ? (i) + ((j)>>1) : (i) - ((j)>>1))/(j))
@@ -156,7 +156,7 @@ private:
     HFilterScaler* m_hFilterScaler;
 public:
     ScalerHLumFilter(int bitDepth) { bitDepth == 8 ? m_hFilterScaler = new HFilterScaler8Bit : bitDepth == 10 ? m_hFilterScaler = new HFilterScaler10Bit : NULL;}
-    ~ScalerHLumFilter() { if (m_hFilterScaler) X265_FREE(m_hFilterScaler); }
+    ~ScalerHLumFilter() { if (m_hFilterScaler) S265_FREE(m_hFilterScaler); }
     virtual void process(int sliceVer, int sliceHor);
 };
 
@@ -166,7 +166,7 @@ private:
     HFilterScaler* m_hFilterScaler;
 public:
     ScalerHCrFilter(int bitDepth) { bitDepth == 8 ? m_hFilterScaler = new HFilterScaler8Bit : bitDepth == 10 ? m_hFilterScaler = new HFilterScaler10Bit : NULL;}
-    ~ScalerHCrFilter() { if (m_hFilterScaler) X265_FREE(m_hFilterScaler); }
+    ~ScalerHCrFilter() { if (m_hFilterScaler) S265_FREE(m_hFilterScaler); }
     virtual void process(int sliceVer, int sliceHor);
 };
 
@@ -176,7 +176,7 @@ private:
     VFilterScaler* m_vFilterScaler;
 public:
     ScalerVLumFilter(int bitDepth) { bitDepth == 8 ? m_vFilterScaler = new VFilterScaler8Bit : bitDepth == 10 ? m_vFilterScaler = new VFilterScaler10Bit : NULL;}
-    ~ScalerVLumFilter() { if (m_vFilterScaler) X265_FREE(m_vFilterScaler); }
+    ~ScalerVLumFilter() { if (m_vFilterScaler) S265_FREE(m_vFilterScaler); }
     virtual void process(int sliceVer, int sliceHor);
 };
 
@@ -186,7 +186,7 @@ private:
     VFilterScaler*    m_vFilterScaler;
 public:
     ScalerVCrFilter(int bitDepth) { bitDepth == 8 ? m_vFilterScaler = new VFilterScaler8Bit : bitDepth == 10 ? m_vFilterScaler = new VFilterScaler10Bit : NULL;}
-    ~ScalerVCrFilter() { if (m_vFilterScaler) X265_FREE(m_vFilterScaler); }
+    ~ScalerVCrFilter() { if (m_vFilterScaler) S265_FREE(m_vFilterScaler); }
     virtual void process(int sliceVer, int sliceHor);
 };
 
@@ -251,4 +251,4 @@ public:
 };
 }
 
-#endif //ifndef X265_SCALER_H
+#endif //ifndef S265_SCALER_H

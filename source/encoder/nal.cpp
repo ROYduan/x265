@@ -19,14 +19,14 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
 #include "bitstream.h"
 #include "nal.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 NALList::NALList()
     : m_numNal(0)
@@ -42,19 +42,19 @@ NALList::NALList()
 void NALList::takeContents(NALList& other)
 {
     /* take other NAL buffer, discard our old one */
-    X265_FREE(m_buffer);
+    S265_FREE(m_buffer);
     m_buffer = other.m_buffer;
     m_allocSize = other.m_allocSize;
     m_occupancy = other.m_occupancy;
 
     /* copy packet data */
     m_numNal = other.m_numNal;
-    memcpy(m_nal, other.m_nal, sizeof(x265_nal) * m_numNal);
+    memcpy(m_nal, other.m_nal, sizeof(s265_nal) * m_numNal);
 
     /* reset other list, re-allocate their buffer with same size */
     other.m_numNal = 0;
     other.m_occupancy = 0;
-    other.m_buffer = X265_MALLOC(uint8_t, m_allocSize);
+    other.m_buffer = S265_MALLOC(uint8_t, m_allocSize);
 }
 
 void NALList::serialize(NalUnitType nalUnitType, const Bitstream& bs)
@@ -69,7 +69,7 @@ void NALList::serialize(NalUnitType nalUnitType, const Bitstream& bs)
     uint32_t nextSize = m_occupancy + sizeof(startCodePrefix) + 2 + payloadSize + (payloadSize >> 1) + m_extraOccupancy;
     if (nextSize > m_allocSize)
     {
-        uint8_t *temp = X265_MALLOC(uint8_t, nextSize);
+        uint8_t *temp = S265_MALLOC(uint8_t, nextSize);
         if (temp)
         {
             memcpy(temp, m_buffer, m_occupancy);
@@ -78,13 +78,13 @@ void NALList::serialize(NalUnitType nalUnitType, const Bitstream& bs)
             for (uint32_t i = 0; i < m_numNal; i++)
                 m_nal[i].payload = temp + (m_nal[i].payload - m_buffer);
 
-            X265_FREE(m_buffer);
+            S265_FREE(m_buffer);
             m_buffer = temp;
             m_allocSize = nextSize;
         }
         else
         {
-            x265_log(NULL, X265_LOG_ERROR, "Unable to realloc access unit buffer\n");
+            s265_log(NULL, S265_LOG_ERROR, "Unable to realloc access unit buffer\n");
             return;
         }
     }
@@ -135,7 +135,7 @@ void NALList::serialize(NalUnitType nalUnitType, const Bitstream& bs)
         out[bytes++] = bpayload[i];
     }
 
-    X265_CHECK(bytes <= 4 + 2 + payloadSize + (payloadSize >> 1), "NAL buffer overflow\n");
+    S265_CHECK(bytes <= 4 + 2 + payloadSize + (payloadSize >> 1), "NAL buffer overflow\n");
 
     if (m_extraOccupancy)
     {
@@ -163,9 +163,9 @@ void NALList::serialize(NalUnitType nalUnitType, const Bitstream& bs)
 
     m_occupancy += bytes;
 
-    X265_CHECK(m_numNal < (uint32_t)MAX_NAL_UNITS, "NAL count overflow\n");
+    S265_CHECK(m_numNal < (uint32_t)MAX_NAL_UNITS, "NAL count overflow\n");
 
-    x265_nal& nal = m_nal[m_numNal++];
+    s265_nal& nal = m_nal[m_numNal++];
     nal.type = nalUnitType;
     nal.sizeBytes = bytes;
     nal.payload = out;
@@ -183,16 +183,16 @@ uint32_t NALList::serializeSubstreams(uint32_t* streamSizeBytes, uint32_t stream
 
     if (estSize > m_extraAllocSize)
     {
-        uint8_t *temp = X265_MALLOC(uint8_t, estSize);
+        uint8_t *temp = S265_MALLOC(uint8_t, estSize);
         if (temp)
         {
-            X265_FREE(m_extraBuffer);
+            S265_FREE(m_extraBuffer);
             m_extraBuffer = temp;
             m_extraAllocSize = estSize;
         }
         else
         {
-            x265_log(NULL, X265_LOG_ERROR, "Unable to realloc WPP substream concatenation buffer\n");
+            s265_log(NULL, S265_LOG_ERROR, "Unable to realloc WPP substream concatenation buffer\n");
             return 0;
         }
     }

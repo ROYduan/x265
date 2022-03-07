@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -37,7 +37,7 @@
 //        dst[3 * line] = ((36 * O[0] - 83 * O[1] + add) >> shift);
 
 /* void dct4_c(const int16_t* src, int16_t* dst, intptr_t srcStride) */
-function x265_dct_4x4_neon
+function s265_dct_4x4_neon
     mov             r2, r2, lsl #1
     vld1.16         {d0}, [r0, :64], r2                     // d0  = [03 02 01 00]
     vld1.16         {d1}, [r0, :64], r2                     // d1  = [13 12 11 10]
@@ -163,7 +163,7 @@ endfunc
 
 // TODO: in the DCT-2D stage, I spending 4x8=32 LD/ST operators because I haven't temporary buffer
 /* void dct8_c(const int16_t* src, int16_t* dst, intptr_t srcStride) */
-function x265_dct_8x8_neon
+function s265_dct_8x8_neon
     vpush {q4-q7}
 
     mov r2, r2, lsl #1
@@ -404,7 +404,7 @@ ctr16:
     .word 25,  9        // d3
 
 /* void dct16_c(const int16_t* src, int16_t* dst, intptr_t srcStride) */
-function x265_dct_16x16_neon
+function s265_dct_16x16_neon
     push {lr}
 
     // fill 3 of pipeline stall cycles (dependency link on SP)

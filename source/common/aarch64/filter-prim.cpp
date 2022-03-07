@@ -6,13 +6,13 @@
 namespace
 {
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 
 template<int width, int height>
 void filterPixelToShort_neon(const pixel *src, intptr_t srcStride, int16_t *dst, intptr_t dstStride)
 {
-    const int shift = IF_INTERNAL_PREC - X265_DEPTH;
+    const int shift = IF_INTERNAL_PREC - S265_DEPTH;
     int row, col;
     const int16x8_t off = vdupq_n_s16(IF_INTERNAL_OFFS);
     for (row = 0; row < height; row++)
@@ -46,7 +46,7 @@ void interp_horiz_pp_neon(const pixel *src, intptr_t srcStride, pixel *dst, intp
     const int16_t *coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int headRoom = IF_FILTER_PREC;
     int offset = (1 << (headRoom - 1));
-    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    uint16_t maxVal = (1 << S265_DEPTH) - 1;
     int cStride = 1;
 
     src -= (N / 2 - 1) * cStride;
@@ -130,7 +130,7 @@ void interp_horiz_ps_neon(const uint16_t *src, intptr_t srcStride, int16_t *dst,
                           int isRowExt)
 {
     const int16_t *coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
-    const int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    const int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     const int shift = IF_FILTER_PREC - headRoom;
     const int offset = (unsigned) - IF_INTERNAL_OFFS << shift;
 
@@ -199,7 +199,7 @@ void interp_horiz_ps_neon(const uint8_t *src, intptr_t srcStride, int16_t *dst, 
                           int isRowExt)
 {
     const int16_t *coeff = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
-    const int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    const int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     const int shift = IF_FILTER_PREC - headRoom;
     const int offset = (unsigned) - IF_INTERNAL_OFFS << shift;
 
@@ -333,7 +333,7 @@ void interp_vert_pp_neon(const uint16_t *src, intptr_t srcStride, uint16_t *dst,
     const int16_t *c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int shift = IF_FILTER_PREC;
     int offset = 1 << (shift - 1);
-    const uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    const uint16_t maxVal = (1 << S265_DEPTH) - 1;
 
     src -= (N / 2 - 1) * srcStride;
     int16x8_t vc;
@@ -394,7 +394,7 @@ void interp_vert_pp_neon(const uint8_t *src, intptr_t srcStride, uint8_t *dst, i
     const int16_t *c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
     int shift = IF_FILTER_PREC;
     int offset = 1 << (shift - 1);
-    const uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    const uint16_t maxVal = (1 << S265_DEPTH) - 1;
 
     src -= (N / 2 - 1) * srcStride;
     int16x8_t vc;
@@ -456,7 +456,7 @@ template<int N, int width, int height>
 void interp_vert_ps_neon(const uint16_t *src, intptr_t srcStride, int16_t *dst, intptr_t dstStride, int coeffIdx)
 {
     const int16_t *c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
-    int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     int shift = IF_FILTER_PREC - headRoom;
     int offset = (unsigned) - IF_INTERNAL_OFFS << shift;
     src -= (N / 2 - 1) * srcStride;
@@ -514,7 +514,7 @@ template<int N, int width, int height>
 void interp_vert_ps_neon(const uint8_t *src, intptr_t srcStride, int16_t *dst, intptr_t dstStride, int coeffIdx)
 {
     const int16_t *c = (N == 4) ? g_chromaFilter[coeffIdx] : g_lumaFilter[coeffIdx];
-    int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     int shift = IF_FILTER_PREC - headRoom;
     int offset = (unsigned) - IF_INTERNAL_OFFS << shift;
     src -= (N / 2 - 1) * srcStride;
@@ -570,10 +570,10 @@ void interp_vert_ps_neon(const uint8_t *src, intptr_t srcStride, int16_t *dst, i
 template<int N, int width, int height>
 void interp_vert_sp_neon(const int16_t *src, intptr_t srcStride, pixel *dst, intptr_t dstStride, int coeffIdx)
 {
-    int headRoom = IF_INTERNAL_PREC - X265_DEPTH;
+    int headRoom = IF_INTERNAL_PREC - S265_DEPTH;
     int shift = IF_FILTER_PREC + headRoom;
     int offset = (1 << (shift - 1)) + (IF_INTERNAL_OFFS << IF_FILTER_PREC);
-    uint16_t maxVal = (1 << X265_DEPTH) - 1;
+    uint16_t maxVal = (1 << S265_DEPTH) - 1;
     const int16_t *coeff = (N == 8 ? g_lumaFilter[coeffIdx] : g_chromaFilter[coeffIdx]);
 
     src -= (N / 2 - 1) * srcStride;
@@ -667,87 +667,87 @@ void interp_hv_pp_neon(const pixel *src, intptr_t srcStride, pixel *dst, intptr_
 
 
 
-namespace X265_NS
+namespace S265_NS
 {
 #if defined(__APPLE__)
 #define CHROMA_420(W, H) \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
     
 #define CHROMA_FILTER_420(W, H) \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
     
 #else // defined(__APPLE__)
 #define CHROMA_420(W, H) \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>; \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>; \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
     
 #define CHROMA_FILTER_420(W, H) \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;
 #endif // defined(__APPLE__)
 
 #if defined(__APPLE__)
 #define CHROMA_422(W, H) \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
     
 #define CHROMA_FILTER_422(W, H) \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
     
 #else // defined(__APPLE__)
 #define CHROMA_422(W, H) \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>; \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>; \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
     
 #define CHROMA_FILTER_422(W, H) \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;
 #endif // defined(__APPLE__)
 
 #if defined(__APPLE__)
 #define CHROMA_444(W, H) \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
 
 #define CHROMA_FILTER_444(W, H) \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>;
     
 #else // defined(__APPLE__)
 #define CHROMA_444(W, H) \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[NONALIGNED] = filterPixelToShort_neon<W, H>;\
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].p2s[ALIGNED] = filterPixelToShort_neon<W, H>;
     
 #define CHROMA_FILTER_444(W, H) \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
-    p.chroma[X265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hpp = interp_horiz_pp_neon<4, W, H>; \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_hps = interp_horiz_ps_neon<4, W, H>; \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vpp = interp_vert_pp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vps = interp_vert_ps_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vsp = interp_vert_sp_neon<4, W, H>;  \
+    p.chroma[S265_CSP_I444].pu[LUMA_ ## W ## x ## H].filter_vss = interp_vert_ss_neon<4, W, H>;
 #endif // defined(__APPLE__)
 
 #if defined(__APPLE__)
@@ -886,42 +886,42 @@ void setupFilterPrimitives_neon(EncoderPrimitives &p)
     
     CHROMA_FILTER_420(24, 32);
     
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x8].filter_hpp = interp_horiz_pp_neon<4, 32, 8>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x24].filter_hpp = interp_horiz_pp_neon<4, 32, 24>;
-    p.chroma[X265_CSP_I420].pu[CHROMA_420_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x8].filter_hpp = interp_horiz_pp_neon<4, 32, 8>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x24].filter_hpp = interp_horiz_pp_neon<4, 32, 24>;
+    p.chroma[S265_CSP_I420].pu[CHROMA_420_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
     
     CHROMA_FILTER_422(24, 64);
     
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x48].filter_hpp = interp_horiz_pp_neon<4, 32, 48>;
-    p.chroma[X265_CSP_I422].pu[CHROMA_422_32x64].filter_hpp = interp_horiz_pp_neon<4, 32, 64>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x48].filter_hpp = interp_horiz_pp_neon<4, 32, 48>;
+    p.chroma[S265_CSP_I422].pu[CHROMA_422_32x64].filter_hpp = interp_horiz_pp_neon<4, 32, 64>;
     
     CHROMA_FILTER_444(24, 32);
     
-    p.chroma[X265_CSP_I444].pu[LUMA_32x8].filter_hpp  = interp_horiz_pp_neon<4, 32, 8>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x24].filter_hpp = interp_horiz_pp_neon<4, 32, 24>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x64].filter_hpp = interp_horiz_pp_neon<4, 32, 64>;
-    p.chroma[X265_CSP_I444].pu[LUMA_48x64].filter_hpp = interp_horiz_pp_neon<4, 48, 64>;
-    p.chroma[X265_CSP_I444].pu[LUMA_64x16].filter_hpp = interp_horiz_pp_neon<4, 64, 16>;
-    p.chroma[X265_CSP_I444].pu[LUMA_64x32].filter_hpp = interp_horiz_pp_neon<4, 64, 32>;
-    p.chroma[X265_CSP_I444].pu[LUMA_64x48].filter_hpp = interp_horiz_pp_neon<4, 64, 48>;
-    p.chroma[X265_CSP_I444].pu[LUMA_64x64].filter_hpp = interp_horiz_pp_neon<4, 64, 64>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x8].filter_hpp  = interp_horiz_pp_neon<4, 32, 8>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x16].filter_hpp = interp_horiz_pp_neon<4, 32, 16>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x24].filter_hpp = interp_horiz_pp_neon<4, 32, 24>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x32].filter_hpp = interp_horiz_pp_neon<4, 32, 32>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x64].filter_hpp = interp_horiz_pp_neon<4, 32, 64>;
+    p.chroma[S265_CSP_I444].pu[LUMA_48x64].filter_hpp = interp_horiz_pp_neon<4, 48, 64>;
+    p.chroma[S265_CSP_I444].pu[LUMA_64x16].filter_hpp = interp_horiz_pp_neon<4, 64, 16>;
+    p.chroma[S265_CSP_I444].pu[LUMA_64x32].filter_hpp = interp_horiz_pp_neon<4, 64, 32>;
+    p.chroma[S265_CSP_I444].pu[LUMA_64x48].filter_hpp = interp_horiz_pp_neon<4, 64, 48>;
+    p.chroma[S265_CSP_I444].pu[LUMA_64x64].filter_hpp = interp_horiz_pp_neon<4, 64, 64>;
     
-    p.chroma[X265_CSP_I444].pu[LUMA_16x4].filter_vss  = interp_vert_ss_neon<4, 16, 4>;
-    p.chroma[X265_CSP_I444].pu[LUMA_16x8].filter_vss  = interp_vert_ss_neon<4, 16, 8>;
-    p.chroma[X265_CSP_I444].pu[LUMA_16x12].filter_vss = interp_vert_ss_neon<4, 16, 12>;
-    p.chroma[X265_CSP_I444].pu[LUMA_16x16].filter_vss = interp_vert_ss_neon<4, 16, 16>;
-    p.chroma[X265_CSP_I444].pu[LUMA_16x32].filter_vss = interp_vert_ss_neon<4, 16, 32>;
-    p.chroma[X265_CSP_I444].pu[LUMA_16x64].filter_vss = interp_vert_ss_neon<4, 16, 64>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x8].filter_vss  = interp_vert_ss_neon<4, 32, 8>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x16].filter_vss = interp_vert_ss_neon<4, 32, 16>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x24].filter_vss = interp_vert_ss_neon<4, 32, 24>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x32].filter_vss = interp_vert_ss_neon<4, 32, 32>;
-    p.chroma[X265_CSP_I444].pu[LUMA_32x64].filter_vss = interp_vert_ss_neon<4, 32, 64>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x4].filter_vss  = interp_vert_ss_neon<4, 16, 4>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x8].filter_vss  = interp_vert_ss_neon<4, 16, 8>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x12].filter_vss = interp_vert_ss_neon<4, 16, 12>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x16].filter_vss = interp_vert_ss_neon<4, 16, 16>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x32].filter_vss = interp_vert_ss_neon<4, 16, 32>;
+    p.chroma[S265_CSP_I444].pu[LUMA_16x64].filter_vss = interp_vert_ss_neon<4, 16, 64>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x8].filter_vss  = interp_vert_ss_neon<4, 32, 8>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x16].filter_vss = interp_vert_ss_neon<4, 32, 16>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x24].filter_vss = interp_vert_ss_neon<4, 32, 24>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x32].filter_vss = interp_vert_ss_neon<4, 32, 32>;
+    p.chroma[S265_CSP_I444].pu[LUMA_32x64].filter_vss = interp_vert_ss_neon<4, 32, 64>;
 #endif // !defined(__APPLE__)
 
     CHROMA_FILTER_420(8, 2);

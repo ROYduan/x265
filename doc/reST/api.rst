@@ -5,16 +5,16 @@ Application Programming Interface
 Introduction
 ============
 
-x265 is written primarily in C++ and x86 assembly language but the
+s265 is written primarily in C++ and x86 assembly language but the
 public facing programming interface is C for the widest possible
-portability.  This C interface is wholly defined within :file:`x265.h`
+portability.  This C interface is wholly defined within :file:`s265.h`
 in the source/ folder of our source tree.  All of the functions and
 variables and enumerations meant to be used by the end-user are present
 in this header.
 
-Where possible, x265 has tried to keep its public API as close as
+Where possible, s265 has tried to keep its public API as close as
 possible to x264's public API. So those familiar with using x264 through
-its C interface will find x265 quite familiar.
+its C interface will find s265 quite familiar.
 
 This file is meant to be read in-order; the narrative follows linearly
 through the various sections
@@ -25,20 +25,20 @@ Build Considerations
 The choice of Main or Main10 profile encodes is made at compile time;
 the internal pixel depth influences a great deal of variable sizes and
 thus 8 and 10bit pixels are handled as different build options
-(primarily to maintain the performance of the 8bit builds). libx265
-exports a variable **x265_max_bit_depth** which indicates how the
+(primarily to maintain the performance of the 8bit builds). libs265
+exports a variable **s265_max_bit_depth** which indicates how the
 library was compiled (it will contain a value of 8 or 10). Further,
-**x265_version_str** is a pointer to a string indicating the version of
-x265 which was compiled, and **x265_build_info_str** is a pointer to a
+**s265_version_str** is a pointer to a string indicating the version of
+s265 which was compiled, and **s265_build_info_str** is a pointer to a
 string identifying the compiler and build options.
 
 .. Note::
 
-	**x265_version_str** is only updated when **cmake** runs. If you are
+	**s265_version_str** is only updated when **cmake** runs. If you are
 	making binaries for others to use, it is recommended to run
 	**cmake** prior to **make** in your build scripts.
 
-x265 will accept input pixels of any depth between 8 and 16 bits
+s265 will accept input pixels of any depth between 8 and 16 bits
 regardless of the depth of its internal pixels (8 or 10).  It will shift
 and mask input pixels as required to reach the internal depth. If
 downshifting is being performed using our CLI application (to 8 bits),
@@ -48,8 +48,8 @@ feature is not available through the C interface.
 Encoder
 =======
 
-The primary object in x265 is the encoder object, and this is
-represented in the public API as an opaque typedef **x265_encoder**.
+The primary object in s265 is the encoder object, and this is
+represented in the public API as an opaque typedef **s265_encoder**.
 Pointers of this type are passed to most encoder functions.
 
 A single encoder generates a single output bitstream from a sequence of
@@ -72,14 +72,14 @@ blocking and thus this would be less efficient).
 	process. All of the encoders must use the same maximum CTU size
 	because many global variables are configured based on this size.
 	Encoder allocation will fail if a mis-matched CTU size is attempted.
-	If no encoders are open, **x265_cleanup()** can be called to reset
+	If no encoders are open, **s265_cleanup()** can be called to reset
 	the configured CTU size so a new size can be used.
 
-An encoder is allocated by calling **x265_encoder_open()**::
+An encoder is allocated by calling **s265_encoder_open()**::
 
-	/* x265_encoder_open:
-	 *      create a new encoder handler, all parameters from x265_param are copied */
-	x265_encoder* x265_encoder_open(x265_param *);
+	/* s265_encoder_open:
+	 *      create a new encoder handler, all parameters from s265_param are copied */
+	s265_encoder* s265_encoder_open(s265_param *);
 
 The returned pointer is then passed to all of the functions pertaining
 to this encode. A large amount of memory is allocated during this
@@ -89,7 +89,7 @@ structures is large enough to handle all of the pictures it must keep
 internally.  The pool size is determined by the lookahead depth, the
 number of frame threads, and the maximum number of references.
 
-As indicated in the comment, **x265_param** is copied internally so the user
+As indicated in the comment, **s265_param** is copied internally so the user
 may release their copy after allocating the encoder.  Changes made to
 their copy of the param structure have no affect on the encoder after it
 has been allocated.
@@ -97,88 +97,88 @@ has been allocated.
 Param
 =====
 
-The **x265_param** structure describes everything the encoder needs to
+The **s265_param** structure describes everything the encoder needs to
 know about the input pictures and the output bitstream and most
 everything in between.
 
 The recommended way to handle these param structures is to allocate them
-from libx265 via::
+from libs265 via::
 
-	/* x265_param_alloc:
-	 *  Allocates an x265_param instance. The returned param structure is not
-	 *  special in any way, but using this method together with x265_param_free()
-	 *  and x265_param_parse() to set values by name allows the application to treat
-	 *  x265_param as an opaque data struct for version safety */
-	x265_param *x265_param_alloc();
+	/* s265_param_alloc:
+	 *  Allocates an s265_param instance. The returned param structure is not
+	 *  special in any way, but using this method together with s265_param_free()
+	 *  and s265_param_parse() to set values by name allows the application to treat
+	 *  s265_param as an opaque data struct for version safety */
+	s265_param *s265_param_alloc();
 
 In this way, your application does not need to know the exact size of
-the param structure (the build of x265 could potentially be a bit newer
-than the copy of :file:`x265.h` that your application compiled against).
+the param structure (the build of s265 could potentially be a bit newer
+than the copy of :file:`s265.h` that your application compiled against).
 
 Next you perform the initial *rough cut* configuration of the encoder by
 chosing a performance preset and optional tune factor
-**x265_preset_names** and **x265_tune_names** respectively hold the
+**s265_preset_names** and **s265_tune_names** respectively hold the
 string names of the presets and tune factors (see :ref:`presets
 <preset-tune-ref>` for more detail on presets and tune factors)::
 
 	/*      returns 0 on success, negative on failure (e.g. invalid preset/tune name). */
-	int x265_param_default_preset(x265_param *, const char *preset, const char *tune);
+	int s265_param_default_preset(s265_param *, const char *preset, const char *tune);
 
-Now you may optionally specify a profile. **x265_profile_names**
+Now you may optionally specify a profile. **s265_profile_names**
 contains the string names this function accepts::
 
 	/*      (can be NULL, in which case the function will do nothing)
 	 *      returns 0 on success, negative on failure (e.g. invalid profile name). */
-	int x265_param_apply_profile(x265_param *, const char *profile);
+	int s265_param_apply_profile(s265_param *, const char *profile);
 
 Finally you configure any remaining options by name using repeated calls to::
 
-	/* x265_param_parse:
+	/* s265_param_parse:
 	 *  set one parameter by name.
 	 *  returns 0 on success, or returns one of the following errors.
 	 *  note: BAD_VALUE occurs only if it can't even parse the value,
-	 *  numerical range is not checked until x265_encoder_open().
+	 *  numerical range is not checked until s265_encoder_open().
 	 *  value=NULL means "true" for boolean options, but is a BAD_VALUE for non-booleans. */
-	#define X265_PARAM_BAD_NAME  (-1)
-	#define X265_PARAM_BAD_VALUE (-2)
-	int x265_param_parse(x265_param *p, const char *name, const char *value);
+	#define s265_PARAM_BAD_NAME  (-1)
+	#define s265_PARAM_BAD_VALUE (-2)
+	int s265_param_parse(s265_param *p, const char *name, const char *value);
 
 See :ref:`string options <string-options-ref>` for the list of options (and their
-descriptions) which can be set by **x265_param_parse()**.
+descriptions) which can be set by **s265_param_parse()**.
 
 After the encoder has been created, you may release the param structure::
 
-	/* x265_param_free:
-	 *  Use x265_param_free() to release storage for an x265_param instance
-	 *  allocated by x265_param_alloc() */
-	void x265_param_free(x265_param *);
+	/* s265_param_free:
+	 *  Use s265_param_free() to release storage for an s265_param instance
+	 *  allocated by s265_param_alloc() */
+	void s265_param_free(s265_param *);
 
 .. Note::
 
 	Using these methods to allocate and release the param structures
-	helps future-proof your code in many ways, but the x265 API is
+	helps future-proof your code in many ways, but the s265 API is
 	versioned in such a way that we prevent linkage against a build of
-	x265 that does not match the version of the header you are compiling
-	against (unless you use x265_api_query() to acquire the library's
-	interfaces). This is function of the X265_BUILD macro.
+	s265 that does not match the version of the header you are compiling
+	against (unless you use s265_api_query() to acquire the library's
+	interfaces). This is function of the s265_BUILD macro.
 
-**x265_encoder_parameters()** may be used to get a copy of the param
+**s265_encoder_parameters()** may be used to get a copy of the param
 structure from the encoder after it has been opened, in order to see the
 changes made to the parameters for auto-detection and other reasons::
 
-	/* x265_encoder_parameters:
+	/* s265_encoder_parameters:
 	 *      copies the current internal set of parameters to the pointer provided
 	 *      by the caller.  useful when the calling application needs to know
-	 *      how x265_encoder_open has changed the parameters.
+	 *      how s265_encoder_open has changed the parameters.
 	 *      note that the data accessible through pointers in the returned param struct
 	 *      (e.g. filenames) should not be modified by the calling application. */
-	void x265_encoder_parameters(x265_encoder *, x265_param *);
+	void s265_encoder_parameters(s265_encoder *, s265_param *);
 
-**x265_encoder_reconfig()** may be used to reconfigure encoder parameters mid-encode::
+**s265_encoder_reconfig()** may be used to reconfigure encoder parameters mid-encode::
 
-	/* x265_encoder_reconfig:
+	/* s265_encoder_reconfig:
 	 *       used to modify encoder parameters.
-	 *      various parameters from x265_param are copied.
+	 *      various parameters from s265_param are copied.
 	 *      this takes effect immediately, on whichever frame is encoded next;
 	 *      returns negative on parameter validation error, 0 on successful reconfigure
 	 *      and 1 when a reconfigure is already in progress.
@@ -191,86 +191,86 @@ changes made to the parameters for auto-detection and other reasons::
 	 *      switched out of; using reconfig to switch between ultrafast and other
 	 *      presets is not recommended without a more fine-grained breakdown of
 	 *      parameters to take this into account. */
-    int x265_encoder_reconfig(x265_encoder *, x265_param *);
+    int s265_encoder_reconfig(s265_encoder *, s265_param *);
 
-**x265_encoder_reconfig_zone()** Used to reconfigure rate-contol settings of zones mid-encode::
+**s265_encoder_reconfig_zone()** Used to reconfigure rate-contol settings of zones mid-encode::
 
-    /* x265_encoder_reconfig_zone:
+    /* s265_encoder_reconfig_zone:
      *      Properties of the zone will be copied to encoder's param and will be used only to
      *      influence rate-control decisions of the zone.
      *      returns 0 on successful copy and negative on failure.*/
-    int x265_encoder_reconfig(x265_encoder *, x265_param *);
+    int s265_encoder_reconfig(s265_encoder *, s265_param *);
 
-**x265_get_slicetype_poc_and_scenecut()** may be used to fetch slice type, poc and scene cut information mid-encode::
+**s265_get_slicetype_poc_and_scenecut()** may be used to fetch slice type, poc and scene cut information mid-encode::
 
-    /* x265_get_slicetype_poc_and_scenecut:
+    /* s265_get_slicetype_poc_and_scenecut:
      *     get the slice type, poc and scene cut information for the current frame,
      *     returns negative on error, 0 on success.
      *     This API must be called after(poc >= lookaheadDepth + bframes + 2) condition check. */
-     int x265_get_slicetype_poc_and_scenecut(x265_encoder *encoder, int *slicetype, int *poc, int* sceneCut);
+     int s265_get_slicetype_poc_and_scenecut(s265_encoder *encoder, int *slicetype, int *poc, int* sceneCut);
 
-**x265_get_ref_frame_list()** may be used to fetch forward and backward refrence list::
+**s265_get_ref_frame_list()** may be used to fetch forward and backward refrence list::
 
-    /* x265_get_ref_frame_list:
+    /* s265_get_ref_frame_list:
      *     returns negative on error, 0 when access unit were output.
      *     This API must be called after(poc >= lookaheadDepth + bframes + 2) condition check */
-     int x265_get_ref_frame_list(x265_encoder *encoder, x265_picyuv**, x265_picyuv**, int, int, int*, int*);
+     int s265_get_ref_frame_list(s265_encoder *encoder, s265_picyuv**, s265_picyuv**, int, int, int*, int*);
  
-**x265_encoder_ctu_info** may be used to provide additional CTU-specific information to the encoder::
+**s265_encoder_ctu_info** may be used to provide additional CTU-specific information to the encoder::
 
-    /* x265_encoder_ctu_info:
+    /* s265_encoder_ctu_info:
      *    Copy CTU information such as ctu address and ctu partition structure of all
      *    CTUs in each frame. The function is invoked only if "--ctu-info" is enabled and
      *    the encoder will wait for this copy to complete if enabled.*/
-    int x265_encoder_ctu_info(x265_encoder *encoder, int poc, x265_ctu_info_t** ctu);
+    int s265_encoder_ctu_info(s265_encoder *encoder, int poc, s265_ctu_info_t** ctu);
 
-**x265_set_analysis_data()** may be used to recive analysis information from external application::
+**s265_set_analysis_data()** may be used to recive analysis information from external application::
 
-    /* x265_set_analysis_data:
+    /* s265_set_analysis_data:
      *     set the analysis data. The incoming analysis_data structure is assumed to be AVC-sized blocks.
      *     returns negative on error, 0 access unit were output.*/
-     int x265_set_analysis_data(x265_encoder *encoder, x265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
+     int s265_set_analysis_data(s265_encoder *encoder, s265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
 
-**x265_alloc_analysis_data()** may be used to allocate memory for the x265_analysis_data::
+**s265_alloc_analysis_data()** may be used to allocate memory for the s265_analysis_data::
 
-    /* x265_alloc_analysis_data:
-     *     Allocate memory for the x265_analysis_data object's internal structures. */
-     void x265_alloc_analysis_data(x265_param *param, x265_analysis_data* analysis);
+    /* s265_alloc_analysis_data:
+     *     Allocate memory for the s265_analysis_data object's internal structures. */
+     void s265_alloc_analysis_data(s265_param *param, s265_analysis_data* analysis);
 
-**x265_free_analysis_data()** may be used to free memory for the x265_analysis_data::
+**s265_free_analysis_data()** may be used to free memory for the s265_analysis_data::
 
-    /* x265_free_analysis_data:
-     *    Free the allocated memory for x265_analysis_data object's internal structures. */
-     void x265_free_analysis_data(x265_param *param, x265_analysis_data* analysis);
+    /* s265_free_analysis_data:
+     *    Free the allocated memory for s265_analysis_data object's internal structures. */
+     void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis);
 
 Pictures
 ========
 
-Raw pictures are passed to the encoder via the **x265_picture** structure.
+Raw pictures are passed to the encoder via the **s265_picture** structure.
 Just like the param structure we recommend you allocate this structure
 from the encoder to avoid potential size mismatches::
 
-	/* x265_picture_alloc:
-	 *  Allocates an x265_picture instance. The returned picture structure is not
-	 *  special in any way, but using this method together with x265_picture_free()
-	 *  and x265_picture_init() allows some version safety. New picture fields will
-	 *  always be added to the end of x265_picture */
-	x265_picture *x265_picture_alloc();
+	/* s265_picture_alloc:
+	 *  Allocates an s265_picture instance. The returned picture structure is not
+	 *  special in any way, but using this method together with s265_picture_free()
+	 *  and s265_picture_init() allows some version safety. New picture fields will
+	 *  always be added to the end of s265_picture */
+	s265_picture *s265_picture_alloc();
 
 Regardless of whether you allocate your picture structure this way or
 whether you simply declare it on the stack, your next step is to
 initialize the structure via::
 
 	/***
-	 * Initialize an x265_picture structure to default values. It sets the pixel
+	 * Initialize an s265_picture structure to default values. It sets the pixel
 	 * depth and color space to the encoder's internal values and sets the slice
 	 * type to auto - so the lookahead will determine slice type.
 	 */
-	void x265_picture_init(x265_param *param, x265_picture *pic);
+	void s265_picture_init(s265_param *param, s265_picture *pic);
 
-x265 does not perform any color space conversions, so the raw picture's
+s265 does not perform any color space conversions, so the raw picture's
 color space (chroma sampling) must match the color space specified in
-the param structure used to allocate the encoder. **x265_picture_init**
+the param structure used to allocate the encoder. **s265_picture_init**
 initializes this field to the internal color space and it is best to
 leave it unmodified.
 
@@ -286,19 +286,19 @@ is optional, depending on whether you need accurate decode time stamps
 (**dts**) on output.
 
 If you wish to override the lookahead or rate control for a given
-picture you may specify a slicetype other than X265_TYPE_AUTO, or a
+picture you may specify a slicetype other than s265_TYPE_AUTO, or a
 forceQP value other than 0.
 
-x265 does not modify the picture structure provided as input, so you may
-reuse a single **x265_picture** for all pictures passed to a single
+s265 does not modify the picture structure provided as input, so you may
+reuse a single **s265_picture** for all pictures passed to a single
 encoder, or even all pictures passed to multiple encoders.
 
 Structures allocated from the library should eventually be released::
 
-	/* x265_picture_free:
-	 *  Use x265_picture_free() to release storage for an x265_picture instance
-	 *  allocated by x265_picture_alloc() */
-	void x265_picture_free(x265_picture *);
+	/* s265_picture_free:
+	 *  Use s265_picture_free() to release storage for an s265_picture instance
+	 *  allocated by s265_picture_alloc() */
+	void s265_picture_free(s265_picture *);
 
 
 Analysis Buffers
@@ -312,23 +312,23 @@ bitrate encode and reuse it in lower bitrate encodes.
 When saving or loading analysis data, buffers must be allocated for
 every picture passed into the encoder using::
 
-	/* x265_alloc_analysis_data:
+	/* s265_alloc_analysis_data:
 	 *  Allocate memory to hold analysis meta data, returns 1 on success else 0 */
-	int x265_alloc_analysis_data(x265_picture*);
+	int s265_alloc_analysis_data(s265_picture*);
 
 Note that this is very different from the typical semantics of
-**x265_picture**, which can be reused many times. The analysis buffers must
+**s265_picture**, which can be reused many times. The analysis buffers must
 be re-allocated for every input picture.
 
 Analysis buffers passed to the encoder are owned by the encoder until
-they pass the buffers back via an output **x265_picture**. The user is
+they pass the buffers back via an output **s265_picture**. The user is
 responsible for releasing the buffers when they are finished with them
 via::
 
-	/* x265_free_analysis_data:
-	 *  Use x265_free_analysis_data to release storage of members allocated by
-	 *  x265_alloc_analysis_data */
-	void x265_free_analysis_data(x265_picture*);
+	/* s265_free_analysis_data:
+	 *  Use s265_free_analysis_data to release storage of members allocated by
+	 *  s265_alloc_analysis_data */
+	void s265_free_analysis_data(s265_picture*);
 
 
 Encode Process
@@ -341,42 +341,42 @@ decoded. If you specified :option:`--repeat-headers` then those headers
 will be output with every keyframe.  Otherwise you must explicitly query
 those headers using::
 
-	/* x265_encoder_headers:
+	/* s265_encoder_headers:
 	 *      return the SPS and PPS that will be used for the whole stream.
 	 *      *pi_nal is the number of NAL units outputted in pp_nal.
 	 *      returns negative on error, total byte size of payload data on success
 	 *      the payloads of all output NALs are guaranteed to be sequential in memory. */
-	int x265_encoder_headers(x265_encoder *, x265_nal **pp_nal, uint32_t *pi_nal);
+	int s265_encoder_headers(s265_encoder *, s265_nal **pp_nal, uint32_t *pi_nal);
 
 Now we get to the main encode loop. Raw input pictures are passed to the
 encoder in display order via::
 
-	/* x265_encoder_encode:
+	/* s265_encoder_encode:
 	 *      encode one picture.
 	 *      *pi_nal is the number of NAL units outputted in pp_nal.
 	 *      returns negative on error, zero if no NAL units returned.
 	 *      the payloads of all output NALs are guaranteed to be sequential in memory. */
-	int x265_encoder_encode(x265_encoder *encoder, x265_nal **pp_nal, uint32_t *pi_nal, x265_picture *pic_in, x265_picture *pic_out);
+	int s265_encoder_encode(s265_encoder *encoder, s265_nal **pp_nal, uint32_t *pi_nal, s265_picture *pic_in, s265_picture *pic_out);
 
 These pictures are queued up until the lookahead is full, and then the
 frame encoders in turn are filled, and then finally you begin receiving
 a output NALs (corresponding to a single output picture) with each input
 picture you pass into the encoder.
 
-Once the pipeline is completely full, **x265_encoder_encode()** will
+Once the pipeline is completely full, **s265_encoder_encode()** will
 block until the next output picture is complete.
 
 .. note:: 
 
-	Optionally, if the pointer of a second **x265_picture** structure is
+	Optionally, if the pointer of a second **s265_picture** structure is
 	provided, the encoder will fill it with data pertaining to the
 	output picture corresponding to the output NALs, including the
 	recontructed image, POC and decode timestamp. These pictures will be
 	in encode (or decode) order. The encoder will also write corresponding 
-	frame encode statistics into **x265_frame_stats**.
+	frame encode statistics into **s265_frame_stats**.
 
 When the last of the raw input pictures has been sent to the encoder,
-**x265_encoder_encode()** must still be called repeatedly with a
+**s265_encoder_encode()** must still be called repeatedly with a
 *pic_in* argument of 0, indicating a pipeline flush, until the function
 returns a value less than or equal to 0 (indicating the output bitstream
 is complete).
@@ -384,9 +384,9 @@ is complete).
 At any time during this process, the application may query running
 statistics from the encoder::
 
-	/* x265_encoder_get_stats:
+	/* s265_encoder_get_stats:
 	 *       returns encoder statistics */
-	void x265_encoder_get_stats(x265_encoder *encoder, x265_stats *, uint32_t statsSizeBytes);
+	void s265_encoder_get_stats(s265_encoder *encoder, s265_stats *, uint32_t statsSizeBytes);
 
 Cleanup
 =======
@@ -394,45 +394,45 @@ Cleanup
 At the end of the encode, the application will want to trigger logging
 of the final encode statistics, if :option:`--csv` had been specified::
 
- 	/* x265_encoder_log:
+ 	/* s265_encoder_log:
 	 *       write a line to the configured CSV file. If a CSV filename was not
 	 *       configured, or file open failed, this function will perform no write. */
- 	void x265_encoder_log(x265_encoder *encoder, int argc, char **argv);
+ 	void s265_encoder_log(s265_encoder *encoder, int argc, char **argv);
  	
 Finally, the encoder must be closed in order to free all of its
 resources. An encoder that has been flushed cannot be restarted and
-reused. Once **x265_encoder_close()** has been called, the encoder
+reused. Once **s265_encoder_close()** has been called, the encoder
 handle must be discarded::
 
-	/* x265_encoder_close:
+	/* s265_encoder_close:
 	 *      close an encoder handler */
-	void x265_encoder_close(x265_encoder *);
+	void s265_encoder_close(s265_encoder *);
 
 When the application has completed all encodes, it should call
-**x265_cleanup()** to free process global, particularly if a memory-leak
-detection tool is being used. **x265_cleanup()** also resets the saved
+**s265_cleanup()** to free process global, particularly if a memory-leak
+detection tool is being used. **s265_cleanup()** also resets the saved
 CTU size so it will be possible to create a new encoder with a different
 CTU size::
 
-	/* x265_cleanup:
+	/* s265_cleanup:
 	 *     release library static allocations, reset configured CTU size */
-	void x265_cleanup(void);
+	void s265_cleanup(void);
 
 VMAF (Video Multi-Method Assessment Fusion)
 ==========================================
 
-If you set the ENABLE_LIBVMAF cmake option to ON, then x265 will report per frame
+If you set the ENABLE_LIBVMAF cmake option to ON, then s265 will report per frame
 and aggregate VMAF score for the given input and dump the scores in csv file.
 The user also need to specify the :option:`--recon` in command line to get the VMAF scores.
  
-    /* x265_calculate_vmafScore:
+    /* s265_calculate_vmafScore:
      *    returns VMAF score for the input video.
      *    This api must be called only after encoding was done. */
-    double x265_calculate_vmafscore(x265_param*, x265_vmaf_data*);
+    double s265_calculate_vmafscore(s265_param*, s265_vmaf_data*);
 
-    /* x265_calculate_vmaf_framelevelscore:
+    /* s265_calculate_vmaf_framelevelscore:
      *    returns VMAF score for each frame in a given input video. The frame level VMAF score does not include temporal scores. */
-    double x265_calculate_vmaf_framelevelscore(x265_vmaf_framedata*);
+    double s265_calculate_vmaf_framelevelscore(s265_vmaf_framedata*);
     
 .. Note::
 
@@ -450,50 +450,50 @@ will need to use one of these bit-depth introspection interfaces which
 returns an API structure containing the public function entry points and
 constants.
 
-Instead of directly using all of the **x265_** methods documented above,
-you query an x265_api structure from your libx265 and then use the
-function pointers of the same name (minus the **x265_** prefix) within
-that structure.  For instance **x265_param_default()** becomes
+Instead of directly using all of the **s265_** methods documented above,
+you query an s265_api structure from your libs265 and then use the
+function pointers of the same name (minus the **s265_** prefix) within
+that structure.  For instance **s265_param_default()** becomes
 **api->param_default()**.
 
-x265_api_get
+s265_api_get
 ------------
 
-The first bit-depth instrospecton method is x265_api_get(). It designed
-for applications that might statically link with libx265, or will at
+The first bit-depth instrospecton method is s265_api_get(). It designed
+for applications that might statically link with libs265, or will at
 least be tied to a particular SONAME or API version::
 
-	/* x265_api_get:
-	 *   Retrieve the programming interface for a linked x265 library.
+	/* s265_api_get:
+	 *   Retrieve the programming interface for a linked s265 library.
 	 *   May return NULL if no library is available that supports the
 	 *   requested bit depth. If bitDepth is 0, the function is guarunteed
-	 *   to return a non-NULL x265_api pointer from the system default
-	 *   libx265 */
-	const x265_api* x265_api_get(int bitDepth);
+	 *   to return a non-NULL s265_api pointer from the system default
+	 *   libs265 */
+	const s265_api* s265_api_get(int bitDepth);
 
-Like **x265_encoder_encode()**, this function has the build number
+Like **s265_encoder_encode()**, this function has the build number
 automatically appended to the function name via macros. This ties your
-application to a particular binary API version of libx265 (the one you
-compile against). If you attempt to link with a libx265 with a different
+application to a particular binary API version of libs265 (the one you
+compile against). If you attempt to link with a libs265 with a different
 API version number, the link will fail.
 
 Obviously this has no meaningful effect on applications which statically
-link to libx265.
+link to libs265.
 
-x265_api_query
+s265_api_query
 --------------
 
 The second bit-depth introspection method is designed for applications
 which need more flexibility in API versioning.  If you use
-**x265_api_query()** and dynamically link to libx265 at runtime (using
+**s265_api_query()** and dynamically link to libs265 at runtime (using
 dlopen() on POSIX or LoadLibrary() on Windows) your application is no
 longer directly tied to the API version that it was compiled against::
 
-	/* x265_api_query:
-	 *   Retrieve the programming interface for a linked x265 library, like
-	 *   x265_api_get(), except this function accepts X265_BUILD as the second
+	/* s265_api_query:
+	 *   Retrieve the programming interface for a linked s265 library, like
+	 *   s265_api_get(), except this function accepts s265_BUILD as the second
 	 *   argument rather than using the build number as part of the function name.
-	 *   Applications which dynamically link to libx265 can use this interface to
+	 *   Applications which dynamically link to libs265 can use this interface to
 	 *   query the library API and achieve a relative amount of version skew
 	 *   flexibility. The function may return NULL if the library determines that
 	 *   the apiVersion that your application was compiled against is not compatible
@@ -501,26 +501,26 @@ longer directly tied to the API version that it was compiled against::
 	 *
 	 *   api_major_version will be incremented any time non-backward compatible
 	 *   changes are made to any public structures or functions. If
-	 *   api_major_version does not match X265_MAJOR_VERSION from the x265.h your
+	 *   api_major_version does not match s265_MAJOR_VERSION from the s265.h your
 	 *   application compiled against, your application must not use the returned
-	 *   x265_api pointer.
+	 *   s265_api pointer.
 	 *
 	 *   Users of this API *must* also validate the sizes of any structures which
 	 *   are not treated as opaque in application code. For instance, if your
-	 *   application dereferences a x265_param pointer, then it must check that
-	 *   api->sizeof_param matches the sizeof(x265_param) that your application
+	 *   application dereferences a s265_param pointer, then it must check that
+	 *   api->sizeof_param matches the sizeof(s265_param) that your application
 	 *   compiled with. */
-	const x265_api* x265_api_query(int bitDepth, int apiVersion, int* err);
+	const s265_api* s265_api_query(int bitDepth, int apiVersion, int* err);
 
 A number of validations must be performed on the returned API structure
 in order to determine if it is safe for use by your application. If you
 do not perform these checks, your application is liable to crash::
 
-	if (api->api_major_version != X265_MAJOR_VERSION) /* do not use */
-	if (api->sizeof_param != sizeof(x265_param))      /* do not use */
-	if (api->sizeof_picture != sizeof(x265_picture))  /* do not use */
-	if (api->sizeof_stats != sizeof(x265_stats))      /* do not use */
-	if (api->sizeof_zone != sizeof(x265_zone))        /* do not use */
+	if (api->api_major_version != s265_MAJOR_VERSION) /* do not use */
+	if (api->sizeof_param != sizeof(s265_param))      /* do not use */
+	if (api->sizeof_picture != sizeof(s265_picture))  /* do not use */
+	if (api->sizeof_stats != sizeof(s265_stats))      /* do not use */
+	if (api->sizeof_zone != sizeof(s265_zone))        /* do not use */
 	etc.
 
 Note that if your application does not directly allocate or dereference
@@ -529,26 +529,26 @@ not use it at all, then it can skip the size check for that structure.
 
 In particular, if your application uses api->param_alloc(),
 api->param_free(), api->param_parse(), etc and never directly accesses
-any x265_param fields, then it can skip the check on the
-sizeof(x265_parm) and thereby ignore changes to that structure (which
-account for a large percentage of X265_BUILD bumps).
+any s265_param fields, then it can skip the check on the
+sizeof(s265_parm) and thereby ignore changes to that structure (which
+account for a large percentage of s265_BUILD bumps).
 
 Build Implications
 ------------------
 
-By default libx265 will place all of its internal C++ classes and
-functions within an x265 namespace and export all of the C functions
+By default libs265 will place all of its internal C++ classes and
+functions within an s265 namespace and export all of the C functions
 documented in this file. Obviously this prevents 8bit and 10bit builds
-of libx265 from being statically linked into a single binary, all of
+of libs265 from being statically linked into a single binary, all of
 those symbols would collide.
 
-However, if you set the EXPORT_C_API cmake option to OFF then libx265
+However, if you set the EXPORT_C_API cmake option to OFF then libs265
 will use a bit-depth specific namespace and prefix for its assembly
-functions (x265_8bit, x265_10bit or x265_12bit) and export no C
+functions (s265_8bit, s265_10bit or s265_12bit) and export no C
 functions.
 
-In this way you can build one or more libx265 libraries without any
-exported C interface and link them into a libx265 build that does export
+In this way you can build one or more libs265 libraries without any
+exported C interface and link them into a libs265 build that does export
 a C interface. The build which exported the C functions becomes the
 *default* bit depth for the combined library, and the other bit depths
 are available via the bit-depth introspection methods.
@@ -564,12 +564,12 @@ default library or any of the additionally linked libraries, the
 introspection method will fall-back to an attempt to dynamically bind a
 shared library with a name appropriate for the requested bit-depth::
 
-	8-bit:  libx265_main
-	10-bit: libx265_main10
-	12-bit: libx265_main12
+	8-bit:  libs265_main
+	10-bit: libs265_main10
+	12-bit: libs265_main12
 
 If the profile-named library is not found, it will then try to bind a
-generic libx265 in the hopes that it is a multilib library with all bit
+generic libs265 in the hopes that it is a multilib library with all bit
 depths.
 
 Packaging and Distribution
@@ -584,7 +584,7 @@ thus becomes the default bit-depth for the combined library.
 
 .. Note::
 
-	Windows packagers might want to build libx265 with WINXP_SUPPORT
+	Windows packagers might want to build libs265 with WINXP_SUPPORT
 	enabled. This makes the resulting binaries functional on XP and
 	Vista. Without this flag, the minimum supported host O/S is Windows
 	7. Also note that binaries built with WINXP_SUPPORT will *not* have

@@ -21,13 +21,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "mbdstharness.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 struct DctConf
 {
@@ -53,7 +53,7 @@ const DctConf idctInfo[] =
 
 MBDstHarness::MBDstHarness()
 {
-    const int idct_max = (1 << (X265_DEPTH + 4)) - 1;
+    const int idct_max = (1 << (S265_DEPTH + 4)) - 1;
 
     /* [0] --- Random values
      * [1] --- Minimum
@@ -152,7 +152,7 @@ bool MBDstHarness::check_dequant_primitive(dequant_normal_t ref, dequant_normal_
         int rem = qp % 6;
         static const int invQuantScales[6] = { 40, 45, 51, 57, 64, 72 };
         int scale = invQuantScales[rem] << per;
-        int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize;
+        int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize;
         int shift = QUANT_IQUANT_SHIFT - QUANT_SHIFT - transformShift;
 
         ref(short_test_buff[index] + j, mshortbuf2, width * height, scale, shift);
@@ -185,7 +185,7 @@ bool MBDstHarness::check_dequant_primitive(dequant_scaling_t ref, dequant_scalin
 
         int qp = rand() % (QP_MAX_SPEC + QP_BD_OFFSET + 1);
         int per = qp / 6;
-        int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize;
+        int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize;
         int shift = QUANT_IQUANT_SHIFT - QUANT_SHIFT - transformShift;
 
         int cmp_size = sizeof(int16_t) * height * width;
@@ -220,7 +220,7 @@ bool MBDstHarness::check_quant_primitive(quant_t ref, quant_t opt)
         int log2TrSize = rand() % 4 + 2;
         int qp = rand() % (QP_MAX_SPEC + QP_BD_OFFSET + 1);
         int per = qp / 6;
-        int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize;
+        int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize;
 
         int bits = QUANT_SHIFT + per + transformShift;
         int valueToAdd = (sliceType == 1 ? 171 : 85) << (bits - 9);
@@ -339,7 +339,7 @@ bool MBDstHarness::check_psyRdoQuant_primitive(psyRdoQuant_t ref, psyRdoQuant_t 
         int64_t totalUncodedCostRef = rand();
         int64_t totalRdCostOpt = totalRdCostRef;
         int64_t totalUncodedCostOpt = totalUncodedCostRef;
-        int64_t *psyScale = X265_MALLOC(int64_t, 1);
+        int64_t *psyScale = S265_MALLOC(int64_t, 1);
         *psyScale = rand();
 
         int index = rand() % 4;
@@ -354,7 +354,7 @@ bool MBDstHarness::check_psyRdoQuant_primitive(psyRdoQuant_t ref, psyRdoQuant_t 
         ref(short_test_buff[index1] + j, short_test_buff1[index1] + j, ref_dest, &totalUncodedCostRef, &totalRdCostRef, psyScale, blkPos);
         checked(opt, short_test_buff[index1] + j, short_test_buff1[index1] + j, opt_dest, &totalUncodedCostOpt, &totalRdCostOpt, psyScale, blkPos);
 
-        X265_FREE(psyScale);
+        S265_FREE(psyScale);
         if (memcmp(ref_dest, opt_dest, cmp_size))
             return false;
 
@@ -689,7 +689,7 @@ void MBDstHarness::measureSpeed(const EncoderPrimitives& ref, const EncoderPrimi
             ALIGN_VAR_32(int64_t, opt_dest[4 * MAX_TU_SIZE]);
             int64_t totalRdCost = 0;
             int64_t totalUncodedCost = 0;
-            int64_t *psyScale = X265_MALLOC(int64_t, 1);
+            int64_t *psyScale = S265_MALLOC(int64_t, 1);
             *psyScale = 0;
             printf("psyRdoQuant[%dx%d]", 4 << value, 4 << value);
             REPORT_SPEEDUP(opt.cu[value].psyRdoQuant, ref.cu[value].psyRdoQuant, short_test_buff[0], short_test_buff1[0], opt_dest, &totalUncodedCost, &totalRdCost, psyScale, 0);

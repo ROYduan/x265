@@ -21,7 +21,7 @@
 ;* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 ;*
 ;* This program is also available under a commercial proprietary license.
-;* For more information, contact us at license @ x265.com.
+;* For more information, contact us at license @ s265.com.
 ;*****************************************************************************/
 
 ;TO-DO : Further optimize the routines.
@@ -6418,7 +6418,7 @@ cglobal idct4, 3, 4, 6
 
 ;static void nonPsyRdoQuant_c(int16_t *m_resiDctCoeff, int64_t *costUncoded, int64_t *totalUncodedCost, int64_t *totalRdCost, uint32_t blkPos)
 ;{
-;    const int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
+;    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
 ;    const int scaleBits = SCALE_BITS - 2 * transformShift;
 ;    const uint32_t trSize = 1 << log2TrSize;
 
@@ -6665,10 +6665,10 @@ cglobal nonPsyRdoQuant32, 5, 5, 8
     RET
 ;static void psyRdoQuant_c(int16_t *m_resiDctCoeff, int16_t *m_fencDctCoeff, int64_t *costUncoded, int64_t *totalUncodedCost, int64_t *totalRdCost, int64_t psyScale, uint32_t blkPos)
 ;{
-;    const int transformShift = MAX_TR_DYNAMIC_RANGE - X265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
+;    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
 ;    const int scaleBits = SCALE_BITS - 2 * transformShift;
 ;    const uint32_t trSize = 1 << log2TrSize;
-;    int max = X265_MAX(0, (2 * transformShift + 1));
+;    int max = S265_MAX(0, (2 * transformShift + 1));
 ;
 ;    for (int y = 0; y < MLS_CG_SIZE; y++)
 ;    {

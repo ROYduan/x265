@@ -19,28 +19,28 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_RECONPLAY_H
-#define X265_RECONPLAY_H
+#ifndef S265_RECONPLAY_H
+#define S265_RECONPLAY_H
 
-#include "x265.h"
+#include "s265.h"
 #include "threading.h"
 #include <cstdio>
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class ReconPlay : public Thread
 {
 public:
 
-    ReconPlay(const char* commandLine, x265_param& param);
+    ReconPlay(const char* commandLine, s265_param& param);
 
     virtual ~ReconPlay();
 
-    bool writePicture(const x265_picture& pic);
+    bool writePicture(const s265_picture& pic);
 
     static bool pipeValid;
 
@@ -71,4 +71,4 @@ protected:
 };
 }
 
-#endif // ifndef X265_RECONPLAY_H
+#endif // ifndef S265_RECONPLAY_H

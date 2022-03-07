@@ -18,11 +18,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_SEI_H
-#define X265_SEI_H
+#ifndef S265_SEI_H
+#define S265_SEI_H
 
 #include "common.h"
 #include "bitstream.h"
@@ -30,7 +30,7 @@
 #include "nal.h"
 #include "md5.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class SEI : public SyntaxElementWriter
@@ -169,7 +169,7 @@ public:
 
     void writeSEI(const SPS& sps)
     {
-        int planes = (sps.chromaFormatIdc != X265_CSP_I400) ? 3 : 1;
+        int planes = (sps.chromaFormatIdc != S265_CSP_I400) ? 3 : 1;
         WRITE_CODE(m_method, 8, "hash_type");
         for (int yuvIdx = 0; yuvIdx < planes; yuvIdx++)
         {
@@ -324,4 +324,4 @@ public:
 };
 
 }
-#endif // ifndef X265_SEI_H
+#endif // ifndef S265_SEI_H

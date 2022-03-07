@@ -19,10 +19,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#include "x265.h"
+#include "s265.h"
 #include "common.h"
 #include "primitives.h"
 
@@ -95,17 +95,17 @@
 #define CHECKED " "
 #endif
 
-#if X265_DEPTH == 12
+#if S265_DEPTH == 12
 
 #define BITDEPTH "12bit"
 const int PFX(max_bit_depth) = 12;
 
-#elif X265_DEPTH == 10
+#elif S265_DEPTH == 10
 
 #define BITDEPTH "10bit"
 const int PFX(max_bit_depth) = 10;
 
-#elif X265_DEPTH == 8
+#elif S265_DEPTH == 8
 
 #define BITDEPTH "8bit"
 const int PFX(max_bit_depth) = 8;
@@ -128,5 +128,5 @@ const int PFX(max_bit_depth) = 8;
 #define ADD12 ""
 #endif
 
-const char* PFX(version_str) = XSTR(X265_VERSION);
+const char* PFX(version_str) = XSTR(S265_VERSION);
 const char* PFX(build_info_str) = ONOS COMPILEDBY BITS ASM ATOMICS CHECKED BITDEPTH ADD8 ADD10 ADD12;

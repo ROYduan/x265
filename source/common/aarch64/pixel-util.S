@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -34,7 +34,7 @@
 
 .text
 
-.macro x265_satd_4x8_8x4_end_neon
+.macro s265_satd_4x8_8x4_end_neon
     add             v0.8h, v4.8h, v6.8h
     add             v1.8h, v5.8h, v7.8h
     sub             v2.8h, v4.8h, v6.8h
@@ -88,12 +88,12 @@
     usubl           v3.8h, v6.8b, v7.8b
     add         v6.8h, v2.8h, v3.8h
     sub         v7.8h, v2.8h, v3.8h
-    x265_satd_4x8_8x4_end_neon
+    s265_satd_4x8_8x4_end_neon
 .endm
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_4x8_neon
+function s265_pixel_satd_4x8_neon
     pixel_satd_4x8_neon
     mov               w0, v0.s[0]
     ret
@@ -101,7 +101,7 @@ endfunc
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_4x16_neon
+function s265_pixel_satd_4x16_neon
     eor             w4, w4, w4
     pixel_satd_4x8_neon
     mov               w5, v0.s[0]
@@ -114,7 +114,7 @@ endfunc
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_4x32_neon
+function s265_pixel_satd_4x32_neon
     eor             w4, w4, w4
 .rept 4
     pixel_satd_4x8_neon
@@ -127,7 +127,7 @@ endfunc
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_12x16_neon
+function s265_pixel_satd_12x16_neon
     mov             x4, x0
     mov             x5, x2
     eor             w7, w7, w7
@@ -160,7 +160,7 @@ endfunc
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_12x32_neon
+function s265_pixel_satd_12x32_neon
     mov             x4, x0
     mov             x5, x2
     eor             w7, w7, w7
@@ -192,7 +192,7 @@ endfunc
 
 // template<int w, int h>
 // int satd4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_8x8_neon
+function s265_pixel_satd_8x8_neon
     eor             w4, w4, w4
     mov             x6, x0
     mov             x7, x2
@@ -208,7 +208,7 @@ function x265_pixel_satd_8x8_neon
 endfunc
 
 // int psyCost_pp(const pixel* source, intptr_t sstride, const pixel* recon, intptr_t rstride)
-function x265_psyCost_4x4_neon
+function s265_psyCost_4x4_neon
     ld1r            {v4.2s}, [x0], x1
     ld1r            {v5.2s}, [x0], x1
     ld1             {v4.s}[1], [x0], x1
@@ -290,7 +290,7 @@ function x265_psyCost_4x4_neon
 endfunc
 
 // uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t* deltaU, int16_t* qCoef, int qBits, int add, int numCoeff)
-function x265_quant_neon
+function s265_quant_neon
     mov             w9, #1
     lsl             w9, w9, w4
     dup             v0.2s, w9
@@ -402,14 +402,14 @@ endfunc
 .endm
 
 // int satd_4x4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_4x4_neon
+function s265_pixel_satd_4x4_neon
     satd_4x4_neon
     umov            x0, v0.d[0]
     ret
 endfunc
 
 // int satd_8x4(const pixel* pix1, intptr_t stride_pix1, const pixel* pix2, intptr_t stride_pix2)
-function x265_pixel_satd_8x4_neon
+function s265_pixel_satd_8x4_neon
     mov             x4, x0
     mov             x5, x2
     satd_4x4_neon

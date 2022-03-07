@@ -19,7 +19,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -29,7 +29,7 @@
 #include "slice.h"
 #include "mv.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #define DEBLOCK_SMALLEST_BLOCK  8
 #define DEFAULT_INTRA_TC_OFFSET 2
@@ -109,7 +109,7 @@ void Deblock::deblockCU(const CUData* cu, const CUGeom& cuGeom, const int32_t di
     for (uint32_t e = 0; e < numUnits; e += partIdxIncr)
     {
         edgeFilterLuma(cu, absPartIdx, depth, dir, e, blockStrength);
-        if (!((e0 + e) & chromaMask) && cu->m_chromaFormat != X265_CSP_I400)
+        if (!((e0 + e) & chromaMask) && cu->m_chromaFormat != S265_CSP_I400)
             edgeFilterChroma(cu, absPartIdx, depth, dir, e, blockStrength);
     }
 }
@@ -124,7 +124,7 @@ static inline uint32_t calcBsIdx(uint32_t absPartIdx, int32_t dir, int32_t edgeI
 
 void Deblock::setEdgefilterMultiple(uint32_t scanIdx, int32_t dir, int32_t edgeIdx, uint8_t value, uint8_t blockStrength[], uint32_t numUnits)
 {
-    X265_CHECK(numUnits > 0, "numUnits edge filter check\n");
+    S265_CHECK(numUnits > 0, "numUnits edge filter check\n");
     for (uint32_t i = 0; i < numUnits; i++)
     {
         const uint32_t bsidx = calcBsIdx(scanIdx, dir, edgeIdx, i);
@@ -294,21 +294,21 @@ static inline void pelFilterLuma(pixel* src, intptr_t srcStep, intptr_t offset, 
 
         if (abs(delta) < thrCut)
         {
-            delta = x265_clip3(-tc, tc, delta);
+            delta = s265_clip3(-tc, tc, delta);
 
-            src[-offset] = x265_clip(m3 + (delta & maskP));
-            src[0] = x265_clip(m4 - (delta & maskQ));
+            src[-offset] = s265_clip(m3 + (delta & maskP));
+            src[0] = s265_clip(m4 - (delta & maskQ));
             if (maskP1)
             {
                 int16_t m1  = (int16_t)src[-offset * 3];
-                int32_t delta1 = x265_clip3(-tc2, tc2, ((((m1 + m3 + 1) >> 1) - m2 + delta) >> 1));
-                src[-offset * 2] = x265_clip(m2 + delta1);
+                int32_t delta1 = s265_clip3(-tc2, tc2, ((((m1 + m3 + 1) >> 1) - m2 + delta) >> 1));
+                src[-offset * 2] = s265_clip(m2 + delta1);
             }
             if (maskQ1)
             {
                 int16_t m6  = (int16_t)src[offset * 2];
-                int32_t delta2 = x265_clip3(-tc2, tc2, ((((m6 + m4 + 1) >> 1) - m5 - delta) >> 1));
-                src[offset] = x265_clip(m5 + delta2);
+                int32_t delta2 = s265_clip3(-tc2, tc2, ((((m6 + m4 + 1) >> 1) - m5 - delta) >> 1));
+                src[offset] = s265_clip(m5 + delta2);
             }
         }
     }
@@ -368,9 +368,9 @@ void Deblock::edgeFilterLuma(const CUData* cuQ, uint32_t absPartIdx, uint32_t de
         int32_t qpP = cuP->m_qp[partP];
         int32_t qp  = (qpP + qpQ + 1) >> 1;
 
-        int32_t indexB = x265_clip3(0, QP_MAX_SPEC, qp + betaOffset);
+        int32_t indexB = s265_clip3(0, QP_MAX_SPEC, qp + betaOffset);
 
-        const int32_t bitdepthShift = X265_DEPTH - 8;
+        const int32_t bitdepthShift = S265_DEPTH - 8;
         int32_t beta = s_betaTable[indexB] << bitdepthShift;
 
         intptr_t unitOffset = idx * srcStep << LOG2_UNIT_SIZE;
@@ -386,7 +386,7 @@ void Deblock::edgeFilterLuma(const CUData* cuQ, uint32_t absPartIdx, uint32_t de
         if (d >= beta)
             continue;
 
-        int32_t indexTC = x265_clip3(0, QP_MAX_SPEC + DEFAULT_INTRA_TC_OFFSET, int32_t(qp + DEFAULT_INTRA_TC_OFFSET * (bs - 1) + tcOffset));
+        int32_t indexTC = s265_clip3(0, QP_MAX_SPEC + DEFAULT_INTRA_TC_OFFSET, int32_t(qp + DEFAULT_INTRA_TC_OFFSET * (bs - 1) + tcOffset));
         int32_t tc = s_tcTable[indexTC] << bitdepthShift;
 
         bool sw = (2 * d0 < (beta >> 2) &&
@@ -424,7 +424,7 @@ void Deblock::edgeFilterChroma(const CUData* cuQ, uint32_t absPartIdx, uint32_t 
     int32_t maskQ = -1;
     int32_t tcOffset = pps->deblockingFilterTcOffsetDiv2 << 1;
 
-    X265_CHECK(((dir == EDGE_VER)
+    S265_CHECK(((dir == EDGE_VER)
                 ? ((g_zscanToPelX[absPartIdx] + edge * UNIT_SIZE) >> cuQ->m_hChromaShift)
                 : ((g_zscanToPelY[absPartIdx] + edge * UNIT_SIZE) >> cuQ->m_vChromaShift)) % DEBLOCK_SMALLEST_BLOCK == 0,
                "invalid edge\n");
@@ -484,10 +484,10 @@ void Deblock::edgeFilterChroma(const CUData* cuQ, uint32_t absPartIdx, uint32_t 
         {
             int32_t qp = qpA + pps->chromaQpOffset[chromaIdx];
             if (qp >= 30)
-                qp = chFmt == X265_CSP_I420 ? g_chromaScale[qp] : X265_MIN(qp, QP_MAX_SPEC);
+                qp = chFmt == S265_CSP_I420 ? g_chromaScale[qp] : S265_MIN(qp, QP_MAX_SPEC);
 
-            int32_t indexTC = x265_clip3(0, QP_MAX_SPEC + DEFAULT_INTRA_TC_OFFSET, int32_t(qp + DEFAULT_INTRA_TC_OFFSET + tcOffset));
-            const int32_t bitdepthShift = X265_DEPTH - 8;
+            int32_t indexTC = s265_clip3(0, QP_MAX_SPEC + DEFAULT_INTRA_TC_OFFSET, int32_t(qp + DEFAULT_INTRA_TC_OFFSET + tcOffset));
+            const int32_t bitdepthShift = S265_DEPTH - 8;
             int32_t tc = s_tcTable[indexTC] << bitdepthShift;
             pixel* srcC = srcChroma[chromaIdx];
 

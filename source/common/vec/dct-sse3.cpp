@@ -25,7 +25,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -33,12 +33,12 @@
 #include <xmmintrin.h> // SSE
 #include <pmmintrin.h> // SSE3
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 #define SHIFT1  7
 #define ADD1    64
 
-#define SHIFT2  (12 - (X265_DEPTH - 8))
+#define SHIFT2  (12 - (S265_DEPTH - 8))
 #define ADD2    (1 << ((SHIFT2) - 1))
 
 ALIGN_VAR_32(static const int16_t, tab_idct_8x8[12][8]) =
@@ -1413,7 +1413,7 @@ static void idct32(const int16_t *src, int16_t *dst, intptr_t stride)
     }
 }
 
-namespace X265_NS {
+namespace S265_NS {
 void setupIntrinsicDCT_sse3(EncoderPrimitives &p)
 {
     /* Note: We have AVX2 assembly for these functions, but since AVX2 is still

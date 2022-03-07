@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include <iostream>
@@ -36,11 +36,11 @@
 
 #include "common.h"
 #include "primitives.h"
-#include "x265.h"
+#include "s265.h"
 #include "ppccommon.h"
 
 //using namespace std ;
-namespace X265_NS {
+namespace S265_NS {
 
 /* INTRA Prediction - altivec implementation */
 template<int width, int dirMode>

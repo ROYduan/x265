@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 #define _FILE_OFFSET_BITS 64
 #define _LARGEFILE_SOURCE
@@ -37,7 +37,7 @@
 #endif
 #endif
 
-using namespace X265_NS;
+using namespace S265_NS;
 using namespace std;
 static const char header[] = {'F','R','A','M','E'};
 Y4MInput::Y4MInput(InputFileInfo& info)
@@ -65,23 +65,23 @@ Y4MInput::Y4MInput(InputFileInfo& info)
 #endif
     }
     else
-        ifs = x265_fopen(info.filename, "rb");
+        ifs = s265_fopen(info.filename, "rb");
     if (ifs && !ferror(ifs) && parseHeader())
     {
         int pixelbytes = depth > 8 ? 2 : 1;
-        for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+        for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
         {
-            int stride = (width >> x265_cli_csps[colorSpace].width[i]) * pixelbytes;
-            framesize += (stride * (height >> x265_cli_csps[colorSpace].height[i]));
+            int stride = (width >> s265_cli_csps[colorSpace].width[i]) * pixelbytes;
+            framesize += (stride * (height >> s265_cli_csps[colorSpace].height[i]));
         }
 
         threadActive = true;
         for (int q = 0; q < QUEUE_SIZE; q++)
         {
-            buf[q] = X265_MALLOC(char, framesize);
+            buf[q] = S265_MALLOC(char, framesize);
             if (!buf[q])
             {
-                x265_log(NULL, X265_LOG_ERROR, "y4m: buffer allocation failure, aborting");
+                s265_log(NULL, S265_LOG_ERROR, "y4m: buffer allocation failure, aborting");
                 threadActive = false;
                 break;
             }
@@ -133,7 +133,7 @@ Y4MInput::~Y4MInput()
     if (ifs && ifs != stdin)
         fclose(ifs);
     for (int i = 0; i < QUEUE_SIZE; i++)
-        X265_FREE(buf[i]);
+        S265_FREE(buf[i]);
 }
 
 void Y4MInput::release()
@@ -265,21 +265,21 @@ bool Y4MInput::parseHeader()
 
                 if (csp / 100 == ('m'-'0')*1000 + ('o'-'0')*100 + ('n'-'0')*10 + ('o'-'0'))
                 {
-                    colorSpace = X265_CSP_I400;
+                    colorSpace = S265_CSP_I400;
                     d = csp % 100;
                 }
                 else if (csp / 10 == ('m'-'0')*1000 + ('o'-'0')*100 + ('n'-'0')*10 + ('o'-'0'))
                 {
-                    colorSpace = X265_CSP_I400;
+                    colorSpace = S265_CSP_I400;
                     d = csp % 10;
                 }
                 else if (csp == ('m'-'0')*1000 + ('o'-'0')*100 + ('n'-'0')*10 + ('o'-'0'))
                 {
-                    colorSpace = X265_CSP_I400;
+                    colorSpace = S265_CSP_I400;
                     d = 8;
                 }
                 else
-                    colorSpace = (csp == 444) ? X265_CSP_I444 : (csp == 422) ? X265_CSP_I422 : X265_CSP_I420;
+                    colorSpace = (csp == 444) ? S265_CSP_I444 : (csp == 422) ? S265_CSP_I422 : S265_CSP_I420;
 
                 if (d >= 8 && d <= 16)
                     depth = d;
@@ -302,7 +302,7 @@ bool Y4MInput::parseHeader()
     if (width < MIN_FRAME_WIDTH || width > MAX_FRAME_WIDTH ||
         height < MIN_FRAME_HEIGHT || height > MAX_FRAME_HEIGHT ||
         (rateNum / rateDenom) < 1 || (rateNum / rateDenom) > MAX_FRAME_RATE ||
-        colorSpace < X265_CSP_I400 || colorSpace >= X265_CSP_COUNT)
+        colorSpace < S265_CSP_I400 || colorSpace >= S265_CSP_COUNT)
         return false;
 
     return true;
@@ -338,7 +338,7 @@ bool Y4MInput::populateFrameQueue()
     if (fread(hbuf, sizeof(hbuf), 1, ifs) != 1 || memcmp(hbuf, header, sizeof(header)))
     {
         if (!feof(ifs))
-            x265_log(NULL, X265_LOG_ERROR, "y4m: frame header missing\n");
+            s265_log(NULL, S265_LOG_ERROR, "y4m: frame header missing\n");
         return false;
     }
     /* consume bytes up to line feed */
@@ -365,7 +365,7 @@ bool Y4MInput::populateFrameQueue()
         return false;
 }
 
-bool Y4MInput::readPicture(x265_picture& pic)
+bool Y4MInput::readPicture(s265_picture& pic)
 {
     int read = readCount.get();
     int written = writeCount.get();
@@ -391,11 +391,11 @@ bool Y4MInput::readPicture(x265_picture& pic)
         pic.width = width;
         pic.colorSpace = colorSpace;
         pic.stride[0] = width * pixelbytes;
-        pic.stride[1] = pic.stride[0] >> x265_cli_csps[colorSpace].width[1];
-        pic.stride[2] = pic.stride[0] >> x265_cli_csps[colorSpace].width[2];
+        pic.stride[1] = pic.stride[0] >> s265_cli_csps[colorSpace].width[1];
+        pic.stride[2] = pic.stride[0] >> s265_cli_csps[colorSpace].width[2];
         pic.planes[0] = buf[read % QUEUE_SIZE];
         pic.planes[1] = (char*)pic.planes[0] + pic.stride[0] * height;
-        pic.planes[2] = (char*)pic.planes[1] + pic.stride[1] * (height >> x265_cli_csps[colorSpace].height[1]);
+        pic.planes[2] = (char*)pic.planes[1] + pic.stride[1] * (height >> s265_cli_csps[colorSpace].height[1]);
         readCount.incr();
         return true;
     }

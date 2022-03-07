@@ -18,14 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
 #include "threading.h"
 
 #if defined(_WIN32) && (_WIN32_WINNT < 0x0600) // _WIN32_WINNT_VISTA
 
-namespace X265_NS {
+namespace S265_NS {
 /* Mimic CONDITION_VARIABLE functions only supported on Vista+ */
 
 int WINAPI cond_init(ConditionVariable *cond)
@@ -121,7 +121,7 @@ void cond_destroy(ConditionVariable *cond)
     DeleteCriticalSection(&cond->broadcastMutex);
     DeleteCriticalSection(&cond->waiterCountMutex);
 }
-} // namespace X265_NS
+} // namespace S265_NS
 
 #elif defined(_MSC_VER)
 

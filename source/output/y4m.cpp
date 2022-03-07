@@ -18,14 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "output.h"
 #include "y4m.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 using namespace std;
 
 Y4MOutput::Y4MOutput(const char *filename, int w, int h, uint32_t fpsNum, uint32_t fpsDenom, int csp)
@@ -37,7 +37,7 @@ Y4MOutput::Y4MOutput(const char *filename, int w, int h, uint32_t fpsNum, uint32
     ofs.open(filename, ios::binary | ios::out);
     buf = new char[width];
 
-    const char *cf = (csp >= X265_CSP_I444) ? "444" : (csp >= X265_CSP_I422) ? "422" : "420";
+    const char *cf = (csp >= S265_CSP_I444) ? "444" : (csp >= S265_CSP_I422) ? "422" : "420";
 
     if (ofs)
     {
@@ -45,8 +45,8 @@ Y4MOutput::Y4MOutput(const char *filename, int w, int h, uint32_t fpsNum, uint32
         header = ofs.tellp();
     }
 
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
-        frameSize += (uint32_t)((width >> x265_cli_csps[colorSpace].width[i]) * (height >> x265_cli_csps[colorSpace].height[i]));
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
+        frameSize += (uint32_t)((width >> s265_cli_csps[colorSpace].width[i]) * (height >> s265_cli_csps[colorSpace].height[i]));
 }
 
 Y4MOutput::~Y4MOutput()
@@ -55,7 +55,7 @@ Y4MOutput::~Y4MOutput()
     delete [] buf;
 }
 
-bool Y4MOutput::writePicture(const x265_picture& pic)
+bool Y4MOutput::writePicture(const s265_picture& pic)
 {
     std::ofstream::pos_type outPicPos = header;
     outPicPos += (uint64_t)pic.poc * (6 + frameSize);
@@ -64,41 +64,41 @@ bool Y4MOutput::writePicture(const x265_picture& pic)
 
 #if HIGH_BIT_DEPTH
     if (pic.bitDepth > 8 && pic.poc == 0)
-        x265_log(NULL, X265_LOG_WARNING, "y4m: down-shifting reconstructed pixels to 8 bits\n");
+        s265_log(NULL, S265_LOG_WARNING, "y4m: down-shifting reconstructed pixels to 8 bits\n");
 #else
     if (pic.bitDepth > 8 && pic.poc == 0)
-        x265_log(NULL, X265_LOG_WARNING, "y4m: forcing reconstructed pixels to 8 bits\n");
+        s265_log(NULL, S265_LOG_WARNING, "y4m: forcing reconstructed pixels to 8 bits\n");
 #endif
 
-    X265_CHECK(pic.colorSpace == colorSpace, "invalid chroma subsampling\n");
+    S265_CHECK(pic.colorSpace == colorSpace, "invalid chroma subsampling\n");
 
 #if HIGH_BIT_DEPTH
 
     // encoder gave us short pixels, downshift, then write
-    X265_CHECK(pic.bitDepth > 8, "invalid bit depth\n");
+    S265_CHECK(pic.bitDepth > 8, "invalid bit depth\n");
     int shift = pic.bitDepth - 8;
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
     {
         uint16_t *src = (uint16_t*)pic.planes[i];
-        for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+        for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
         {
-            for (int w = 0; w < width >> x265_cli_csps[colorSpace].width[i]; w++)
+            for (int w = 0; w < width >> s265_cli_csps[colorSpace].width[i]; w++)
                 buf[w] = (char)(src[w] >> shift);
 
-            ofs.write(buf, width >> x265_cli_csps[colorSpace].width[i]);
+            ofs.write(buf, width >> s265_cli_csps[colorSpace].width[i]);
             src += pic.stride[i] / sizeof(*src);
         }
     }
 
 #else // if HIGH_BIT_DEPTH
 
-    X265_CHECK(pic.bitDepth == 8, "invalid bit depth\n");
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+    S265_CHECK(pic.bitDepth == 8, "invalid bit depth\n");
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
     {
         char *src = (char*)pic.planes[i];
-        for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+        for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
         {
-            ofs.write(src, width >> x265_cli_csps[colorSpace].width[i]);
+            ofs.write(src, width >> s265_cli_csps[colorSpace].width[i]);
             src += pic.stride[i] / sizeof(*src);
         }
     }

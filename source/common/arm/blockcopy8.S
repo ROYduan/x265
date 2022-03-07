@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -35,7 +35,7 @@
  * r1   - stridea
  * r2   - b
  * r3   - strideb */
-function x265_blockcopy_sp_4x4_neon
+function s265_blockcopy_sp_4x4_neon
     lsl             r3, #1
 .rept 2
     vld1.u16        {q0}, [r2], r3
@@ -48,7 +48,7 @@ function x265_blockcopy_sp_4x4_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_8x8_neon
+function s265_blockcopy_sp_8x8_neon
     lsl             r3, #1
 .rept 4
     vld1.u16        {q0}, [r2], r3
@@ -61,7 +61,7 @@ function x265_blockcopy_sp_8x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_16x16_neon
+function s265_blockcopy_sp_16x16_neon
     lsl             r3, #1
 .rept 8
     vld1.u16        {q0, q1}, [r2], r3
@@ -76,7 +76,7 @@ function x265_blockcopy_sp_16x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_32x32_neon
+function s265_blockcopy_sp_32x32_neon
     mov             r12, #4
     lsl             r3, #1
     sub             r3, #32
@@ -105,7 +105,7 @@ loop_csp32:
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_64x64_neon
+function s265_blockcopy_sp_64x64_neon
     mov             r12, #16
     lsl             r3, #1
     sub             r3, #96
@@ -136,7 +136,7 @@ loop_csp64:
 endfunc
 
 // void blockcopy_ps(int16_t* a, intptr_t stridea, const pixel* b, intptr_t strideb)
-function x265_blockcopy_ps_4x4_neon
+function s265_blockcopy_ps_4x4_neon
     lsl             r1, #1
 .rept 2
     vld1.u8         {d0}, [r2], r3
@@ -149,7 +149,7 @@ function x265_blockcopy_ps_4x4_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_8x8_neon
+function s265_blockcopy_ps_8x8_neon
     lsl             r1, #1
 .rept 4
     vld1.u8         {d0}, [r2], r3
@@ -162,7 +162,7 @@ function x265_blockcopy_ps_8x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_16x16_neon
+function s265_blockcopy_ps_16x16_neon
     lsl             r1, #1
 .rept 8
     vld1.u8         {q0}, [r2], r3
@@ -177,7 +177,7 @@ function x265_blockcopy_ps_16x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_32x32_neon
+function s265_blockcopy_ps_32x32_neon
     lsl             r1, #1
     sub             r1, #32
     mov             r12, #4
@@ -205,7 +205,7 @@ loop_cps32:
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_64x64_neon
+function s265_blockcopy_ps_64x64_neon
     lsl             r1, #1
     sub             r1, #96
     sub             r3, #32
@@ -234,8 +234,8 @@ loop_cps64:
     bx              lr
 endfunc
 
-// void x265_blockcopy_ss(int16_t* a, intptr_t stridea, const int16_t* b, intptr_t strideb)
-function x265_blockcopy_ss_4x4_neon
+// void s265_blockcopy_ss(int16_t* a, intptr_t stridea, const int16_t* b, intptr_t strideb)
+function s265_blockcopy_ss_4x4_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 2
@@ -247,7 +247,7 @@ function x265_blockcopy_ss_4x4_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_8x8_neon
+function s265_blockcopy_ss_8x8_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 4
@@ -259,7 +259,7 @@ function x265_blockcopy_ss_8x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_16x16_neon
+function s265_blockcopy_ss_16x16_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 8
@@ -271,7 +271,7 @@ function x265_blockcopy_ss_16x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_32x32_neon
+function s265_blockcopy_ss_32x32_neon
     lsl             r1, #1
     lsl             r3, #1
     mov             r12, #4
@@ -289,7 +289,7 @@ loop_css32:
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_64x64_neon
+function s265_blockcopy_ss_64x64_neon
     lsl             r1, #1
     lsl             r3, #1
     mov             r12, #8
@@ -313,7 +313,7 @@ loop_css64:
 endfunc
 
 /******** Chroma blockcopy********/
-function x265_blockcopy_ss_4x8_neon
+function s265_blockcopy_ss_4x8_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 4
@@ -325,7 +325,7 @@ function x265_blockcopy_ss_4x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_8x16_neon
+function s265_blockcopy_ss_8x16_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 8
@@ -337,7 +337,7 @@ function x265_blockcopy_ss_8x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_16x32_neon
+function s265_blockcopy_ss_16x32_neon
     lsl             r1, #1
     lsl             r3, #1
 .rept 16
@@ -349,7 +349,7 @@ function x265_blockcopy_ss_16x32_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ss_32x64_neon
+function s265_blockcopy_ss_32x64_neon
     lsl             r1, #1
     lsl             r3, #1
     mov             r12, #8
@@ -368,7 +368,7 @@ loop_css_32x64:
 endfunc
 
 // chroma blockcopy_ps
-function x265_blockcopy_ps_4x8_neon
+function s265_blockcopy_ps_4x8_neon
     lsl             r1, #1
 .rept 4
     vld1.u8         {d0}, [r2], r3
@@ -381,7 +381,7 @@ function x265_blockcopy_ps_4x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_8x16_neon
+function s265_blockcopy_ps_8x16_neon
     lsl             r1, #1
 .rept 8
     vld1.u8         {d0}, [r2], r3
@@ -394,7 +394,7 @@ function x265_blockcopy_ps_8x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_16x32_neon
+function s265_blockcopy_ps_16x32_neon
     lsl             r1, #1
     mov             r12, #4
 loop_cps_16x32:
@@ -413,7 +413,7 @@ loop_cps_16x32:
     bx              lr
 endfunc
 
-function x265_blockcopy_ps_32x64_neon
+function s265_blockcopy_ps_32x64_neon
     lsl             r1, #1
     sub             r1, #32
     mov             r12, #8
@@ -442,7 +442,7 @@ loop_cps_32x64:
 endfunc
 
 // chroma blockcopy_sp
-function x265_blockcopy_sp_4x8_neon
+function s265_blockcopy_sp_4x8_neon
     lsl             r3, #1
 .rept 4
     vld1.u16        {q0}, [r2], r3
@@ -455,7 +455,7 @@ function x265_blockcopy_sp_4x8_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_8x16_neon
+function s265_blockcopy_sp_8x16_neon
     lsl             r3, #1
 .rept 8
     vld1.u16        {q0}, [r2], r3
@@ -468,7 +468,7 @@ function x265_blockcopy_sp_8x16_neon
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_16x32_neon
+function s265_blockcopy_sp_16x32_neon
     lsl             r3, #1
     mov             r12, #4
 loop_csp_16x32:
@@ -487,7 +487,7 @@ loop_csp_16x32:
     bx              lr
 endfunc
 
-function x265_blockcopy_sp_32x64_neon
+function s265_blockcopy_sp_32x64_neon
     mov             r12, #8
     lsl             r3, #1
     sub             r3, #32
@@ -516,8 +516,8 @@ loop_csp_32x64:
     bx              lr
 endfunc
 
-// void x265_blockfill_s_neon(int16_t* dst, intptr_t dstride, int16_t val)
-function x265_blockfill_s_4x4_neon
+// void s265_blockfill_s_neon(int16_t* dst, intptr_t dstride, int16_t val)
+function s265_blockfill_s_4x4_neon
     vdup.u16        d0, r2
     lsl             r1, #1
 .rept 4
@@ -526,7 +526,7 @@ function x265_blockfill_s_4x4_neon
     bx              lr
 endfunc
 
-function x265_blockfill_s_8x8_neon
+function s265_blockfill_s_8x8_neon
     vdup.u16        q0, r2
     lsl             r1, #1
 .rept 8
@@ -535,7 +535,7 @@ function x265_blockfill_s_8x8_neon
     bx              lr
 endfunc
 
-function x265_blockfill_s_16x16_neon
+function s265_blockfill_s_16x16_neon
     vdup.u16        q0, r2
     vmov            q1, q0
     lsl             r1, #1
@@ -545,7 +545,7 @@ function x265_blockfill_s_16x16_neon
     bx              lr
 endfunc
 
-function x265_blockfill_s_32x32_neon
+function s265_blockfill_s_32x32_neon
     vdup.u16        q0, r2
     vmov            q1, q0
     lsl             r1, #1
@@ -558,7 +558,7 @@ function x265_blockfill_s_32x32_neon
 endfunc
 
 // uint32_t copy_count(int16_t* coeff, const int16_t* residual, intptr_t resiStride)
-function x265_copy_cnt_4_neon
+function s265_copy_cnt_4_neon
     lsl             r2, #1
     mov             r12, #8
     veor            d4, d4
@@ -580,7 +580,7 @@ function x265_copy_cnt_4_neon
     bx              lr
 endfunc
 
-function x265_copy_cnt_8_neon
+function s265_copy_cnt_8_neon
     lsl             r2, #1
     mov             r12, #16
     veor            q8, q8
@@ -604,7 +604,7 @@ function x265_copy_cnt_8_neon
     bx              lr
 endfunc
 
-function x265_copy_cnt_16_neon
+function s265_copy_cnt_16_neon
     lsl             r2, #1
     mov             r12, #32
     veor            q2, q2
@@ -627,7 +627,7 @@ function x265_copy_cnt_16_neon
     bx              lr
 endfunc
 
-function x265_copy_cnt_32_neon
+function s265_copy_cnt_32_neon
     lsl             r2, #1
     sub             r2, #32
     mov             r12, #32
@@ -663,7 +663,7 @@ function x265_copy_cnt_32_neon
 endfunc
 
 // int  count_nonzero_c(const int16_t* quantCoeff)
-function x265_count_nonzero_4_neon
+function s265_count_nonzero_4_neon
     vld1.s16        {d0-d3}, [r0]
     vceq.u16        q0, #0
     vceq.u16        q1, #0
@@ -681,7 +681,7 @@ function x265_count_nonzero_4_neon
     bx              lr
 endfunc
 
-function x265_count_nonzero_8_neon
+function s265_count_nonzero_8_neon
     vldm            r0, {q8-q15}
     eor             r1, r1
     vceq.u16        q8, #0
@@ -713,7 +713,7 @@ function x265_count_nonzero_8_neon
     bx              lr
 endfunc
 
-function x265_count_nonzero_16_neon
+function s265_count_nonzero_16_neon
     vldm            r0!, {q8-q15}
     eor             r1, r1
     vceq.u16        q8, #0
@@ -772,7 +772,7 @@ function x265_count_nonzero_16_neon
     bx              lr
 endfunc
 
-function x265_count_nonzero_32_neon
+function s265_count_nonzero_32_neon
     vldm            r0!, {q8-q15}
     vceq.u16        q8, #0
     vceq.u16        q9, #0

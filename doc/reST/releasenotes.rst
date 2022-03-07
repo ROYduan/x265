@@ -19,8 +19,8 @@ Enhancements to existing features
 
 API changes
 -----------
-1. Additions to x265_param structure to support the newly added features and encoder enhancements.
-2. New x265_param options :option:`--min-vbv-fullness` and :option:`--max-vbv-fullness` to control min and max VBV fullness.
+1. Additions to s265_param structure to support the newly added features and encoder enhancements.
+2. New s265_param options :option:`--min-vbv-fullness` and :option:`--max-vbv-fullness` to control min and max VBV fullness.
 
 Bug fixes
 ---------
@@ -78,10 +78,10 @@ Encoder enhancements
 
 API changes
 -----------
-1. New API function **x265_encoder_reconfig_zone()** to invoke zone reconfiguration dynamically.  
+1. New API function **s265_encoder_reconfig_zone()** to invoke zone reconfiguration dynamically.  
 2. Renamed :option:`--hdr` to :option:`--hdr10`. :option:`--hdr` will be deprecated in the upcoming major release. 
 3. Renamed :option:`--hdr-opt` to :option:`--hdr10-opt`. :option:`--hdr-opt` will be deprecated in the upcoming major release.
-4. Additions to **x265_param** structure to support the newly added features and encoder enhancements.
+4. Additions to **s265_param** structure to support the newly added features and encoder enhancements.
 
 Bug fixes
 ---------
@@ -111,7 +111,7 @@ Encoder enhancements
 
 API changes
 -----------
-1. Additions to x265_param structure to support the newly added features :option:`--hme`, :option:`--hme-search` and :option:`selective-sao`.
+1. Additions to s265_param structure to support the newly added features :option:`--hme`, :option:`--hme-search` and :option:`selective-sao`.
 
 Bug fixes
 ---------
@@ -131,8 +131,8 @@ Release date - 18th June, 2019.
 
 New features
 ----------------
-1. x265 can invoke SVT-HEVC library for encoding through :option:`--svt`.
-2. x265 can now accept interlaced inputs directly (no need to separate fields), and sends it to the encoder with proper fps and frame-size through :option:`--field`.
+1. s265 can invoke SVT-HEVC library for encoding through :option:`--svt`.
+2. s265 can now accept interlaced inputs directly (no need to separate fields), and sends it to the encoder with proper fps and frame-size through :option:`--field`.
 3. :option:`--fades` can detect and handle fade-in regions. This option will force I-slice and initialize RC history for the brightest frame after fade-in.
  
 API changes
@@ -166,7 +166,7 @@ New features
 -------------
 1. option:: '--dolby-vision-profile <integer|float>' generates bitstreams confirming to the specified Dolby Vision profile. Currently profile 5, profile 8.1 and profile 8.2 enabled, Default 0 (disabled)
 
-2. option:: '--dolby-vision-rpu' File containing Dolby Vision RPU metadata. If given, x265's Dolby Vision metadata parser will fill the RPU field of input pictures with the metadata
+2. option:: '--dolby-vision-rpu' File containing Dolby Vision RPU metadata. If given, s265's Dolby Vision metadata parser will fill the RPU field of input pictures with the metadata
     read from the file. The library will interleave access units with RPUs in the bitstream. Default NULL (disabled).	
 
 3. option:: '--zonefile <filename>' specifies a text file which contains the boundaries of the zones where each of zones are configurable.
@@ -185,7 +185,7 @@ Encoder enhancements
 2. AQ: change default AQ mode to auto-variance
 3. Cutree offset reuse: restricted to analysis reuse-level 10 for analysis-save -> analysis-load 
 4. Tune: introduce --tune animation option which improves encode quality for animated content 
-5. Reuse CU depth for B frame and allow I, P frame to follow x265 depth decision
+5. Reuse CU depth for B frame and allow I, P frame to follow s265 depth decision
 
 Bug fixes
 ---------
@@ -213,7 +213,7 @@ New features
 
 Encoder enhancements
 --------------------
-1. Create API function for allocating and freeing x265_analysis_data.
+1. Create API function for allocating and freeing s265_analysis_data.
 2. CEA 608/708 support: Read SEI messages from text file and encode it using userSEI message.
 
 Bug fixes
@@ -228,7 +228,7 @@ Release date - 21/05/2018
 
 New features
 -------------
-1. :option:`--asm avx512` used to enable AVX-512 in x265. Default disabled.	
+1. :option:`--asm avx512` used to enable AVX-512 in s265. Default disabled.	
     For 4K main10 high-quality encoding, we are seeing good gains; for other resolutions and presets, we don't recommend using this setting for now.
 
 2. :option:`--dynamic-refine` dynamically switches between different inter refine levels. Default disabled.
@@ -266,7 +266,7 @@ Release date - 21st Feb, 2018.
 New features
 ------------
 1. :option:`--gop-lookahead` can be used to extend the gop boundary(set by `--keyint`). The GOP will be extended, if a scene-cut frame is found within this many number of frames. 
-2. Support for RADL pictures added in x265.
+2. Support for RADL pictures added in s265.
    :option:`--radl` can be used to decide number of RADL pictures preceding the IDR picture.
 
 Encoder enhancements
@@ -274,7 +274,7 @@ Encoder enhancements
 1. Moved from YASM to NASM assembler. Supports NASM assembler version 2.13 and greater.
 2. Enable analysis save and load in a single run. Introduces two new cli options `--analysis-save <filename>` and `--analysis-load <filename>`.
 3. Comply to HDR10+ LLC specification.
-4. Reduced x265 build time by more than 50% by re-factoring ipfilter.asm.  
+4. Reduced s265 build time by more than 50% by re-factoring ipfilter.asm.  
 
 Bug fixes
 ---------
@@ -291,7 +291,7 @@ Release date - 29th November, 2017.
 
 New features
 ------------
-1. x265 can now refine analysis from a previous HEVC encode (using options :option:`--refine-inter`, and :option:`--refine-intra`), or a previous AVC encode (using option :option:`--refine-mv-type`). The previous encode's information can be packaged using the *x265_analysis_data_t*  data field available in the *x265_picture* object.
+1. s265 can now refine analysis from a previous HEVC encode (using options :option:`--refine-inter`, and :option:`--refine-intra`), or a previous AVC encode (using option :option:`--refine-mv-type`). The previous encode's information can be packaged using the *s265_analysis_data_t*  data field available in the *s265_picture* object.
 2. Basic support for segmented (or chunked) encoding added with :option:`--vbv-end` that can specify the status of CPB at the end of a segment. String this together with :option:`--vbv-init` to encode a title as chunks while maintaining VBV compliance!
 3. :option:`--force-flush` can be used to trigger a premature flush of the encoder. This option is beneficial when input is known to be bursty, and may be at a rate slower than the encoder.
 4. Experimental feature :option:`--lowpass-dct` that uses truncated DCT for transformation.
@@ -299,20 +299,20 @@ New features
 Encoder enhancements
 --------------------
 1. Slice-parallel mode gets a significant boost in performance, particularly in low-latency mode.
-2. x265 now officially supported on VS2017.
-3. x265 now supports all depths from mono0 to mono16 for Y4M format.
+2. s265 now officially supported on VS2017.
+3. s265 now supports all depths from mono0 to mono16 for Y4M format.
 
 API changes
 -----------
 1. Options that modified PPS dynamically (:option:`--opt-qp-pps` and :option:`--opt-ref-list-length-pps`) are now disabled by default to enable users to save bits by not sending headers. If these options are enabled, headers have to be repeated for every GOP.
-2. Rate-control and analysis parameters can dynamically be reconfigured simultaneously via the *x265_encoder_reconfig* API.
-3. New API functions to extract intermediate information such as slice-type, scenecut information, reference frames, etc. are now available. This information may be beneficial to integrating applications that are attempting to perform content-adaptive encoding. Refer to documentation on *x265_get_slicetype_poc_and_scenecut*, and *x265_get_ref_frame_list* for more details and suggested usage.
-4. A new API to pass supplemental CTU information to x265 to influence analysis decisions has been added. Refer to documentation on *x265_encoder_ctu_info* for more details.
+2. Rate-control and analysis parameters can dynamically be reconfigured simultaneously via the *s265_encoder_reconfig* API.
+3. New API functions to extract intermediate information such as slice-type, scenecut information, reference frames, etc. are now available. This information may be beneficial to integrating applications that are attempting to perform content-adaptive encoding. Refer to documentation on *s265_get_slicetype_poc_and_scenecut*, and *s265_get_ref_frame_list* for more details and suggested usage.
+4. A new API to pass supplemental CTU information to s265 to influence analysis decisions has been added. Refer to documentation on *s265_encoder_ctu_info* for more details.
 
 Bug fixes
 ---------
 1. Bug fixes when :option:`--slices` is used with VBV settings.
-2. Minor memory leak fixed for HDR10+ builds, and default x265 when pools option is specified.
+2. Minor memory leak fixed for HDR10+ builds, and default s265 when pools option is specified.
 3. HDR10+ bug fix to remove dependence on poc counter to select meta-data information.
 
 Version 2.5
@@ -324,18 +324,18 @@ Encoder enhancements
 --------------------
 1. Improved grain handling with :option:`--tune` grain option by throttling VBV operations to limit QP jumps.
 2. Frame threads are now decided based on number of threads specified in the :option:`--pools`, as opposed to the number of hardware threads available. The mapping was also adjusted to improve quality of the encodes with minimal impact to performance.
-3. CSV logging feature (enabled by :option:`--csv`) is now part of the library; it was previously part of the x265 application. Applications that integrate libx265 can now extract frame level statistics for their encodes by exercising this option in the library.
-4.  Globals that track min and max CU sizes, number of slices, and other parameters have now been moved into instance-specific variables. Consequently, applications that invoke multiple instances of x265 library are no longer restricted to use the same settings for these parameter options across the multiple instances.
-5. x265 can now generate a seprate library that exports the HDR10+ parsing API. Other libraries that wish to use this API may do so by linking against this library. Enable ENABLE_HDR10_PLUS in CMake options and build to generate this library.
+3. CSV logging feature (enabled by :option:`--csv`) is now part of the library; it was previously part of the s265 application. Applications that integrate libs265 can now extract frame level statistics for their encodes by exercising this option in the library.
+4.  Globals that track min and max CU sizes, number of slices, and other parameters have now been moved into instance-specific variables. Consequently, applications that invoke multiple instances of s265 library are no longer restricted to use the same settings for these parameter options across the multiple instances.
+5. s265 can now generate a seprate library that exports the HDR10+ parsing API. Other libraries that wish to use this API may do so by linking against this library. Enable ENABLE_HDR10_PLUS in CMake options and build to generate this library.
 6. SEA motion search receives a 10% performance boost from AVX2 optimization of its kernels.
 7. The CSV log is now more elaborate with additional fields such as PU statistics, average-min-max luma and chroma values, etc. Refer to documentation of :option:`--csv` for details of all fields.
 8. x86inc.asm cleaned-up for improved instruction handling.
 
 API changes
 -----------
-1. New API x265_encoder_ctu_info() introduced to specify suggested partition sizes for various CTUs in a frame. To be used in conjunction with :option:`--ctu-info` to react to the specified partitions appropriately.
-2. Rate-control statistics passed through the x265_picture object for an incoming frame are now used by the encoder.
-3. Options to scale, reuse, and refine analysis for incoming analysis shared through the x265_analysis_data field in x265_picture for runs that use :option:`--analysis-reuse-mode` load; use options :option:`--scale`, :option:`--refine-mv`, :option:`--refine-inter`, and :option:`--refine-intra` to explore. 
+1. New API s265_encoder_ctu_info() introduced to specify suggested partition sizes for various CTUs in a frame. To be used in conjunction with :option:`--ctu-info` to react to the specified partitions appropriately.
+2. Rate-control statistics passed through the s265_picture object for an incoming frame are now used by the encoder.
+3. Options to scale, reuse, and refine analysis for incoming analysis shared through the s265_analysis_data field in s265_picture for runs that use :option:`--analysis-reuse-mode` load; use options :option:`--scale`, :option:`--refine-mv`, :option:`--refine-inter`, and :option:`--refine-intra` to explore. 
 4. VBV now has a deterministic mode. Use :option:`--const-vbv` to exercise.
 
 Bug fixes
@@ -350,22 +350,22 @@ Release date - 22nd April, 2017.
 
 Encoder enhancements
 --------------------
-1. HDR10+ supported. Dynamic metadata may be either supplied as a bitstream via the userSEI field of x265_picture, or as a json jile that can be parsed by x265 and inserted into the bitstream; use :option:`--dhdr10-info` to specify json file name, and :option:`--dhdr10-opt` to enable optimization of inserting tone-map information only at IDR frames, or when the tone map information changes.
+1. HDR10+ supported. Dynamic metadata may be either supplied as a bitstream via the userSEI field of s265_picture, or as a json jile that can be parsed by s265 and inserted into the bitstream; use :option:`--dhdr10-info` to specify json file name, and :option:`--dhdr10-opt` to enable optimization of inserting tone-map information only at IDR frames, or when the tone map information changes.
 2. Lambda tables for 8, 10, and 12-bit encoding revised, resulting in significant enhancement to subjective  visual quality.
 3. Enhanced HDR10 encoding with HDR-specific QP optimzations for chroma, and luma planes of WCG content enabled; use :option:`--hdr-opt` to activate.
-4. Ability to accept analysis information from other previous encodes (that may or may not be x265), and selectively reuse and refine analysis for encoding subsequent passes enabled with the :option:`--refine-level` option. 
+4. Ability to accept analysis information from other previous encodes (that may or may not be s265), and selectively reuse and refine analysis for encoding subsequent passes enabled with the :option:`--refine-level` option. 
 5. Slow and veryslow presets receive a 20% speed boost at iso-quality by enabling the :option:`--limit-tu` option.
-6. The bitrate target for x265 can now be dynamically reconfigured via the reconfigure API.
+6. The bitrate target for s265 can now be dynamically reconfigured via the reconfigure API.
 7. Performance optimized SAO algorithm introduced via the :option:`--limit-sao` option; seeing 10% speed benefits at faster presets.
 
 API changes
 -----------
-1. x265_reconfigure API now also accepts rate-control parameters for dynamic reconfiguration.
-2. Several additions to data fields in x265_analysis to support :option:`--refine-level`: see x265.h for more details.
+1. s265_reconfigure API now also accepts rate-control parameters for dynamic reconfiguration.
+2. Several additions to data fields in s265_analysis to support :option:`--refine-level`: see s265.h for more details.
 
 Bug fixes
 ---------
-1. Avoid negative offsets in x265 lambda2 table with SAO enabled.
+1. Avoid negative offsets in s265 lambda2 table with SAO enabled.
 2. Fix mingw32 build error.
 3. Seek now enabled for pipe input, in addition to file-based input
 4. Fix issue of statically linking core-utils not working in linux.
@@ -389,7 +389,7 @@ Encoder enhancements
 API changes
 -----------
 1. Reconfigure API now supports signalling new scaling lists.
-2. x265 application's csv functionality now reports time (in milliseconds) taken to encode each frame.
+2. s265 application's csv functionality now reports time (in milliseconds) taken to encode each frame.
 3. :option:`--strict-cbr` enables stricter bitrate adherence by adding filler bits when achieved bitrate is lower than the target; earlier, it was only reacting when the achieved rate was higher.
 4. :option:`--hdr` can be used to ensure that max-cll and max-fall values are always signaled (even if 0,0).
 
@@ -412,7 +412,7 @@ Encoder enhancements
 3. Bit-stream optimizations to improve fields in PPS and SPS for bit-rate savings through :option:`--opt-qp-pps`, :option:`--opt-ref-list-length-pps`, and :option:`--multi-pass-opt-rps`.
 4. Enabled using VBV constraints when encoding without WPP.
 5. All param options dumped in SEI packet in bitstream when info selected.
-6. x265 now supports POWERPC-based systems. Several key functions also have optimized ALTIVEC kernels.
+6. s265 now supports POWERPC-based systems. Several key functions also have optimized ALTIVEC kernels.
 
 API changes
 -----------
@@ -420,7 +420,7 @@ API changes
 2. New option :option:`--scenecut-bias` to enable controlling bias to mark scene-cuts via cli.
 3. Support mono and mono16 color spaces for y4m input.
 4. :option:`--min-cu-size` of 64 no-longer supported for reasons of visual quality (was crashing earlier anyways.)
-5. API for CSV now expects version string for better integration of x265 into other applications.
+5. API for CSV now expects version string for better integration of s265 into other applications.
 
 Bug fixes
 ---------
@@ -441,7 +441,7 @@ Encoder enhancements
 
 API changes
 -----------
-1. Encode user-define SEI messages passed in through x265_picture object.
+1. Encode user-define SEI messages passed in through s265_picture object.
 2. Disable SEI and VUI messages from the bitstream
 3. Specify qpmin and qpmax
 4. Control number of bits to encode POC.
@@ -469,7 +469,7 @@ New Features
 API and Key Behaviour Changes
 -----------------------------
 
-1. x265_rc_stats added to x265_picture, containing all RC decision points for that frame
+1. s265_rc_stats added to s265_picture, containing all RC decision points for that frame
 2. PTL: high tier is now allowed by default, chosen only if necessary
 3. multi-pass: First pass now uses slow-firstpass by default, enabling better RC decisions in future passes 
 4. pools: fix behaviour on multi-socketed Windows systems, provide more flexibility in determining thread and pool counts
@@ -496,9 +496,9 @@ New Features
 API Changes
 -----------
 
-1. x265_frame_stats returns many additional fields: maxCLL, maxFALL, residual energy, scenecut  and latency logging
+1. s265_frame_stats returns many additional fields: maxCLL, maxFALL, residual energy, scenecut  and latency logging
 2. --qpfile now supports frametype 'K"
-3. x265 now allows CRF ratecontrol in pass N (N greater than or equal to 2)
+3. s265 now allows CRF ratecontrol in pass N (N greater than or equal to 2)
 4. Chroma subsampling format YUV 4:0:0 is now fully supported and tested
 
 Presets and Performance
@@ -516,13 +516,13 @@ Release date - 10th August, 2015
 API Changes
 -----------
 1. Experimental support for Main12 is now enabled. Partial assembly support exists. 
-2. Main12 and Intra/Still picture profiles are now supported. Still picture profile is detected based on x265_param::totalFrames.
+2. Main12 and Intra/Still picture profiles are now supported. Still picture profile is detected based on s265_param::totalFrames.
 3. Three classes of encoding statistics are now available through the API. 
-a) x265_stats - contains encoding statistics, available through x265_encoder_get_stats()
-b) x265_frame_stats and x265_cu_stats - contains frame encoding statistics, available through recon x265_picture
+a) s265_stats - contains encoding statistics, available through s265_encoder_get_stats()
+b) s265_frame_stats and s265_cu_stats - contains frame encoding statistics, available through recon s265_picture
 4. --csv
-a) x265_encoder_log() is now deprecated
-b) x265_param::csvfn is also deprecated
+a) s265_encoder_log() is now deprecated
+b) s265_param::csvfn is also deprecated
 5. --log-level now controls only console logging, frame level console logging has been removed.
 6. Support added for new color transfer characteristic ARIB STD-B67
 

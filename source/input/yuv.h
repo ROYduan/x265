@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_YUV_H
-#define X265_YUV_H
+#ifndef S265_YUV_H
+#define S265_YUV_H
 
 #include "input.h"
 #include "threading.h"
@@ -30,8 +30,8 @@
 
 #define QUEUE_SIZE 5
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class YUVInput : public InputFile, public Thread
 {
@@ -69,7 +69,7 @@ public:
     bool isFail()                                 { return !(ifs && !ferror(ifs) && threadActive); }
     void startReader();
 
-    bool readPicture(x265_picture&);
+    bool readPicture(s265_picture&);
 
     const char *getName() const                   { return "yuv"; }
 
@@ -79,4 +79,4 @@ public:
 };
 }
 
-#endif // ifndef X265_YUV_H
+#endif // ifndef S265_YUV_H

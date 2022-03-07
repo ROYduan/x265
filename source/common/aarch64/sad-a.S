@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -74,7 +74,7 @@
 .endm
 
 .macro SAD_X_8xN x, h
-function x265_sad_x\x\()_8x\h\()_neon
+function s265_sad_x\x\()_8x\h\()_neon
     mov             x9, #FENC_STRIDE
     SAD_X_START_8 \x
 .rept \h - 1

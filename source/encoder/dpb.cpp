@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -30,7 +30,7 @@
 
 #include "dpb.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 DPB::~DPB()
 {
@@ -75,9 +75,9 @@ void DPB::recycleUnreferenced()
             curFrame->m_bChromaExtended = false;
 
             // Reset column counter
-            X265_CHECK(curFrame->m_reconRowFlag != NULL, "curFrame->m_reconRowFlag check failure");
-            X265_CHECK(curFrame->m_reconColCount != NULL, "curFrame->m_reconColCount check failure");
-            X265_CHECK(curFrame->m_numRows > 0, "curFrame->m_numRows check failure");
+            S265_CHECK(curFrame->m_reconRowFlag != NULL, "curFrame->m_reconRowFlag check failure");
+            S265_CHECK(curFrame->m_reconColCount != NULL, "curFrame->m_reconColCount check failure");
+            S265_CHECK(curFrame->m_numRows > 0, "curFrame->m_numRows check failure");
 
             for(int32_t row = 0; row < curFrame->m_numRows; row++)
             {
@@ -96,7 +96,7 @@ void DPB::recycleUnreferenced()
             {
                 if (curFrame->m_encData->m_meBuffer[i] != NULL)
                 {
-                    X265_FREE(curFrame->m_encData->m_meBuffer[i]);
+                    S265_FREE(curFrame->m_encData->m_meBuffer[i]);
                     curFrame->m_encData->m_meBuffer[i] = NULL;
                 }
             }
@@ -107,14 +107,14 @@ void DPB::recycleUnreferenced()
                 uint32_t numCUsInFrame = widthInCU * heightInCU;
                 for (uint32_t i = 0; i < numCUsInFrame; i++)
                 {
-                    X265_FREE((*curFrame->m_ctuInfo + i)->ctuInfo);
+                    S265_FREE((*curFrame->m_ctuInfo + i)->ctuInfo);
                     (*curFrame->m_ctuInfo + i)->ctuInfo = NULL;
                 }
-                X265_FREE(*curFrame->m_ctuInfo);
+                S265_FREE(*curFrame->m_ctuInfo);
                 *(curFrame->m_ctuInfo) = NULL;
-                X265_FREE(curFrame->m_ctuInfo);
+                S265_FREE(curFrame->m_ctuInfo);
                 curFrame->m_ctuInfo = NULL;
-                X265_FREE(curFrame->m_prevCtuInfoChange);
+                S265_FREE(curFrame->m_prevCtuInfoChange);
                 curFrame->m_prevCtuInfoChange = NULL;
             }
             curFrame->m_encData = NULL;
@@ -136,9 +136,9 @@ void DPB::prepareEncode(Frame *newFrame)
     if (slice->m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL || slice->m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP)
         m_lastIDR = pocCurr;
     slice->m_lastIDR = m_lastIDR;
-    slice->m_sliceType = IS_X265_TYPE_B(type) ? B_SLICE : (type == X265_TYPE_P) ? P_SLICE : I_SLICE;
+    slice->m_sliceType = IS_S265_TYPE_B(type) ? B_SLICE : (type == S265_TYPE_P) ? P_SLICE : I_SLICE;
 
-    if (type == X265_TYPE_B)
+    if (type == S265_TYPE_B)
     {
         newFrame->m_encData->m_bHasReferences = false;
 
@@ -177,13 +177,13 @@ void DPB::prepareEncode(Frame *newFrame)
     applyReferencePictureSet(&slice->m_rps, pocCurr);
 
     if (slice->m_sliceType != I_SLICE)
-        slice->m_numRefIdx[0] = x265_clip3(1, newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures);
+        slice->m_numRefIdx[0] = s265_clip3(1, newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures);
     else
-        slice->m_numRefIdx[0] = X265_MIN(newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures); // Ensuring L0 contains just the -ve POC
-    slice->m_numRefIdx[1] = X265_MIN(newFrame->m_param->bBPyramid ? 2 : 1, slice->m_rps.numberOfPositivePictures);
+        slice->m_numRefIdx[0] = S265_MIN(newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures); // Ensuring L0 contains just the -ve POC
+    slice->m_numRefIdx[1] = S265_MIN(newFrame->m_param->bBPyramid ? 2 : 1, slice->m_rps.numberOfPositivePictures);
     slice->setRefPicList(m_picList);
 
-    X265_CHECK(slice->m_sliceType != B_SLICE || slice->m_numRefIdx[1], "B slice without L1 references (non-fatal)\n");
+    S265_CHECK(slice->m_sliceType != B_SLICE || slice->m_numRefIdx[1], "B slice without L1 references (non-fatal)\n");
 
     if (slice->m_sliceType == B_SLICE)
     {

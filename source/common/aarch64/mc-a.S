@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -34,7 +34,7 @@
 .text
 
 .macro pixel_avg_pp_4xN_neon h
-function x265_pixel_avg_pp_4x\h\()_neon
+function s265_pixel_avg_pp_4x\h\()_neon
 .rept \h
     ld1             {v0.s}[0], [x2], x3
     ld1             {v1.s}[0], [x4], x5
@@ -50,7 +50,7 @@ pixel_avg_pp_4xN_neon 8
 pixel_avg_pp_4xN_neon 16
 
 .macro pixel_avg_pp_8xN_neon h
-function x265_pixel_avg_pp_8x\h\()_neon
+function s265_pixel_avg_pp_8x\h\()_neon
 .rept \h
     ld1             {v0.8b}, [x2], x3
     ld1             {v1.8b}, [x4], x5

@@ -5,7 +5,7 @@ includedir=${prefix}/include
 
 Name: @CMAKE_PROJECT_NAME@
 Description: H.265/HEVC video encoder
-Version: @X265_LATEST_TAG@
-Libs: -L${libdir} -lx265
+Version: @S265_LATEST_TAG@
+Libs: -L${libdir} -ls265
 Libs.private: @PRIVATE_LIBS@
 Cflags: -I${includedir}

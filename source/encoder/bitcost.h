@@ -18,18 +18,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_BITCOST_H
-#define X265_BITCOST_H
+#ifndef S265_BITCOST_H
+#define S265_BITCOST_H
 
 #include "common.h"
 #include "threading.h"
 #include "mv.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class BitCost
 {
@@ -94,4 +94,4 @@ private:
 };
 }
 
-#endif // ifndef X265_BITCOST_H
+#endif // ifndef S265_BITCOST_H

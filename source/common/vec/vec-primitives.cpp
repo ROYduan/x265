@@ -18,14 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "primitives.h"
-#include "x265.h"
+#include "s265.h"
 
 /* The #if logic here must match the file lists in CMakeLists.txt */
-#if X265_ARCH_X86
+#if S265_ARCH_X86
 #if defined(__INTEL_COMPILER)
 #define HAVE_SSE3
 #define HAVE_SSSE3
@@ -49,10 +49,10 @@
 #define HAVE_AVX2
 #endif
 #endif // compiler checks
-#endif // if X265_ARCH_X86
+#endif // if S265_ARCH_X86
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 void setupIntrinsicDCT_sse3(EncoderPrimitives&);
 void setupIntrinsicDCT_ssse3(EncoderPrimitives&);
@@ -62,19 +62,19 @@ void setupIntrinsicDCT_sse41(EncoderPrimitives&);
 void setupInstrinsicPrimitives(EncoderPrimitives &p, int cpuMask)
 {
 #ifdef HAVE_SSE3
-    if (cpuMask & X265_CPU_SSE3)
+    if (cpuMask & S265_CPU_SSE3)
     {
         setupIntrinsicDCT_sse3(p);
     }
 #endif
 #ifdef HAVE_SSSE3
-    if (cpuMask & X265_CPU_SSSE3)
+    if (cpuMask & S265_CPU_SSSE3)
     {
         setupIntrinsicDCT_ssse3(p);
     }
 #endif
 #ifdef HAVE_SSE4
-    if (cpuMask & X265_CPU_SSE4)
+    if (cpuMask & S265_CPU_SSE4)
     {
         setupIntrinsicDCT_sse41(p);
     }

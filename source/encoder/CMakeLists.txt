@@ -25,7 +25,7 @@ if(EXTRA_LIB)
     set_source_files_properties(api.cpp PROPERTIES COMPILE_FLAGS ${APIFLAGSTR})
 endif(EXTRA_LIB)
 
-add_library(encoder OBJECT ../x265.h
+add_library(encoder OBJECT ../s265.h
     analysis.cpp analysis.h
     search.cpp search.h
     bitcost.cpp bitcost.h rdcost.h

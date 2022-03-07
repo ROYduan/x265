@@ -20,7 +20,7 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
 #include "common.h"
@@ -34,7 +34,7 @@
 #include "rdcost.h"
 #include "encoder.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 /* An explanation of rate distortion levels (--rd-level)
  *
@@ -91,7 +91,7 @@ bool Analysis::create(ThreadLocalData *tld)
     uint32_t maxDQPDepth = g_log2Size[m_param->maxCUSize] - g_log2Size[m_param->rc.qgSize];
     for (uint32_t i = 1; i <= maxDQPDepth; i++)
         costArrSize += (1 << (i * 2));
-    cacheCost = X265_MALLOC(uint64_t, costArrSize);
+    cacheCost = S265_MALLOC(uint64_t, costArrSize);
 
     int csp = m_param->internalCsp;
     uint32_t cuSize = m_param->maxCUSize;
@@ -132,7 +132,7 @@ void Analysis::destroy()
             m_modeDepth[i].pred[j].reconYuv.destroy();
         }
     }
-    X265_FREE(cacheCost);
+    S265_FREE(cacheCost);
 }
 
 Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, const Entropy& initialContext)
@@ -159,7 +159,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
     uint32_t numPartition = ctu.m_numPartitions;
     if (m_param->bCTUInfo && (*m_frame->m_ctuInfo + ctu.m_cuAddr))
     {
-        x265_ctu_info_t* ctuTemp = *m_frame->m_ctuInfo + ctu.m_cuAddr;
+        s265_ctu_info_t* ctuTemp = *m_frame->m_ctuInfo + ctu.m_cuAddr;
         int32_t depthIdx = 0;
         uint32_t maxNum8x8Partitions = 64;
         uint8_t* depthInfoPtr = m_frame->m_addOnDepth[ctu.m_cuAddr];
@@ -202,14 +202,14 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
         m_reuseDepth = &m_reuseInterDataCTU->depth[ctu.m_cuAddr * ctu.m_numPartitions];
     }
     
-    int reuseLevel = X265_MAX(m_param->analysisSaveReuseLevel, m_param->analysisLoadReuseLevel);
+    int reuseLevel = S265_MAX(m_param->analysisSaveReuseLevel, m_param->analysisLoadReuseLevel);
     if ((m_param->analysisSave || m_param->analysisLoad) && m_slice->m_sliceType != I_SLICE && reuseLevel > 1 && reuseLevel < 10)
     {
         int numPredDir = m_slice->isInterP() ? 1 : 2;
         m_reuseInterDataCTU = m_frame->m_analysisData.interData;
         if (((m_param->analysisSaveReuseLevel > 1) && (m_param->analysisSaveReuseLevel < 7)) ||
             ((m_param->analysisLoadReuseLevel > 1) && (m_param->analysisLoadReuseLevel < 7)))
-            m_reuseRef = &m_reuseInterDataCTU->ref[ctu.m_cuAddr * X265_MAX_PRED_MODE_PER_CTU * numPredDir];
+            m_reuseRef = &m_reuseInterDataCTU->ref[ctu.m_cuAddr * S265_MAX_PRED_MODE_PER_CTU * numPredDir];
         m_reuseDepth = &m_reuseInterDataCTU->depth[ctu.m_cuAddr * ctu.m_numPartitions];
         m_reuseModes = &m_reuseInterDataCTU->modes[ctu.m_cuAddr * ctu.m_numPartitions];
         if (reuseLevel > 4)
@@ -218,14 +218,14 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
             m_reuseMergeFlag = &m_reuseInterDataCTU->mergeFlag[ctu.m_cuAddr * ctu.m_numPartitions];
         }
         if (m_param->analysisSave && !m_param->analysisLoad)
-            for (int i = 0; i < X265_MAX_PRED_MODE_PER_CTU * numPredDir; i++)
+            for (int i = 0; i < S265_MAX_PRED_MODE_PER_CTU * numPredDir; i++)
                 m_reuseRef[i] = -1;
     }
     ProfileCUScope(ctu, totalCTUTime, totalCTUs);
 
     if (m_slice->m_sliceType == I_SLICE)
     {
-        x265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
+        s265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
         if (m_param->analysisLoadReuseLevel > 1)
         {
             memcpy(ctu.m_cuDepth, &intraDataCTU->depth[ctu.m_cuAddr * numPartition], sizeof(uint8_t) * numPartition);
@@ -244,7 +244,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 
         if (bCopyAnalysis)
         {
-            x265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
+            s265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
             int posCTU = ctu.m_cuAddr * numPartition;
             memcpy(ctu.m_cuDepth, &interDataCTU->depth[posCTU], sizeof(uint8_t) * numPartition);
             memcpy(ctu.m_predMode, &interDataCTU->modes[posCTU], sizeof(uint8_t) * numPartition);
@@ -254,7 +254,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 
             if ((m_slice->m_sliceType == P_SLICE || m_param->bIntraInBFrames) && !(m_param->bAnalysisType == AVC_INFO))
             {
-                x265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
+                s265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
                 memcpy(ctu.m_lumaIntraDir, &intraDataCTU->modes[posCTU], sizeof(uint8_t) * numPartition);
                 memcpy(ctu.m_chromaIntraDir, &intraDataCTU->chromaModes[posCTU], sizeof(uint8_t) * numPartition);
             }
@@ -281,14 +281,14 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
         else if ((m_param->analysisLoadReuseLevel == 10 && (!(m_param->bAnalysisType == HEVC_INFO) || m_slice->m_sliceType != P_SLICE)) ||
                 ((m_param->bAnalysisType == AVC_INFO) && m_param->analysisLoadReuseLevel >= 7 && ctu.m_numPartitions <= 16))
         {
-            x265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
+            s265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
             int posCTU = ctu.m_cuAddr * numPartition;
             memcpy(ctu.m_cuDepth, &interDataCTU->depth[posCTU], sizeof(uint8_t) * numPartition);
             memcpy(ctu.m_predMode, &interDataCTU->modes[posCTU], sizeof(uint8_t) * numPartition);
             memcpy(ctu.m_partSize, &interDataCTU->partSize[posCTU], sizeof(uint8_t) * numPartition);
             if ((m_slice->m_sliceType == P_SLICE || m_param->bIntraInBFrames) && !(m_param->bAnalysisType == AVC_INFO))
             {
-                x265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
+                s265_analysis_intra_data* intraDataCTU = m_frame->m_analysisData.intraData;
                 memcpy(ctu.m_lumaIntraDir, &intraDataCTU->modes[posCTU], sizeof(uint8_t) * numPartition);
                 memcpy(ctu.m_chromaIntraDir, &intraDataCTU->chromaModes[posCTU], sizeof(uint8_t) * numPartition);
             }
@@ -650,12 +650,12 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         cacheCost[cuIdx] = md.bestMode->rdCost;
     }
 
-    if ((m_limitTU & X265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
+    if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
     {
         CUData* ctu = md.bestMode->cu.m_encData->getPicCTU(parentCTU.m_cuAddr);
         int8_t maxTUDepth = -1;
         for (uint32_t i = 0; i < cuGeom.numPartitions; i++)
-            maxTUDepth = X265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
+            maxTUDepth = S265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
         ctu->m_refTuDepth[cuGeom.geomRecurId] = maxTUDepth;
     }
 
@@ -776,7 +776,7 @@ void Analysis::processPmode(PMODE& pmode, Analysis& slave)
                 break;
 
             default:
-                X265_CHECK(0, "invalid job ID for parallel mode analysis\n");
+                S265_CHECK(0, "invalid job ID for parallel mode analysis\n");
                 break;
             }
         }
@@ -844,7 +844,7 @@ void Analysis::processPmode(PMODE& pmode, Analysis& slave)
                 break;
 
             default:
-                X265_CHECK(0, "invalid job ID for parallel mode analysis\n");
+                S265_CHECK(0, "invalid job ID for parallel mode analysis\n");
                 break;
             }
         }
@@ -870,7 +870,7 @@ uint32_t Analysis::compressInterCU_dist(const CUData& parentCTU, const CUGeom& c
     uint32_t minDepth = m_param->rdLevel <= 4 ? topSkipMinDepth(parentCTU, cuGeom) : 0;
     uint32_t splitRefs[4] = { 0, 0, 0, 0 };
 
-    X265_CHECK(m_param->rdLevel >= 2, "compressInterCU_dist does not support RD 0 or 1\n");
+    S265_CHECK(m_param->rdLevel >= 2, "compressInterCU_dist does not support RD 0 or 1\n");
 
     PMODE pmode(*this, cuGeom);
 
@@ -1017,7 +1017,7 @@ uint32_t Analysis::compressInterCU_dist(const CUData& parentCTU, const CUGeom& c
             if (m_param->rdLevel > 2)
             {
                 /* RD selection between merge, inter, bidir and intra */
-                if (!m_bChromaSa8d && (m_csp != X265_CSP_I400)) /* When m_bChromaSa8d is enabled, chroma MC has already been done */
+                if (!m_bChromaSa8d && (m_csp != S265_CSP_I400)) /* When m_bChromaSa8d is enabled, chroma MC has already been done */
                 {
                     uint32_t numPU = bestInter->cu.getNumPartInter(0);
                     for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
@@ -1112,7 +1112,7 @@ uint32_t Analysis::compressInterCU_dist(const CUData& parentCTU, const CUGeom& c
 
     /* determine which motion references the parent CU should search */
     uint32_t refMask;
-    if (!(m_param->limitReferences & X265_REF_LIMIT_DEPTH))
+    if (!(m_param->limitReferences & S265_REF_LIMIT_DEPTH))
         refMask = 0;
     else if (md.bestMode == &md.pred[PRED_SPLIT])
         refMask = splitRefs[0] | splitRefs[1] | splitRefs[2] | splitRefs[3];
@@ -1153,7 +1153,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
     ModeDepth& md = m_modeDepth[depth];
 
 
-    if (m_param->searchMethod == X265_SEA)
+    if (m_param->searchMethod == S265_SEA)
     {
         int numPredDir = m_slice->isInterP() ? 1 : 2;
         int offset = (int)(m_frame->m_reconPic->m_cuOffsetY[parentCTU.m_cuAddr] + m_frame->m_reconPic->m_buOffsetY[cuGeom.absPartIdx]);
@@ -1198,7 +1198,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
             minDepth = depth;
         }
 
-        if ((m_limitTU & X265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
+        if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
             m_maxTUDepth = loadTUDepth(cuGeom, parentCTU);
 
         SplitData splitData[4];
@@ -1420,7 +1420,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
                 md.pred[PRED_2Nx2N].cu.initSubCU(parentCTU, cuGeom, qp);
                 checkInter_rd0_4(md.pred[PRED_2Nx2N], cuGeom, SIZE_2Nx2N, refMasks);
 
-                if (m_param->limitReferences & X265_REF_LIMIT_CU)
+                if (m_param->limitReferences & S265_REF_LIMIT_CU)
                 {
                     CUData& cu = md.pred[PRED_2Nx2N].cu;
                     uint32_t refMask = cu.getBestRefIdx(0);
@@ -1596,7 +1596,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
                 if (m_param->rdLevel >= 3)
                 {
                     /* Calculate RD cost of best inter option */
-                    if ((!m_bChromaSa8d && (m_csp != X265_CSP_I400)) || (m_frame->m_fencPic->m_picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400)) /* When m_bChromaSa8d is enabled, chroma MC has already been done */
+                    if ((!m_bChromaSa8d && (m_csp != S265_CSP_I400)) || (m_frame->m_fencPic->m_picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400)) /* When m_bChromaSa8d is enabled, chroma MC has already been done */
                     {
                         uint32_t numPU = bestInter->cu.getNumPartInter(0);
                         for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
@@ -1616,7 +1616,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
                             md.pred[PRED_BIDIR].sa8dCost * 16 <= bestInter->sa8dCost * 17)
                         {
                             uint32_t numPU = md.pred[PRED_BIDIR].cu.getNumPartInter(0);
-                            if (m_frame->m_fencPic->m_picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400)
+                            if (m_frame->m_fencPic->m_picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400)
                                 for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
                                 {
                                     PredictionUnit pu(md.pred[PRED_BIDIR].cu, cuGeom, puIdx);
@@ -1682,7 +1682,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
                     else if (md.bestMode->cu.isInter(0))
                     {
                         uint32_t numPU = md.bestMode->cu.getNumPartInter(0);
-                        if (m_csp != X265_CSP_I400)
+                        if (m_csp != S265_CSP_I400)
                         {
                             for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
                             {
@@ -1724,7 +1724,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
                             cu.getIntraTUQtDepthRange(tuDepthRange, 0);
 
                             residualTransformQuantIntra(*md.bestMode, cuGeom, 0, 0, tuDepthRange);
-                            if (m_csp != X265_CSP_I400)
+                            if (m_csp != S265_CSP_I400)
                             {
                                 getBestIntraModeChroma(*md.bestMode, cuGeom);
                                 residualQTIntraChroma(*md.bestMode, cuGeom, 0, 0);
@@ -1758,7 +1758,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
         /* determine which motion references the parent CU should search */
         splitCUData.initSplitCUData();
 
-        if (m_param->limitReferences & X265_REF_LIMIT_DEPTH)
+        if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
         {
             if (md.bestMode == &md.pred[PRED_SPLIT])
                 splitCUData.splitRefs = allSplitRefs;
@@ -1793,14 +1793,14 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
         if (m_param->rdLevel)
             md.bestMode->reconYuv.copyToPicYuv(reconPic, cuAddr, cuGeom.absPartIdx);
 
-        if ((m_limitTU & X265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
+        if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
         {
             if (mightNotSplit)
             {
                 CUData* ctu = md.bestMode->cu.m_encData->getPicCTU(parentCTU.m_cuAddr);
                 int8_t maxTUDepth = -1;
                 for (uint32_t i = 0; i < cuGeom.numPartitions; i++)
-                    maxTUDepth = X265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
+                    maxTUDepth = S265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
                 ctu->m_refTuDepth[cuGeom.geomRecurId] = maxTUDepth;
             }
         }
@@ -1821,7 +1821,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
 
             splitCUData.initSplitCUData();
 
-            if (m_param->limitReferences & X265_REF_LIMIT_DEPTH)
+            if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
             {
                 if (md.bestMode == &md.pred[PRED_SPLIT])
                     splitCUData.splitRefs = allSplitRefs;
@@ -1856,7 +1856,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
     ModeDepth& md = m_modeDepth[depth];
     md.bestMode = NULL;
 
-    if (m_param->searchMethod == X265_SEA)
+    if (m_param->searchMethod == S265_SEA)
     {
         int numPredDir = m_slice->isInterP() ? 1 : 2;
         int offset = (int)(m_frame->m_reconPic->m_cuOffsetY[parentCTU.m_cuAddr] + m_frame->m_reconPic->m_buOffsetY[cuGeom.absPartIdx]);
@@ -1904,7 +1904,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
             md.pred[PRED_2Nx2N].rdCost = 0;
         }
 
-        if ((m_limitTU & X265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
+        if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
             m_maxTUDepth = loadTUDepth(cuGeom, parentCTU);
 
         SplitData splitData[4];
@@ -2109,7 +2109,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
             {
                 refMasks[0] = allSplitRefs;
 
-                if (m_param->limitReferences & X265_REF_LIMIT_CU)
+                if (m_param->limitReferences & S265_REF_LIMIT_CU)
                 {
                     CUData& cu = md.pred[PRED_2Nx2N].cu;
                     uint32_t refMask = cu.getBestRefIdx(0);
@@ -2123,7 +2123,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
                     if (md.pred[PRED_BIDIR].sa8dCost < MAX_INT64)
                     {
                         uint32_t numPU = md.pred[PRED_BIDIR].cu.getNumPartInter(0);
-                        if (m_frame->m_fencPic->m_picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400)
+                        if (m_frame->m_fencPic->m_picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400)
                             for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
                             {
                                 PredictionUnit pu(md.pred[PRED_BIDIR].cu, cuGeom, puIdx);
@@ -2308,14 +2308,14 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
                 }
             }
 
-            if ((md.bestMode->cu.isInter(0) && !(md.bestMode->cu.m_mergeFlag[0] && md.bestMode->cu.m_partSize[0] == SIZE_2Nx2N)) && (m_frame->m_fencPic->m_picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400))
+            if ((md.bestMode->cu.isInter(0) && !(md.bestMode->cu.m_mergeFlag[0] && md.bestMode->cu.m_partSize[0] == SIZE_2Nx2N)) && (m_frame->m_fencPic->m_picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400))
             {
                 uint32_t numPU = md.bestMode->cu.getNumPartInter(0);
 
                 for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
                 {
                     PredictionUnit pu(md.bestMode->cu, cuGeom, puIdx);
-                    motionCompensation(md.bestMode->cu, pu, md.bestMode->predYuv, false, m_csp != X265_CSP_I400);
+                    motionCompensation(md.bestMode->cu, pu, md.bestMode->predYuv, false, m_csp != S265_CSP_I400);
                 }
                 encodeResAndCalcRdInterCU(*md.bestMode, cuGeom);
             }
@@ -2326,14 +2326,14 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
                 addSplitFlagCost(*md.bestMode, cuGeom.depth);
         }
 
-        if ((m_limitTU & X265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
+        if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
         {
             if (mightNotSplit)
             {
                 CUData* ctu = md.bestMode->cu.m_encData->getPicCTU(parentCTU.m_cuAddr);
                 int8_t maxTUDepth = -1;
                 for (uint32_t i = 0; i < cuGeom.numPartitions; i++)
-                    maxTUDepth = X265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
+                    maxTUDepth = S265_MAX(maxTUDepth, md.bestMode->cu.m_tuDepth[i]);
                 ctu->m_refTuDepth[cuGeom.geomRecurId] = maxTUDepth;
             }
         }
@@ -2350,7 +2350,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
 
         /* determine which motion references the parent CU should search */
         splitCUData.initSplitCUData();
-        if (m_param->limitReferences & X265_REF_LIMIT_DEPTH)
+        if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
         {
             if (md.bestMode == &md.pred[PRED_SPLIT])
                 splitCUData.splitRefs = allSplitRefs;
@@ -2390,7 +2390,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
             uint32_t allSplitRefs = splitData[0].splitRefs | splitData[1].splitRefs | splitData[2].splitRefs | splitData[3].splitRefs;
 
             splitCUData.initSplitCUData();
-            if (m_param->limitReferences & X265_REF_LIMIT_DEPTH)
+            if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
             {
                 if (md.bestMode == &md.pred[PRED_SPLIT])
                     splitCUData.splitRefs = allSplitRefs;
@@ -2477,7 +2477,7 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
                 PredictionUnit pu(mode.cu, cuGeom, part);
                 if (m_param->analysisLoadReuseLevel == 10 || (m_param->bAnalysisType == AVC_INFO && m_param->analysisLoadReuseLevel >= 7))
                 {
-                    x265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
+                    s265_analysis_inter_data* interDataCTU = m_frame->m_analysisData.interData;
                     int cuIdx = (mode.cu.m_cuAddr * parentCTU.m_numPartitions) + cuGeom.absPartIdx;
                     mode.cu.m_mergeFlag[pu.puAbsPartIdx] = interDataCTU->mergeFlag[cuIdx + part];
                     mode.cu.setPUInterDir(interDataCTU->interDir[cuIdx + part], pu.puAbsPartIdx, part);
@@ -2541,7 +2541,7 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
                         mode.cu.setPURefIdx(1, (int8_t)candMvField[mvpIdx][1].refIdx, pu.puAbsPartIdx, part);
                     }
                 }
-                motionCompensation(mode.cu, pu, mode.predYuv, true, (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400));
+                motionCompensation(mode.cu, pu, mode.predYuv, true, (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400));
             }
             if (!m_param->interRefine && !m_param->bDynamicRefine && parentCTU.isSkipped(cuGeom.absPartIdx))
                 encodeResAndCalcRdSkipCU(mode);
@@ -2671,26 +2671,26 @@ void Analysis::classifyCU(const CUData& ctu, const CUGeom& cuGeom, const Mode& b
     trainData.cuVariance = calculateCUVariance(ctu, cuGeom);
     if (m_frame->m_classifyFrame)
     {
-        uint64_t diffRefine[X265_REFINE_INTER_LEVELS];
-        uint64_t diffRefineRd[X265_REFINE_INTER_LEVELS];
-        float probRefine[X265_REFINE_INTER_LEVELS] = { 0 };
+        uint64_t diffRefine[S265_REFINE_INTER_LEVELS];
+        uint64_t diffRefineRd[S265_REFINE_INTER_LEVELS];
+        float probRefine[S265_REFINE_INTER_LEVELS] = { 0 };
         uint8_t varRefineLevel = 1;
         uint8_t rdRefineLevel = 1;
         uint64_t cuCost = bestMode.rdCost;
-        int offset = (depth * X265_REFINE_INTER_LEVELS);
+        int offset = (depth * S265_REFINE_INTER_LEVELS);
         if (cuCost < m_frame->m_classifyRd[offset])
             m_refineLevel = 1;
         else
         {
             uint64_t trainingCount = 0;
-            for (uint8_t i = 0; i < X265_REFINE_INTER_LEVELS; i++)
+            for (uint8_t i = 0; i < S265_REFINE_INTER_LEVELS; i++)
             {
-                offset = (depth * X265_REFINE_INTER_LEVELS) + i;
+                offset = (depth * S265_REFINE_INTER_LEVELS) + i;
                 trainingCount += m_frame->m_classifyCount[offset];
             }
-            for (uint8_t i = 0; i < X265_REFINE_INTER_LEVELS; i++)
+            for (uint8_t i = 0; i < S265_REFINE_INTER_LEVELS; i++)
             {
-                offset = (depth * X265_REFINE_INTER_LEVELS) + i;
+                offset = (depth * S265_REFINE_INTER_LEVELS) + i;
                 /* Calculate distance values */
                 diffRefine[i] = abs((int64_t)(trainData.cuVariance - m_frame->m_classifyVariance[offset]));
                 diffRefineRd[i] = abs((int64_t)(cuCost - m_frame->m_classifyRd[offset]));
@@ -2710,7 +2710,7 @@ void Analysis::classifyCU(const CUData& ctu, const CUGeom& cuGeom, const Mode& b
                 if ((diffRefineRd[i] * probRefine[curRefineLevel]) < (diffRefineRd[curRefineLevel] * probRefine[i]))
                     rdRefineLevel = i + 1;
             }
-            m_refineLevel = X265_MAX(varRefineLevel, rdRefineLevel);
+            m_refineLevel = S265_MAX(varRefineLevel, rdRefineLevel);
         }
     }
 }
@@ -2740,7 +2740,7 @@ void Analysis::trainCU(const CUData& ctu, const CUGeom& cuGeom, const Mode& best
     else
         classify = m_refineLevel;
     uint64_t cuCost = bestMode.rdCost;
-    int offset = (depth * X265_REFINE_INTER_LEVELS) + classify - 1;
+    int offset = (depth * S265_REFINE_INTER_LEVELS) + classify - 1;
     ctu.m_collectCURd[offset] += cuCost;
     ctu.m_collectCUVariance[offset] += trainData.cuVariance;
     ctu.m_collectCUCount[offset]++;
@@ -2758,7 +2758,7 @@ void Analysis::checkMerge2Nx2N_rd0_4(Mode& skip, Mode& merge, const CUGeom& cuGe
     Mode* tempPred = &merge;
     Mode* bestPred = &skip;
 
-    X265_CHECK(m_slice->m_sliceType != I_SLICE, "Evaluating merge in I slice\n");
+    S265_CHECK(m_slice->m_sliceType != I_SLICE, "Evaluating merge in I slice\n");
 
     tempPred->initCosts();
     tempPred->cu.setPartSizeSubParts(SIZE_2Nx2N);
@@ -2792,12 +2792,12 @@ void Analysis::checkMerge2Nx2N_rd0_4(Mode& skip, Mode& merge, const CUGeom& cuGe
             if (m_param->maxSlices > 1)
             {
                 // NOTE: First row in slice can't negative
-                if (X265_MIN(candMvField[i][0].mv.y, candMvField[i][1].mv.y) < m_sliceMinY)
+                if (S265_MIN(candMvField[i][0].mv.y, candMvField[i][1].mv.y) < m_sliceMinY)
                     continue;
 
                 // Last row in slice can't reference beyond bound since it is another slice area
                 // TODO: we may beyond bound in future since these area have a chance to finish because we use parallel slices. Necessary prepare research on load balance
-                if (X265_MAX(candMvField[i][0].mv.y, candMvField[i][1].mv.y) > m_sliceMaxY)
+                if (S265_MAX(candMvField[i][0].mv.y, candMvField[i][1].mv.y) > m_sliceMaxY)
                     continue;
             }
 
@@ -2813,17 +2813,17 @@ void Analysis::checkMerge2Nx2N_rd0_4(Mode& skip, Mode& merge, const CUGeom& cuGe
             continue;
 
         tempPred->cu.m_mvpIdx[0][0] = (uint8_t)i; // merge candidate ID is stored in L0 MVP idx
-        X265_CHECK(m_slice->m_sliceType == B_SLICE || !(candDir[i] & 0x10), " invalid merge for P slice\n");
+        S265_CHECK(m_slice->m_sliceType == B_SLICE || !(candDir[i] & 0x10), " invalid merge for P slice\n");
         tempPred->cu.m_interDir[0] = candDir[i];
         tempPred->cu.m_mv[0][0] = candMvField[i][0].mv;
         tempPred->cu.m_mv[1][0] = candMvField[i][1].mv;
         tempPred->cu.m_refIdx[0][0] = (int8_t)candMvField[i][0].refIdx;
         tempPred->cu.m_refIdx[1][0] = (int8_t)candMvField[i][1].refIdx;
-        motionCompensation(tempPred->cu, pu, tempPred->predYuv, true, m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400));
+        motionCompensation(tempPred->cu, pu, tempPred->predYuv, true, m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400));
 
         tempPred->sa8dBits = getTUBits(i, numMergeCand);
         tempPred->distortion = primitives.cu[sizeIdx].sa8d(fencYuv->m_buf[0], fencYuv->m_size, tempPred->predYuv.m_buf[0], tempPred->predYuv.m_size);
-        if (m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400))
+        if (m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400))
         {
             tempPred->distortion += primitives.chroma[m_csp].cu[sizeIdx].sa8d(fencYuv->m_buf[1], fencYuv->m_csize, tempPred->predYuv.m_buf[1], tempPred->predYuv.m_csize);
             tempPred->distortion += primitives.chroma[m_csp].cu[sizeIdx].sa8d(fencYuv->m_buf[2], fencYuv->m_csize, tempPred->predYuv.m_buf[2], tempPred->predYuv.m_csize);
@@ -2842,7 +2842,7 @@ void Analysis::checkMerge2Nx2N_rd0_4(Mode& skip, Mode& merge, const CUGeom& cuGe
         return;
 
     /* calculate the motion compensation for chroma for the best mode selected */
-    if ((!m_bChromaSa8d && (m_csp != X265_CSP_I400)) || (m_frame->m_fencPic->m_picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400)) /* Chroma MC was done above */
+    if ((!m_bChromaSa8d && (m_csp != S265_CSP_I400)) || (m_frame->m_fencPic->m_picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400)) /* Chroma MC was done above */
         motionCompensation(bestPred->cu, pu, bestPred->predYuv, false, true);
 
     if (m_param->rdLevel)
@@ -2922,12 +2922,12 @@ void Analysis::checkMerge2Nx2N_rd5_6(Mode& skip, Mode& merge, const CUGeom& cuGe
             if (m_param->maxSlices > 1)
             {
                 // NOTE: First row in slice can't negative
-                if (X265_MIN(candMvField[i][0].mv.y, candMvField[i][1].mv.y) < m_sliceMinY)
+                if (S265_MIN(candMvField[i][0].mv.y, candMvField[i][1].mv.y) < m_sliceMinY)
                     continue;
 
                 // Last row in slice can't reference beyond bound since it is another slice area
                 // TODO: we may beyond bound in future since these area have a chance to finish because we use parallel slices. Necessary prepare research on load balance
-                if (X265_MAX(candMvField[i][0].mv.y, candMvField[i][1].mv.y) > m_sliceMaxY)
+                if (S265_MAX(candMvField[i][0].mv.y, candMvField[i][1].mv.y) > m_sliceMaxY)
                     continue;
             }
 
@@ -2964,7 +2964,7 @@ void Analysis::checkMerge2Nx2N_rd5_6(Mode& skip, Mode& merge, const CUGeom& cuGe
         tempPred->cu.m_refIdx[1][0] = (int8_t)candMvField[i][1].refIdx;
         tempPred->cu.setPredModeSubParts(MODE_INTER); /* must be cleared between encode iterations */
 
-        motionCompensation(tempPred->cu, pu, tempPred->predYuv, true, m_csp != X265_CSP_I400);
+        motionCompensation(tempPred->cu, pu, tempPred->predYuv, true, m_csp != S265_CSP_I400);
 
         uint8_t hasCbf = true;
         bool swapped = false;
@@ -3056,14 +3056,14 @@ void Analysis::checkInter_rd0_4(Mode& interMode, const CUGeom& cuGeom, PartSize 
             }
         }
     }
-    predInterSearch(interMode, cuGeom, m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400), refMask);
+    predInterSearch(interMode, cuGeom, m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400), refMask);
 
     /* predInterSearch sets interMode.sa8dBits */
     const Yuv& fencYuv = *interMode.fencYuv;
     Yuv& predYuv = interMode.predYuv;
     int part = partitionFromLog2Size(cuGeom.log2CUSize);
     interMode.distortion = primitives.cu[part].sa8d(fencYuv.m_buf[0], fencYuv.m_size, predYuv.m_buf[0], predYuv.m_size);
-    if (m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400))
+    if (m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400))
     {
         interMode.distortion += primitives.chroma[m_csp].cu[part].sa8d(fencYuv.m_buf[1], fencYuv.m_csize, predYuv.m_buf[1], predYuv.m_csize);
         interMode.distortion += primitives.chroma[m_csp].cu[part].sa8d(fencYuv.m_buf[2], fencYuv.m_csize, predYuv.m_buf[2], predYuv.m_csize);
@@ -3122,7 +3122,7 @@ void Analysis::checkInter_rd5_6(Mode& interMode, const CUGeom& cuGeom, PartSize 
         }
     }
 
-    predInterSearch(interMode, cuGeom, m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400, refMask);
+    predInterSearch(interMode, cuGeom, m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400, refMask);
 
     /* predInterSearch sets interMode.sa8dBits, but this is ignored */
     encodeResAndCalcRdInterCU(interMode, cuGeom);
@@ -3185,10 +3185,10 @@ void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom&
     cu.m_mvd[1][0] = bestME[1].mv - mvp1;
 
     PredictionUnit pu(cu, cuGeom, 0);
-    motionCompensation(cu, pu, bidir2Nx2N.predYuv, true, m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400));
+    motionCompensation(cu, pu, bidir2Nx2N.predYuv, true, m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400));
 
     int sa8d = primitives.cu[partEnum].sa8d(fencYuv.m_buf[0], fencYuv.m_size, bidir2Nx2N.predYuv.m_buf[0], bidir2Nx2N.predYuv.m_size);
-    if (m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400))
+    if (m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400))
     {
         /* Add in chroma distortion */
         sa8d += primitives.chroma[m_csp].cu[partEnum].sa8d(fencYuv.m_buf[1], fencYuv.m_csize, bidir2Nx2N.predYuv.m_buf[1], bidir2Nx2N.predYuv.m_csize);
@@ -3203,7 +3203,7 @@ void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom&
         /* Do not try zero MV if unidir motion predictors are beyond
          * valid search area */
         MV mvmin, mvmax;
-        int merange = X265_MAX(m_param->sourceWidth, m_param->sourceHeight);
+        int merange = S265_MAX(m_param->sourceWidth, m_param->sourceHeight);
         setSearchRange(cu, mvzero, merange, mvmin, mvmax);
         mvmax.y += 2; // there is some pad for subpel refine
         mvmin <<= 2;
@@ -3219,7 +3219,7 @@ void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom&
 
         int zsa8d;
 
-        if (m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400))
+        if (m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400))
         {
             cu.m_mv[0][0] = mvzero;
             cu.m_mv[1][0] = mvzero;
@@ -3265,9 +3265,9 @@ void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom&
             if (m_bChromaSa8d) /* real MC was already performed */
                 bidir2Nx2N.predYuv.copyFromYuv(tmpPredYuv);
             else
-                motionCompensation(cu, pu, bidir2Nx2N.predYuv, true, m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400);
+                motionCompensation(cu, pu, bidir2Nx2N.predYuv, true, m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400);
         }
-        else if (m_bChromaSa8d && (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400))
+        else if (m_bChromaSa8d && (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400))
         {
             /* recover overwritten motion vectors */
             cu.m_mv[0][0] = bestME[0].mv;
@@ -3303,7 +3303,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
     Yuv& fencYuv = m_modeDepth[cuGeom.depth].fencYuv;
     if (cuGeom.depth)
         m_modeDepth[0].fencYuv.copyPartToYuv(fencYuv, absPartIdx);
-    X265_CHECK(bestMode->fencYuv == &fencYuv, "invalid fencYuv\n");
+    S265_CHECK(bestMode->fencYuv == &fencYuv, "invalid fencYuv\n");
 
     if (cu.isIntra(0))
     {
@@ -3313,7 +3313,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
         cu.getIntraTUQtDepthRange(tuDepthRange, 0);
 
         residualTransformQuantIntra(*bestMode, cuGeom, 0, 0, tuDepthRange);
-        if (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400)
+        if (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400)
         {
             getBestIntraModeChroma(*bestMode, cuGeom);
             residualQTIntraChroma(*bestMode, cuGeom, 0, 0);
@@ -3323,7 +3323,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
     {
         ProfileCUScope(ctu, interRDOElapsedTime[cuGeom.depth], countInterRDO[cuGeom.depth]); // not really RDO, but close enough
 
-        X265_CHECK(!ctu.isSkipped(absPartIdx), "skip not expected prior to transform\n");
+        S265_CHECK(!ctu.isSkipped(absPartIdx), "skip not expected prior to transform\n");
 
         /* Calculate residual for current CU part into depth sized resiYuv */
 
@@ -3337,7 +3337,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
                                       fencYuv.m_buf[0], predY,
                                       fencYuv.m_size, predYuv.m_size);
 
-        if (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400)
+        if (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400)
         {
             pixel* predU = predYuv.getCbAddr(absPartIdx);
             pixel* predV = predYuv.getCrAddr(absPartIdx);
@@ -3371,7 +3371,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
         else
             primitives.cu[sizeIdx].copy_pp(reconPic.getLumaAddr(cu.m_cuAddr, absPartIdx), reconPic.m_stride,
                                            predY, predYuv.m_size);
-        if (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400)
+        if (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400)
         {
              pixel* predU = predYuv.getCbAddr(absPartIdx);
              pixel* predV = predYuv.getCrAddr(absPartIdx);
@@ -3444,7 +3444,7 @@ uint32_t Analysis::topSkipMinDepth(const CUData& parentCTU, const CUGeom& cuGeom
         for (uint32_t i = 0; i < cuGeom.numPartitions; i += 4)
         {
             uint32_t d = cu.m_cuDepth[cuGeom.absPartIdx + i];
-            minDepth0 = X265_MIN(d, minDepth0);
+            minDepth0 = S265_MIN(d, minDepth0);
             sum += d;
         }
     }
@@ -3457,14 +3457,14 @@ uint32_t Analysis::topSkipMinDepth(const CUData& parentCTU, const CUGeom& cuGeom
         for (uint32_t i = 0; i < cuGeom.numPartitions; i += 4)
         {
             uint32_t d = cu.m_cuDepth[cuGeom.absPartIdx + i];
-            minDepth1 = X265_MIN(d, minDepth1);
+            minDepth1 = S265_MIN(d, minDepth1);
             sum += d;
         }
     }
     if (!numRefs)
         return 0;
 
-    uint32_t minDepth = X265_MIN(minDepth0, minDepth1);
+    uint32_t minDepth = S265_MIN(minDepth0, minDepth1);
     uint32_t thresh = minDepth * numRefs * (cuGeom.numPartitions >> 2);
 
     /* allow block size growth if QP is raising or avg depth is
@@ -3605,7 +3605,7 @@ uint32_t Analysis::calculateCUVariance(const CUData& ctu, const CUGeom& cuGeom)
 
 double Analysis::aqQPOffset(const CUData& ctu, const CUGeom& cuGeom)
 {
-    uint32_t aqDepth = X265_MIN(cuGeom.depth, m_frame->m_lowres.maxAQDepth - 1);
+    uint32_t aqDepth = S265_MIN(cuGeom.depth, m_frame->m_lowres.maxAQDepth - 1);
     PicQPAdaptationLayer* pQPLayer = &m_frame->m_lowres.pAQLayer[aqDepth];
 
     uint32_t aqPosX = (ctu.m_cuPelX + g_zscanToPelX[cuGeom.absPartIdx]) / pQPLayer->aqPartWidth;
@@ -3619,7 +3619,7 @@ double Analysis::aqQPOffset(const CUData& ctu, const CUGeom& cuGeom)
 
 double Analysis::cuTreeQPOffset(const CUData& ctu, const CUGeom& cuGeom)
 {
-    uint32_t aqDepth = X265_MIN(cuGeom.depth, m_frame->m_lowres.maxAQDepth - 1);
+    uint32_t aqDepth = S265_MIN(cuGeom.depth, m_frame->m_lowres.maxAQDepth - 1);
     PicQPAdaptationLayer* pcAQLayer = &m_frame->m_lowres.pAQLayer[aqDepth];
 
     uint32_t aqPosX = (ctu.m_cuPelX + g_zscanToPelX[cuGeom.absPartIdx]) / pcAQLayer->aqPartWidth;
@@ -3639,7 +3639,7 @@ int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int3
 
     if ((m_param->analysisMultiPassDistortion && m_param->rc.bStatRead) || (m_param->ctuDistortionRefine && m_param->analysisLoad))
     {
-        x265_analysis_distortion_data* distortionData = m_frame->m_analysisData.distortionData;
+        s265_analysis_distortion_data* distortionData = m_frame->m_analysisData.distortionData;
         if ((distortionData->threshold[ctu.m_cuAddr] < 0.9 || distortionData->threshold[ctu.m_cuAddr] > 1.1)
             && distortionData->highDistortionCtuCount && distortionData->lowDistortionCtuCount)
             qp += distortionData->offset[ctu.m_cuAddr];
@@ -3649,9 +3649,9 @@ int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int3
     {
         int cuIdx = (ctu.m_cuAddr * ctu.m_numPartitions) + cuGeom.absPartIdx;
         if (ctu.m_slice->m_sliceType == I_SLICE)
-            return x265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int32_t)(qp + 0.5 + ((x265_analysis_intra_data*)m_frame->m_analysisData.intraData)->cuQPOff[cuIdx]));
+            return s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int32_t)(qp + 0.5 + ((s265_analysis_intra_data*)m_frame->m_analysisData.intraData)->cuQPOff[cuIdx]));
         else
-            return x265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int32_t)(qp + 0.5 + ((x265_analysis_inter_data*)m_frame->m_analysisData.interData)->cuQPOff[cuIdx]));
+            return s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int32_t)(qp + 0.5 + ((s265_analysis_inter_data*)m_frame->m_analysisData.interData)->cuQPOff[cuIdx]));
     }
     if (m_param->rc.hevcAq)
     {
@@ -3667,7 +3667,7 @@ int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int3
             if (complexCheck)
             {
                 int32_t offset = (int32_t)(dQpOffset * 100 + .5);
-                double threshold = (1 - ((x265_ADAPT_RD_STRENGTH - m_param->dynamicRd) * 0.5));
+                double threshold = (1 - ((s265_ADAPT_RD_STRENGTH - m_param->dynamicRd) * 0.5));
                 int32_t max_threshold = (int32_t)(threshold * 100 + .5);
                 return (offset < max_threshold);
             }
@@ -3703,21 +3703,21 @@ int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int3
             if (complexCheck)
             {
                 int32_t offset = (int32_t)(dQpOffset * 100 + .5);
-                double threshold = (1 - ((x265_ADAPT_RD_STRENGTH - m_param->dynamicRd) * 0.5));
+                double threshold = (1 - ((s265_ADAPT_RD_STRENGTH - m_param->dynamicRd) * 0.5));
                 int32_t max_threshold = (int32_t)(threshold * 100 + .5);
                 return (offset < max_threshold);
             }
         }
     }
 
-    return x265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int)(qp + 0.5));
+    return s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, (int)(qp + 0.5));
 }
 
 void Analysis::normFactor(const pixel* src, uint32_t blockSize, CUData& ctu, int qp, TextType ttype)
 {
     static const int ssim_c1 = (int)(.01 * .01 * PIXEL_MAX * PIXEL_MAX * 64 + .5); // 416
     static const int ssim_c2 = (int)(.03 * .03 * PIXEL_MAX * PIXEL_MAX * 64 * 63 + .5); // 235963
-    int shift = (X265_DEPTH - 8);
+    int shift = (S265_DEPTH - 8);
 
     double s = 1 + 0.005 * qp;
 
@@ -3759,7 +3759,7 @@ void Analysis::calculateNormFactor(CUData& ctu, int qp)
 
     normFactor(srcY, blockSize, ctu, qp, TEXT_LUMA);
 
-    if (m_csp != X265_CSP_I400 && m_frame->m_fencPic->m_picCsp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400)
     {
         const pixel* srcU = m_modeDepth[0].fencYuv.m_buf[1];
         const pixel* srcV = m_modeDepth[0].fencYuv.m_buf[2];

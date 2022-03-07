@@ -4,11 +4,11 @@
 #include "common.h"
 #include "slicetype.h"      // LOWRES_COST_MASK
 #include "primitives.h"
-#include "x265.h"
+#include "s265.h"
 
 
 
-namespace X265_NS
+namespace S265_NS
 {
 
 

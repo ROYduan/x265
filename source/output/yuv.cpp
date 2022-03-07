@@ -18,14 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "output.h"
 #include "yuv.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 using namespace std;
 
 YUVOutput::YUVOutput(const char *filename, int w, int h, uint32_t d, int csp)
@@ -38,8 +38,8 @@ YUVOutput::YUVOutput(const char *filename, int w, int h, uint32_t d, int csp)
     ofs.open(filename, ios::binary | ios::out);
     buf = new char[width];
 
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
-        frameSize += (uint32_t)((width >> x265_cli_csps[colorSpace].width[i]) * (height >> x265_cli_csps[colorSpace].height[i]));
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
+        frameSize += (uint32_t)((width >> s265_cli_csps[colorSpace].width[i]) * (height >> s265_cli_csps[colorSpace].height[i]));
 }
 
 YUVOutput::~YUVOutput()
@@ -48,28 +48,28 @@ YUVOutput::~YUVOutput()
     delete [] buf;
 }
 
-bool YUVOutput::writePicture(const x265_picture& pic)
+bool YUVOutput::writePicture(const s265_picture& pic)
 {
     uint64_t fileOffset = pic.poc;
     fileOffset *= frameSize;
 
-    X265_CHECK(pic.colorSpace == colorSpace, "invalid chroma subsampling\n");
-    X265_CHECK(pic.bitDepth == (int)depth, "invalid bit depth\n");
+    S265_CHECK(pic.colorSpace == colorSpace, "invalid chroma subsampling\n");
+    S265_CHECK(pic.bitDepth == (int)depth, "invalid bit depth\n");
 
 #if HIGH_BIT_DEPTH
     if (depth == 8)
     {
         int shift = pic.bitDepth - 8;
         ofs.seekp((std::streamoff)fileOffset);
-        for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+        for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
         {
             uint16_t *src = (uint16_t*)pic.planes[i];
-            for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+            for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
             {
-                for (int w = 0; w < width >> x265_cli_csps[colorSpace].width[i]; w++)
+                for (int w = 0; w < width >> s265_cli_csps[colorSpace].width[i]; w++)
                     buf[w] = (char)(src[w] >> shift);
 
-                ofs.write(buf, width >> x265_cli_csps[colorSpace].width[i]);
+                ofs.write(buf, width >> s265_cli_csps[colorSpace].width[i]);
                 src += pic.stride[i] / sizeof(*src);
             }
         }
@@ -77,24 +77,24 @@ bool YUVOutput::writePicture(const x265_picture& pic)
     else
     {
         ofs.seekp((std::streamoff)(fileOffset * 2));
-        for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+        for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
         {
             uint16_t *src = (uint16_t*)pic.planes[i];
-            for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+            for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
             {
-                ofs.write((const char*)src, (width * 2) >> x265_cli_csps[colorSpace].width[i]);
+                ofs.write((const char*)src, (width * 2) >> s265_cli_csps[colorSpace].width[i]);
                 src += pic.stride[i] / sizeof(*src);
             }
         }
     }
 #else // if HIGH_BIT_DEPTH
     ofs.seekp((std::streamoff)fileOffset);
-    for (int i = 0; i < x265_cli_csps[colorSpace].planes; i++)
+    for (int i = 0; i < s265_cli_csps[colorSpace].planes; i++)
     {
         char *src = (char*)pic.planes[i];
-        for (int h = 0; h < height >> x265_cli_csps[colorSpace].height[i]; h++)
+        for (int h = 0; h < height >> s265_cli_csps[colorSpace].height[i]; h++)
         {
-            ofs.write(src, width >> x265_cli_csps[colorSpace].width[i]);
+            ofs.write(src, width >> s265_cli_csps[colorSpace].width[i]);
             src += pic.stride[i] / sizeof(*src);
         }
     }

@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -31,7 +31,7 @@
 .text
 
 
-function x265_pixel_sse_pp_4x4_neon
+function s265_pixel_sse_pp_4x4_neon
     vld1.32     {d16[]}, [r0], r1
     vld1.32     {d17[]}, [r2], r3
     vsubl.u8    q2, d16, d17
@@ -57,7 +57,7 @@ function x265_pixel_sse_pp_4x4_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_pp_8x8_neon
+function s265_pixel_sse_pp_8x8_neon
     vld1.64     {d16}, [r0], r1
     vld1.64     {d17}, [r2], r3
     vsubl.u8    q2, d16, d17
@@ -82,7 +82,7 @@ function x265_pixel_sse_pp_8x8_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_pp_16x16_neon
+function s265_pixel_sse_pp_16x16_neon
     vld1.64     {d16-d17}, [r0], r1
     vld1.64     {d18-d19}, [r2], r3
     vsubl.u8    q2, d16, d18
@@ -116,7 +116,7 @@ function x265_pixel_sse_pp_16x16_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_pp_32x32_neon
+function s265_pixel_sse_pp_32x32_neon
     mov         r12, #8
     veor.u8     q0, q0
     veor.u8     q1, q1
@@ -147,7 +147,7 @@ function x265_pixel_sse_pp_32x32_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_pp_64x64_neon
+function s265_pixel_sse_pp_64x64_neon
     sub         r1, #32
     sub         r3, #32
     mov         r12, #16
@@ -195,7 +195,7 @@ function x265_pixel_sse_pp_64x64_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_ss_4x4_neon
+function s265_pixel_sse_ss_4x4_neon
     add         r1, r1
     add         r3, r3
 
@@ -225,7 +225,7 @@ function x265_pixel_sse_ss_4x4_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_ss_8x8_neon
+function s265_pixel_sse_ss_8x8_neon
     add         r1, r1
     add         r3, r3
 
@@ -249,7 +249,7 @@ function x265_pixel_sse_ss_8x8_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_ss_16x16_neon
+function s265_pixel_sse_ss_16x16_neon
     add         r1, r1
     add         r3, r3
 
@@ -277,7 +277,7 @@ function x265_pixel_sse_ss_16x16_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_ss_32x32_neon
+function s265_pixel_sse_ss_32x32_neon
     add         r1, r1
     add         r3, r3
     sub         r1, #32
@@ -315,7 +315,7 @@ function x265_pixel_sse_ss_32x32_neon
     bx          lr
 endfunc
 
-function x265_pixel_sse_ss_64x64_neon
+function s265_pixel_sse_ss_64x64_neon
     add         r1, r1
     add         r3, r3
     sub         r1, #96
@@ -371,7 +371,7 @@ function x265_pixel_sse_ss_64x64_neon
     bx          lr
 endfunc
 
-function x265_pixel_ssd_s_4x4_neon
+function s265_pixel_ssd_s_4x4_neon
     add         r1, r1
     vld1.s16    {d4}, [r0], r1
     vld1.s16    {d5}, [r0], r1
@@ -388,7 +388,7 @@ function x265_pixel_ssd_s_4x4_neon
     bx          lr
 endfunc
 
-function x265_pixel_ssd_s_8x8_neon
+function s265_pixel_ssd_s_8x8_neon
     add         r1, r1
     vld1.s16    {q8}, [r0], r1
     vld1.s16    {q9}, [r0], r1
@@ -411,7 +411,7 @@ function x265_pixel_ssd_s_8x8_neon
     bx          lr
 endfunc
 
-function x265_pixel_ssd_s_16x16_neon
+function s265_pixel_ssd_s_16x16_neon
     add         r1, r1
     mov         r12, #4
     veor.u8     q0, q0
@@ -439,7 +439,7 @@ function x265_pixel_ssd_s_16x16_neon
     bx          lr
 endfunc
 
-function x265_pixel_ssd_s_32x32_neon
+function s265_pixel_ssd_s_32x32_neon
     add         r1, r1
     sub         r1, #32
     mov         r12, #8

@@ -44,7 +44,7 @@ add_executable(TestBench ${NASM_SRC}
     ipfilterharness.cpp ipfilterharness.h
     intrapredharness.cpp intrapredharness.h)
 
-target_link_libraries(TestBench x265-static ${PLATFORM_LIBS})
+target_link_libraries(TestBench s265-static ${PLATFORM_LIBS})
 if(LINKER_OPTIONS)
     if(EXTRA_LIB)
         list(APPEND LINKER_OPTIONS "-L..")

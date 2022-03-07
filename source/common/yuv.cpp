@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 
@@ -29,7 +29,7 @@
 #include "picyuv.h"
 #include "primitives.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 Yuv::Yuv()
 {
@@ -52,7 +52,7 @@ bool Yuv::create(uint32_t size, int csp)
             for (int k = 0; k < INTEGRAL_PLANE_NUM; k++)
                 m_integral[i][j][k] = NULL;
 
-    if (csp == X265_CSP_I400)
+    if (csp == S265_CSP_I400)
     {
         CHECKED_MALLOC(m_buf[0], pixel, size * size + 8);
         m_buf[1] = m_buf[2] = 0;
@@ -66,7 +66,7 @@ bool Yuv::create(uint32_t size, int csp)
         size_t sizeL = size * size;
         size_t sizeC = sizeL >> (m_vChromaShift + m_hChromaShift);
 
-        X265_CHECK((sizeC & 15) == 0, "invalid size");
+        S265_CHECK((sizeC & 15) == 0, "invalid size");
 
         // memory allocation (padded for SIMD reads)
         CHECKED_MALLOC(m_buf[0], pixel, sizeL + sizeC * 2 + 8);
@@ -81,14 +81,14 @@ fail:
 
 void Yuv::destroy()
 {
-    X265_FREE(m_buf[0]);
+    S265_FREE(m_buf[0]);
 }
 
 void Yuv::copyToPicYuv(PicYuv& dstPic, uint32_t cuAddr, uint32_t absPartIdx) const
 {
     pixel* dstY = dstPic.getLumaAddr(cuAddr, absPartIdx);
     primitives.cu[m_part].copy_pp(dstY, dstPic.m_stride, m_buf[0], m_size);
-    if (m_csp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400)
     {
         pixel* dstU = dstPic.getCbAddr(cuAddr, absPartIdx);
         pixel* dstV = dstPic.getCrAddr(cuAddr, absPartIdx);
@@ -101,7 +101,7 @@ void Yuv::copyFromPicYuv(const PicYuv& srcPic, uint32_t cuAddr, uint32_t absPart
 {
     const pixel* srcY = srcPic.getLumaAddr(cuAddr, absPartIdx);
     primitives.cu[m_part].copy_pp(m_buf[0], m_size, srcY, srcPic.m_stride);
-    if (m_csp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400)
     {
         const pixel* srcU = srcPic.getCbAddr(cuAddr, absPartIdx);
         const pixel* srcV = srcPic.getCrAddr(cuAddr, absPartIdx);
@@ -112,10 +112,10 @@ void Yuv::copyFromPicYuv(const PicYuv& srcPic, uint32_t cuAddr, uint32_t absPart
 
 void Yuv::copyFromYuv(const Yuv& srcYuv)
 {
-    X265_CHECK(m_size >= srcYuv.m_size, "invalid size\n");
+    S265_CHECK(m_size >= srcYuv.m_size, "invalid size\n");
 
     primitives.cu[m_part].copy_pp(m_buf[0], m_size, srcYuv.m_buf[0], srcYuv.m_size);
-    if (m_csp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400)
     {
         primitives.chroma[m_csp].cu[m_part].copy_pp(m_buf[1], m_csize, srcYuv.m_buf[1], srcYuv.m_csize);
         primitives.chroma[m_csp].cu[m_part].copy_pp(m_buf[2], m_csize, srcYuv.m_buf[2], srcYuv.m_csize);
@@ -125,7 +125,7 @@ void Yuv::copyFromYuv(const Yuv& srcYuv)
 /* This version is intended for use by ME, which required FENC_STRIDE for luma fenc pixels */
 void Yuv::copyPUFromYuv(const Yuv& srcYuv, uint32_t absPartIdx, int partEnum, bool bChroma)
 {
-    X265_CHECK(m_size == FENC_STRIDE && m_size >= srcYuv.m_size, "PU buffer size mismatch\n");
+    S265_CHECK(m_size == FENC_STRIDE && m_size >= srcYuv.m_size, "PU buffer size mismatch\n");
 
     const pixel* srcY = srcYuv.m_buf[0] + getAddrOffset(absPartIdx, srcYuv.m_size);
     primitives.pu[partEnum].copy_pp(m_buf[0], m_size, srcY, srcYuv.m_size);
@@ -143,7 +143,7 @@ void Yuv::copyToPartYuv(Yuv& dstYuv, uint32_t absPartIdx) const
 {
     pixel* dstY = dstYuv.getLumaAddr(absPartIdx);
     primitives.cu[m_part].copy_pp(dstY, dstYuv.m_size, m_buf[0], m_size);
-    if (m_csp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400)
     {
         pixel* dstU = dstYuv.getCbAddr(absPartIdx);
         pixel* dstV = dstYuv.getCrAddr(absPartIdx);
@@ -157,7 +157,7 @@ void Yuv::copyPartToYuv(Yuv& dstYuv, uint32_t absPartIdx) const
     pixel* srcY = m_buf[0] + getAddrOffset(absPartIdx, m_size);
     pixel* dstY = dstYuv.m_buf[0];
     primitives.cu[dstYuv.m_part].copy_pp(dstY, dstYuv.m_size, srcY, m_size);
-    if (m_csp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400)
     {
         pixel* srcU = m_buf[1] + getChromaAddrOffset(absPartIdx);
         pixel* srcV = m_buf[2] + getChromaAddrOffset(absPartIdx);
@@ -172,14 +172,14 @@ void Yuv::addClip(const Yuv& srcYuv0, const ShortYuv& srcYuv1, uint32_t log2Size
 {
     primitives.cu[log2SizeL - 2].add_ps[(m_size % 64 == 0) && (srcYuv0.m_size % 64 == 0) && (srcYuv1.m_size % 64 == 0)](m_buf[0],
                                          m_size, srcYuv0.m_buf[0], srcYuv1.m_buf[0], srcYuv0.m_size, srcYuv1.m_size);
-    if (m_csp != X265_CSP_I400 && picCsp != X265_CSP_I400)
+    if (m_csp != S265_CSP_I400 && picCsp != S265_CSP_I400)
     {
         primitives.chroma[m_csp].cu[log2SizeL - 2].add_ps[(m_csize % 64 == 0) && (srcYuv0.m_csize % 64 ==0) && (srcYuv1.m_csize % 64 == 0)](m_buf[1],
                                                            m_csize, srcYuv0.m_buf[1], srcYuv1.m_buf[1], srcYuv0.m_csize, srcYuv1.m_csize);
         primitives.chroma[m_csp].cu[log2SizeL - 2].add_ps[(m_csize % 64 == 0) && (srcYuv0.m_csize % 64 == 0) && (srcYuv1.m_csize % 64 == 0)](m_buf[2],
                                                            m_csize, srcYuv0.m_buf[2], srcYuv1.m_buf[2], srcYuv0.m_csize, srcYuv1.m_csize);
     }
-    if (picCsp == X265_CSP_I400 && m_csp != X265_CSP_I400)
+    if (picCsp == S265_CSP_I400 && m_csp != S265_CSP_I400)
     {
         primitives.chroma[m_csp].cu[m_part].copy_pp(m_buf[1], m_csize, srcYuv0.m_buf[1], srcYuv0.m_csize);
         primitives.chroma[m_csp].cu[m_part].copy_pp(m_buf[2], m_csize, srcYuv0.m_buf[2], srcYuv0.m_csize);

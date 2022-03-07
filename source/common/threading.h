@@ -20,14 +20,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com
+ * For more information, contact us at license @ s265.com
  *****************************************************************************/
 
-#ifndef X265_THREADING_H
-#define X265_THREADING_H
+#ifndef S265_THREADING_H
+#define S265_THREADING_H
 
 #include "common.h"
-#include "x265.h"
+#include "s265.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -49,8 +49,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 int no_atomic_or(int* ptr, int mask);
 int no_atomic_and(int* ptr, int mask);
 int no_atomic_inc(int* ptr);
@@ -96,8 +96,8 @@ int no_atomic_add(int* ptr, int val);
 
 #endif // ifdef __GNUC__
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 
 #ifdef _WIN32
 
@@ -338,7 +338,7 @@ public:
         if (pthread_mutex_init(&m_mutex, NULL) ||
             pthread_cond_init(&m_cond, NULL))
         {
-            x265_log(NULL, X265_LOG_ERROR, "fatal: unable to initialize conditional variable\n");
+            s265_log(NULL, S265_LOG_ERROR, "fatal: unable to initialize conditional variable\n");
         }
     }
 
@@ -426,7 +426,7 @@ public:
         if (pthread_mutex_init(&m_mutex, NULL) ||
             pthread_cond_init(&m_cond, NULL))
         {
-            x265_log(NULL, X265_LOG_ERROR, "fatal: unable to initialize conditional variable\n");
+            s265_log(NULL, S265_LOG_ERROR, "fatal: unable to initialize conditional variable\n");
         }
     }
 
@@ -805,9 +805,9 @@ protected:
 // accumulator provided to the constructor
 struct ScopedElapsedTime
 {
-    ScopedElapsedTime(int64_t& accum) : accumlatedTime(accum) { startTime = x265_mdate(); }
+    ScopedElapsedTime(int64_t& accum) : accumlatedTime(accum) { startTime = s265_mdate(); }
 
-    ~ScopedElapsedTime() { accumlatedTime += x265_mdate() - startTime; }
+    ~ScopedElapsedTime() { accumlatedTime += s265_mdate() - startTime; }
 
 protected:
 
@@ -839,6 +839,6 @@ public:
 
     void stop();
 };
-} // end namespace X265_NS
+} // end namespace S265_NS
 
-#endif // ifndef X265_THREADING_H
+#endif // ifndef S265_THREADING_H

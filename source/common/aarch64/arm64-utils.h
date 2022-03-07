@@ -2,7 +2,7 @@
 #define __ARM64_UTILS_H__
 
 
-namespace X265_NS
+namespace S265_NS
 {
 void transpose8x8(uint8_t *dst, const uint8_t *src, intptr_t dstride, intptr_t sstride);
 void transpose16x16(uint8_t *dst, const uint8_t *src, intptr_t dstride, intptr_t sstride);

@@ -20,11 +20,11 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 *
 * This program is also available under a commercial proprietary license.
-* For more information, contact us at license @ x265.com.
+* For more information, contact us at license @ s265.com.
 *****************************************************************************/
 
-#ifndef X265_ANALYSIS_H
-#define X265_ANALYSIS_H
+#ifndef S265_ANALYSIS_H
+#define S265_ANALYSIS_H
 
 #include "common.h"
 #include "predict.h"
@@ -36,7 +36,7 @@
 #include "entropy.h"
 #include "search.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class Entropy;
@@ -122,13 +122,13 @@ public:
     int32_t loadTUDepth(CUGeom cuGeom, CUData parentCTU);
 protected:
     /* Analysis data for save/load mode, writes/reads data based on absPartIdx */
-    x265_analysis_inter_data*  m_reuseInterDataCTU;
+    s265_analysis_inter_data*  m_reuseInterDataCTU;
     int32_t*                   m_reuseRef;
     uint8_t*                   m_reuseDepth;
     uint8_t*                   m_reuseModes;
     uint8_t*                   m_reusePartSize;
     uint8_t*                   m_reuseMergeFlag;
-    x265_analysis_MV*          m_reuseMv[2];
+    s265_analysis_MV*          m_reuseMv[2];
     uint8_t*             m_reuseMvpIdx[2];
 
     uint32_t             m_splitRefIdx[4];
@@ -231,4 +231,4 @@ struct ThreadLocalData
 
 }
 
-#endif // ifndef X265_ANALYSIS_H
+#endif // ifndef S265_ANALYSIS_H

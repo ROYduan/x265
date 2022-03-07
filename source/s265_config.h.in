@@ -18,17 +18,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_CONFIG_H
-#define X265_CONFIG_H
+#ifndef S265_CONFIG_H
+#define S265_CONFIG_H
 
 /* Defines generated at build time */
 
-/* Incremented each time public API is changed, X265_BUILD is used as
+/* Incremented each time public API is changed, S265_BUILD is used as
  * the shared library SONAME on platforms which support it. It also
  * prevents linking against a different version of the static lib */
-#define X265_BUILD ${X265_BUILD}
+#define S265_BUILD ${S265_BUILD}
 
 #endif

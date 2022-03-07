@@ -25,8 +25,8 @@
 #include "common.h"
 #include "md5.h"
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 #ifndef ARCH_BIG_ENDIAN
 #define byteReverse(buf, len)   /* Nothing */

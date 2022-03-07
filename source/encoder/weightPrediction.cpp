@@ -21,7 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
@@ -33,7 +33,7 @@
 #include "bitstream.h"
 #include "threading.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 namespace {
 struct Cache
 {
@@ -179,11 +179,11 @@ uint32_t weightCost(pixel *         fenc,
     if (w)
     {
         /* make a weighted copy of the reference plane */
-        int offset = w->inputOffset << (X265_DEPTH - 8);
+        int offset = w->inputOffset << (S265_DEPTH - 8);
         int weight = w->inputWeight;
         int denom = w->log2WeightDenom;
         int round = denom ? 1 << (denom - 1) : 0;
-        int correction = IF_INTERNAL_PREC - X265_DEPTH; /* intermediate interpolation depth */
+        int correction = IF_INTERNAL_PREC - S265_DEPTH; /* intermediate interpolation depth */
         int pwidth = ((width + 31) >> 5) << 5;
         primitives.weight_pp(ref, weightTemp, stride, pwidth, height,
                              weight, round << correction, denom + correction, offset);
@@ -201,11 +201,11 @@ uint32_t weightCost(pixel *         fenc,
             for (int x = 0; x < width; x += 8, cu++)
             {
                 int cmp = primitives.pu[LUMA_8x8].satd(r + x, stride, f + x, stride);
-                cost += X265_MIN(cmp, cache.intraCost[cu]);
+                cost += S265_MIN(cmp, cache.intraCost[cu]);
             }
         }
     }
-    else if (cache.csp == X265_CSP_I444)
+    else if (cache.csp == S265_CSP_I444)
         for (int y = 0; y < height; y += 16, r += 16 * stride, f += 16 * stride)
             for (int x = 0; x < width; x += 16)
                 cost += primitives.pu[LUMA_16x16].satd(r + x, stride, f + x, stride);
@@ -218,8 +218,8 @@ uint32_t weightCost(pixel *         fenc,
 }
 }
 
-namespace X265_NS {
-void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
+namespace S265_NS {
+void weightAnalyse(Slice& slice, Frame& frame, s265_param& param)
 {
     WeightParam wp[2][MAX_NUM_REF][3];
     PicYuv *fencPic = frame.m_fencPic;
@@ -237,7 +237,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
     cache.vshift = CHROMA_V_SHIFT(cache.csp);
 
     /* Use single allocation for motion compensated ref and weight buffers */
-    pixel *mcbuf = X265_MALLOC(pixel, 2 * fencPic->m_stride * fencPic->m_picHeight);
+    pixel *mcbuf = S265_MALLOC(pixel, 2 * fencPic->m_stride * fencPic->m_picHeight);
     if (!mcbuf)
     {
         slice.disableWeights();
@@ -245,7 +245,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
     }
     pixel *weightTemp = mcbuf + fencPic->m_stride * fencPic->m_picHeight;
 
-    int lambda = (int)x265_lambda_tab[X265_LOOKAHEAD_QP];
+    int lambda = (int)s265_lambda_tab[S265_LOOKAHEAD_QP];
     int curPoc = slice.m_poc;
     const float epsilon = 1.f / 128.f;
 
@@ -266,14 +266,14 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
 
         /* prepare estimates */
         float guessScale[3], fencMean[3], refMean[3];
-        for (int plane = 0; plane < (param.internalCsp != X265_CSP_I400 ? 3 : 1); plane++)
+        for (int plane = 0; plane < (param.internalCsp != S265_CSP_I400 ? 3 : 1); plane++)
         {
             SET_WEIGHT(weights[plane], false, 1, 0, 0);
             uint64_t fencVar = fenc.wp_ssd[plane] + !refLowres.wp_ssd[plane];
             uint64_t refVar  = refLowres.wp_ssd[plane] + !refLowres.wp_ssd[plane];
             guessScale[plane] = sqrt((float)fencVar / refVar);
-            fencMean[plane] = (float)fenc.wp_sum[plane] / (numpixels[plane]) / (1 << (X265_DEPTH - 8));
-            refMean[plane]  = (float)refLowres.wp_sum[plane] / (numpixels[plane]) / (1 << (X265_DEPTH - 8));
+            fencMean[plane] = (float)fenc.wp_sum[plane] / (numpixels[plane]) / (1 << (S265_DEPTH - 8));
+            refMean[plane]  = (float)refLowres.wp_sum[plane] / (numpixels[plane]) / (1 << (S265_DEPTH - 8));
         }
 
         /* make sure both our scale factors fit */
@@ -290,14 +290,14 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
 
         MV *mvs = NULL;
 
-        for (int plane = 0; plane < (param.internalCsp != X265_CSP_I400 ? 3 : 1); plane++)
+        for (int plane = 0; plane < (param.internalCsp != S265_CSP_I400 ? 3 : 1); plane++)
         {
             denom = plane ? chromaDenom : lumaDenom;
             if (plane && !weights[0].wtPresent)
                 break;
 
             /* Early termination */
-            x265_emms();
+            s265_emms();
             if (fabsf(refMean[plane] - fencMean[plane]) < 0.5f && fabsf(1.f - guessScale[plane]) < epsilon)
             {
                 SET_WEIGHT(weights[plane], 0, 1 << denom, denom, 0);
@@ -306,7 +306,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
 
             if (plane)
             {
-                int scale = x265_clip3(0, 255, (int)(guessScale[plane] * (1 << denom) + 0.5f));
+                int scale = s265_clip3(0, 255, (int)(guessScale[plane] * (1 << denom) + 0.5f));
                 if (scale > 127)
                     continue;
                 weights[plane].inputWeight = scale;
@@ -329,7 +329,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
                 {
                     /* reference chroma planes must be extended prior to being
                      * used as motion compensation sources */
-                    if (!refFrame->m_bChromaExtended && param.internalCsp != X265_CSP_I400 && frame.m_fencPic->m_picCsp != X265_CSP_I400)
+                    if (!refFrame->m_bChromaExtended && param.internalCsp != S265_CSP_I400 && frame.m_fencPic->m_picCsp != S265_CSP_I400)
                     {
                         refFrame->m_bChromaExtended = true;
                         PicYuv *refPic = refFrame->m_fencPic;
@@ -398,7 +398,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
 
             default:
                 slice.disableWeights();
-                X265_FREE(mcbuf);
+                S265_FREE(mcbuf);
                 return;
             }
 
@@ -416,15 +416,15 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
             static const int scaleDist = 4;
             static const int offsetDist = 2;
 
-            int startScale = x265_clip3(0, 127, minscale - scaleDist);
-            int endScale   = x265_clip3(0, 127, minscale + scaleDist);
+            int startScale = s265_clip3(0, 127, minscale - scaleDist);
+            int endScale   = s265_clip3(0, 127, minscale + scaleDist);
             for (int scale = startScale; scale <= endScale; scale++)
             {
                 int deltaWeight = scale - (1 << mindenom);
                 if (deltaWeight > 127 || deltaWeight <= -128)
                     continue;
 
-                x265_emms();
+                s265_emms();
                 int curScale = scale;
                 int curOffset = (int)(fencMean[plane] - refMean[plane] * curScale / (1 << mindenom) + 0.5f);
                 if (curOffset < -128 || curOffset > 127)
@@ -432,13 +432,13 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
                     /* Rescale considering the constraints on curOffset. We do it in this order
                      * because scale has a much wider range than offset (because of denom), so
                      * it should almost never need to be clamped. */
-                    curOffset = x265_clip3(-128, 127, curOffset);
+                    curOffset = s265_clip3(-128, 127, curOffset);
                     curScale = (int)((1 << mindenom) * (fencMean[plane] - curOffset) / refMean[plane] + 0.5f);
-                    curScale = x265_clip3(0, 127, curScale);
+                    curScale = s265_clip3(0, 127, curScale);
                 }
 
-                int startOffset = x265_clip3(-128, 127, curOffset - offsetDist);
-                int endOffset   = x265_clip3(-128, 127, curOffset + offsetDist);
+                int startOffset = s265_clip3(-128, 127, curOffset - offsetDist);
+                int endOffset   = s265_clip3(-128, 127, curOffset + offsetDist);
                 for (int off = startOffset; off <= endOffset; off++)
                 {
                     WeightParam wsp;
@@ -460,7 +460,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
                 {
                     unsigned long idx;
                     CTZ(idx, minscale);
-                    int shift = X265_MIN((int)idx, mindenom);
+                    int shift = S265_MIN((int)idx, mindenom);
                     mindenom -= shift;
                     minscale >>= shift;
                 }
@@ -500,11 +500,11 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
         }
     }
 
-    X265_FREE(mcbuf);
+    S265_FREE(mcbuf);
 
     memcpy(slice.m_weightPredTable, wp, sizeof(WeightParam) * 2 * MAX_NUM_REF * 3);
 
-    if (param.logLevel >= X265_LOG_FULL)
+    if (param.logLevel >= S265_LOG_FULL)
     {
         char buf[1024];
         int p = 0;
@@ -533,7 +533,7 @@ void weightAnalyse(Slice& slice, Frame& frame, x265_param& param)
         {
             if (p < 80) // pad with spaces to ensure progress line overwritten
                 sprintf(buf + p, "%*s", 80 - p, " ");
-            x265_log(&param, X265_LOG_FULL, "%s\n", buf);
+            s265_log(&param, S265_LOG_FULL, "%s\n", buf);
         }
     }
 }

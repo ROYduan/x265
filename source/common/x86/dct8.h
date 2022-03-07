@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_DCT8_H
-#define X265_DCT8_H
+#ifndef S265_DCT8_H
+#define S265_DCT8_H
 
 FUNCDEF_TU_S2(void, dct, sse2, const int16_t* src, int16_t* dst, intptr_t srcStride);
 FUNCDEF_TU_S2(void, dct, ssse3, const int16_t* src, int16_t* dst, intptr_t srcStride);
@@ -54,4 +54,4 @@ void PFX(idct16_avx512)(const int16_t* src, int16_t* dst, intptr_t dstStride);
 void PFX(idct32_avx512)(const int16_t* src, int16_t* dst, intptr_t dstStride);
 void PFX(dct32_avx512)(const int16_t* src, int16_t* dst, intptr_t srcStride);
 void PFX(dct16_avx512)(const int16_t* src, int16_t* dst, intptr_t srcStride);
-#endif // ifndef X265_DCT8_H
+#endif // ifndef S265_DCT8_H

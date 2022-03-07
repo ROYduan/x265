@@ -19,11 +19,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_FRAMEFILTER_H
-#define X265_FRAMEFILTER_H
+#ifndef S265_FRAMEFILTER_H
+#define S265_FRAMEFILTER_H
 
 #include "common.h"
 #include "frame.h"
@@ -31,8 +31,8 @@
 #include "sao.h"
 #include "threadpool.h" // class BondedTaskGroup
 
-namespace X265_NS {
-// private x265 namespace
+namespace S265_NS {
+// private s265 namespace
 
 class Encoder;
 class Entropy;
@@ -44,7 +44,7 @@ class FrameFilter
 {
 public:
 
-    x265_param*   m_param;
+    s265_param*   m_param;
     Frame*        m_frame;
     int           m_useSao;
     FrameEncoder* m_frameEncoder;
@@ -134,4 +134,4 @@ public:
 };
 }
 
-#endif // ifndef X265_FRAMEFILTER_H
+#endif // ifndef S265_FRAMEFILTER_H

@@ -18,14 +18,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "predict.h"
 #include "intrapredharness.h"
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 IntraPredHarness::IntraPredHarness()
 {

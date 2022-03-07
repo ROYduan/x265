@@ -18,15 +18,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
-#ifndef X265_SCALINGLIST_H
-#define X265_SCALINGLIST_H
+#ifndef S265_SCALINGLIST_H
+#define S265_SCALINGLIST_H
 
 #include "common.h"
 
-namespace X265_NS {
+namespace S265_NS {
 // private namespace
 
 class ScalingList
@@ -79,4 +79,4 @@ protected:
 
 }
 
-#endif // ifndef X265_SCALINGLIST_H
+#endif // ifndef S265_SCALINGLIST_H

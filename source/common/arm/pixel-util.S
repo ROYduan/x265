@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "asm.S"
@@ -38,7 +38,7 @@
     \vpadal         \qsqr_sum, \qsqr_last
 .endm
 
-function x265_pixel_var_8x8_neon
+function s265_pixel_var_8x8_neon
     vld1.u8         {d16}, [r0], r1
     vmull.u8        q1, d16, d16
     vmovl.u8        q0, d16
@@ -74,7 +74,7 @@ function x265_pixel_var_8x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_var_16x16_neon
+function s265_pixel_var_16x16_neon
     veor.u8         q0, q0
     veor.u8         q1, q1
     veor.u8         q2, q2
@@ -115,7 +115,7 @@ function x265_pixel_var_16x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_var_32x32_neon
+function s265_pixel_var_32x32_neon
     veor.u8         q0, q0
     veor.u8         q1, q1
     veor.u8         q2, q2
@@ -164,7 +164,7 @@ function x265_pixel_var_32x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_var_64x64_neon
+function s265_pixel_var_64x64_neon
     sub             r1, #32
     veor.u8         q0, q0
     veor.u8         q1, q1
@@ -249,7 +249,7 @@ endfunc
  * r1   - pred
  * r2   - residual
  * r3   - Stride */
-function x265_getResidual4_neon
+function s265_getResidual4_neon
     lsl             r12, r3, #1
 .rept 2
     vld1.u8         {d0}, [r0], r3
@@ -264,7 +264,7 @@ function x265_getResidual4_neon
     bx              lr
 endfunc
 
-function x265_getResidual8_neon
+function s265_getResidual8_neon
     lsl             r12, r3, #1
 .rept 4
     vld1.u8         {d0}, [r0], r3
@@ -279,7 +279,7 @@ function x265_getResidual8_neon
     bx              lr
 endfunc
 
-function x265_getResidual16_neon
+function s265_getResidual16_neon
     lsl             r12, r3, #1
 .rept 8
     vld1.u8         {d0, d1}, [r0], r3
@@ -296,7 +296,7 @@ function x265_getResidual16_neon
     bx              lr
 endfunc
 
-function x265_getResidual32_neon
+function s265_getResidual32_neon
     push            {r4}
     lsl             r12, r3, #1
     sub             r12, #32
@@ -319,7 +319,7 @@ loop_res32:
 endfunc
 
 // void pixel_sub_ps_neon(int16_t* a, intptr_t dstride, const pixel* b0, const pixel* b1, intptr_t sstride0, intptr_t sstride1)
-function x265_pixel_sub_ps_4x4_neon
+function s265_pixel_sub_ps_4x4_neon
     push            {r4}
     lsl             r1, r1, #1
     ldr             r4, [sp, #4]
@@ -338,7 +338,7 @@ function x265_pixel_sub_ps_4x4_neon
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_8x8_neon
+function s265_pixel_sub_ps_8x8_neon
     push            {r4}
     lsl             r1, r1, #1
     ldr             r4, [sp, #4]
@@ -357,7 +357,7 @@ function x265_pixel_sub_ps_8x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_16x16_neon
+function s265_pixel_sub_ps_16x16_neon
     push            {r4, r5}
     lsl             r1, r1, #1
     ldr             r4, [sp, #8]
@@ -382,7 +382,7 @@ loop_sub16:
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_32x32_neon
+function s265_pixel_sub_ps_32x32_neon
     push            {r4, r5}
     lsl             r1, r1, #1
     ldr             r4, [sp, #8]
@@ -406,7 +406,7 @@ loop_sub32:
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_64x64_neon
+function s265_pixel_sub_ps_64x64_neon
     push            {r4, r5}
     lsl             r1, r1, #1
     ldr             r4, [sp, #8]
@@ -441,7 +441,7 @@ loop_sub64:
 endfunc
 
 // chroma sub_ps
-function x265_pixel_sub_ps_4x8_neon
+function s265_pixel_sub_ps_4x8_neon
     push            {r4}
     lsl             r1, r1, #1
     ldr             r4, [sp, #4]
@@ -460,7 +460,7 @@ function x265_pixel_sub_ps_4x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_8x16_neon
+function s265_pixel_sub_ps_8x16_neon
     push            {r4}
     lsl             r1, r1, #1
     ldr             r4, [sp, #4]
@@ -479,7 +479,7 @@ function x265_pixel_sub_ps_8x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_16x32_neon
+function s265_pixel_sub_ps_16x32_neon
     push            {r4, r5}
     lsl             r1, r1, #1
     ldr             r4, [sp, #8]
@@ -504,7 +504,7 @@ loop_sub_16x32:
     bx              lr
 endfunc
 
-function x265_pixel_sub_ps_32x64_neon
+function s265_pixel_sub_ps_32x64_neon
     push            {r4, r5}
     lsl             r1, r1, #1
     ldr             r4, [sp, #8]
@@ -528,8 +528,8 @@ loop_sub_32x64:
     bx              lr
 endfunc
 
-// void x265_pixel_add_ps_neon(pixel* a, intptr_t dstride, const pixel* b0, const int16_t* b1, intptr_t sstride0, intptr_t sstride1);
-function x265_pixel_add_ps_4x4_neon
+// void s265_pixel_add_ps_neon(pixel* a, intptr_t dstride, const pixel* b0, const int16_t* b1, intptr_t sstride0, intptr_t sstride1);
+function s265_pixel_add_ps_4x4_neon
     push            {r4}
     ldr             r4, [sp, #4]
     ldr             r12, [sp, #8]
@@ -556,7 +556,7 @@ function x265_pixel_add_ps_4x4_neon
     bx              lr
 endfunc
 
-function x265_pixel_add_ps_8x8_neon
+function s265_pixel_add_ps_8x8_neon
     push            {r4}
     ldr             r4, [sp, #4]
     ldr             r12, [sp, #8]
@@ -582,7 +582,7 @@ function x265_pixel_add_ps_8x8_neon
 endfunc
 
 .macro pixel_add_ps_16xN_neon h i
-function x265_pixel_add_ps_16x\h\()_neon
+function s265_pixel_add_ps_16x\h\()_neon
     push            {r4, r5}
     ldr             r4, [sp, #8]
     ldr             r12, [sp, #12]
@@ -625,7 +625,7 @@ pixel_add_ps_16xN_neon 16 2
 pixel_add_ps_16xN_neon 32 4
 
 .macro pixel_add_ps_32xN_neon h i
- function x265_pixel_add_ps_32x\h\()_neon
+ function s265_pixel_add_ps_32x\h\()_neon
     push            {r4, r5}
     ldr             r4, [sp, #8]
     ldr             r12, [sp, #12]
@@ -666,7 +666,7 @@ endfunc
 pixel_add_ps_32xN_neon 32 8
 pixel_add_ps_32xN_neon 64 16
 
-function x265_pixel_add_ps_64x64_neon
+function s265_pixel_add_ps_64x64_neon
     push            {r4, r5}
     vpush           {q4, q5, q6, q7}
     ldr             r4, [sp, #72]
@@ -727,7 +727,7 @@ loop_addps64:
 endfunc
 
 // Chroma add_ps
-function x265_pixel_add_ps_4x8_neon
+function s265_pixel_add_ps_4x8_neon
     push            {r4}
     ldr             r4, [sp, #4]
     ldr             r12, [sp, #8]
@@ -754,7 +754,7 @@ function x265_pixel_add_ps_4x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_add_ps_8x16_neon
+function s265_pixel_add_ps_8x16_neon
     push            {r4, r5}
     ldr             r4, [sp, #8]
     ldr             r12, [sp, #12]
@@ -784,7 +784,7 @@ loop_add_8x16:
 endfunc
 
 // void scale1D_128to64(pixel *dst, const pixel *src)
-function x265_scale1D_128to64_neon 
+function s265_scale1D_128to64_neon 
     mov             r12, #32
 .rept 2
     vld2.u8         {q8, q9}, [r1]!
@@ -804,7 +804,7 @@ function x265_scale1D_128to64_neon
 endfunc
 
 // void scale2D_64to32(pixel* dst, const pixel* src, intptr_t stride)
-function x265_scale2D_64to32_neon
+function s265_scale2D_64to32_neon
     sub             r2, #32
     mov             r3, #16
 loop_scale2D:
@@ -840,7 +840,7 @@ loop_scale2D:
     bx              lr
 endfunc
 
-function x265_pixel_planecopy_cp_neon
+function s265_pixel_planecopy_cp_neon
     push            {r4, r5, r6, r7}
     ldr             r4, [sp, #4 * 4]
     ldr             r5, [sp, #4 * 4 + 4]
@@ -910,7 +910,7 @@ endfunc
     HORIZ_ADD       d0, d0, d1
 .endm
 
-function x265_pixel_satd_4x4_neon
+function s265_pixel_satd_4x4_neon
     satd_4x4_neon
     vmov.32         r0, d0[0]
     bx              lr
@@ -931,7 +931,7 @@ endfunc
     vsubl.u8        \q3, d6, d7
 .endm
 
-.macro x265_satd_4x8_8x4_end_neon
+.macro s265_satd_4x8_8x4_end_neon
     vadd.s16        q0, q8, q10
     vadd.s16        q1, q9, q11
     vsub.s16        q2, q8, q10
@@ -979,16 +979,16 @@ endfunc
     vld1.32         {d6[1]}, [r0,:32], r1
     vsubl.u8        q3, d6, d7
     SUMSUB_AB       q10, q11, q2, q3
-    x265_satd_4x8_8x4_end_neon
+    s265_satd_4x8_8x4_end_neon
 .endm
 
-function x265_pixel_satd_4x8_neon
+function s265_pixel_satd_4x8_neon
     pixel_satd_4x8_neon
     vmov.32         r0, d0[0]
     bx              lr
 endfunc
 
-function x265_pixel_satd_4x16_neon
+function s265_pixel_satd_4x16_neon
     push            {r4, r5}
     eor             r4, r4
     pixel_satd_4x8_neon
@@ -1001,7 +1001,7 @@ function x265_pixel_satd_4x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_4x32_neon
+function s265_pixel_satd_4x32_neon
     push            {r4, r5}
     eor             r4, r4
 .rept 4
@@ -1014,7 +1014,7 @@ function x265_pixel_satd_4x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_12x16_neon
+function s265_pixel_satd_12x16_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1051,7 +1051,7 @@ function x265_pixel_satd_12x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_12x32_neon
+function s265_pixel_satd_12x32_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1087,7 +1087,7 @@ function x265_pixel_satd_12x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x4_neon
+function s265_pixel_satd_8x4_neon
     push            {r4, r5, r6}
     mov             r4, r0
     mov             r5, r2
@@ -1102,7 +1102,7 @@ function x265_pixel_satd_8x4_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x8_neon
+function s265_pixel_satd_8x8_neon
     mov             ip, lr
     push            {r4, r5, r6, r7}
     eor             r4, r4
@@ -1121,7 +1121,7 @@ function x265_pixel_satd_8x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x12_neon
+function s265_pixel_satd_8x12_neon
     push            {r4, r5, r6, r7}
     mov             r4, r0
     mov             r5, r2
@@ -1153,14 +1153,14 @@ function x265_pixel_satd_8x12_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x16_neon
+function s265_pixel_satd_8x16_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1174,14 +1174,14 @@ function x265_pixel_satd_8x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x32_neon
+function s265_pixel_satd_8x32_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 3
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1195,14 +1195,14 @@ function x265_pixel_satd_8x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_8x64_neon
+function s265_pixel_satd_8x64_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 7
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1216,7 +1216,7 @@ function x265_pixel_satd_8x64_neon
     bx              lr
 endfunc
 
-function x265_satd_8x8_neon
+function s265_satd_8x8_neon
     LOAD_DIFF_8x4_1   q8, q9, q10, q11
     vld1.64         {d7}, [r2], r3
     vld1.64         {d6}, [r0,:64], r1
@@ -1240,7 +1240,7 @@ function x265_satd_8x8_neon
 endfunc
 
 // one vertical hadamard pass and two horizontal
-function x265_satd_8x4v_8x8h_neon, export=0
+function s265_satd_8x4v_8x8h_neon, export=0
     SUMSUB_ABCD     q0, q1, q2, q3, q12, q13, q14, q15
     SUMSUB_AB       q12, q14, q0, q2
     SUMSUB_AB       q13, q15, q1, q3
@@ -1271,7 +1271,7 @@ function x265_satd_8x4v_8x8h_neon, export=0
     bx              lr
 endfunc
 
-function x265_satd_16x4_neon, export=0
+function s265_satd_16x4_neon, export=0
     vld1.64         {d2-d3}, [r2], r3
     vld1.64         {d0-d1}, [r0,:128], r1
     vsubl.u8        q8, d0, d2
@@ -1296,13 +1296,13 @@ function x265_satd_16x4_neon, export=0
     vsub.s16        q1, q8, q9
     SUMSUB_AB       q2, q3, q10, q11
     SUMSUB_ABCD     q8, q10, q9, q11, q0, q2, q1, q3
-    b               x265_satd_8x4v_8x8h_neon
+    b               s265_satd_8x4v_8x8h_neon
 endfunc
 
-function x265_pixel_satd_16x4_neon
+function s265_pixel_satd_16x4_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
     vadd.u16        q0, q4, q5
@@ -1313,14 +1313,14 @@ function x265_pixel_satd_16x4_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_16x8_neon
+function s265_pixel_satd_16x8_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1334,14 +1334,14 @@ function x265_pixel_satd_16x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_16x12_neon
+function s265_pixel_satd_16x12_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 2
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1355,14 +1355,14 @@ function x265_pixel_satd_16x12_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_16x16_neon
+function s265_pixel_satd_16x16_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 3
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1376,14 +1376,14 @@ function x265_pixel_satd_16x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_16x24_neon
+function s265_pixel_satd_16x24_neon
     vpush           {d8-d11}
     mov             ip, lr
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 5
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1398,11 +1398,11 @@ function x265_pixel_satd_16x24_neon
 endfunc
 
 .macro pixel_satd_16x32_neon
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q12, q13
     vadd.u16        q5, q14, q15
 .rept 7
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1410,7 +1410,7 @@ endfunc
 .endr
 .endm
 
-function x265_pixel_satd_16x32_neon
+function s265_pixel_satd_16x32_neon
     vpush           {d8-d11}
     mov             ip, lr
     pixel_satd_16x32_neon
@@ -1422,7 +1422,7 @@ function x265_pixel_satd_16x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_16x64_neon
+function s265_pixel_satd_16x64_neon
     push            {r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1446,7 +1446,7 @@ function x265_pixel_satd_16x64_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_24x32_neon
+function s265_pixel_satd_24x32_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1457,7 +1457,7 @@ function x265_pixel_satd_24x32_neon
     veor            q4, q4
     veor            q5, q5
 .rept 4
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1479,7 +1479,7 @@ function x265_pixel_satd_24x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_24x64_neon
+function s265_pixel_satd_24x64_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1490,7 +1490,7 @@ function x265_pixel_satd_24x64_neon
     veor            q4, q4
     veor            q5, q5
 .rept 4
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1516,7 +1516,7 @@ function x265_pixel_satd_24x64_neon
     veor            q4, q4
     veor            q5, q5
 .rept 4
-    bl              x265_satd_8x8_neon
+    bl              s265_satd_8x8_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1541,13 +1541,13 @@ endfunc
 .macro pixel_satd_32x8
     mov             r4, r0
     mov             r5, r2
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
     vadd.u16        q5, q5, q15
 
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
@@ -1555,20 +1555,20 @@ endfunc
 
     add             r0, r4, #16
     add             r2, r5, #16
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
     vadd.u16        q5, q5, q15
 
-    bl              x265_satd_16x4_neon
+    bl              s265_satd_16x4_neon
     vadd.u16        q4, q4, q12
     vadd.u16        q5, q5, q13
     vadd.u16        q4, q4, q14
     vadd.u16        q5, q5, q15
 .endm
 
-function x265_pixel_satd_32x8_neon
+function s265_pixel_satd_32x8_neon
     push            {r4, r5}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1596,7 +1596,7 @@ endfunc
     vmov.32         r6, d0[0]
 .endm
 
-function x265_pixel_satd_32x16_neon
+function s265_pixel_satd_32x16_neon
     push            {r4, r5, r6}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1608,7 +1608,7 @@ function x265_pixel_satd_32x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_32x24_neon
+function s265_pixel_satd_32x24_neon
     push            {r4, r5, r6}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1628,7 +1628,7 @@ function x265_pixel_satd_32x24_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_32x32_neon
+function s265_pixel_satd_32x32_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1645,7 +1645,7 @@ function x265_pixel_satd_32x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_32x48_neon
+function s265_pixel_satd_32x48_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1664,7 +1664,7 @@ function x265_pixel_satd_32x48_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_32x64_neon
+function s265_pixel_satd_32x64_neon
     push            {r4, r5, r6, r7}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1694,7 +1694,7 @@ endfunc
     add             r7, r6
 .endm
 
-function x265_pixel_satd_64x16_neon
+function s265_pixel_satd_64x16_neon
     push            {r4, r5, r6, r7, r8, r9}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1707,7 +1707,7 @@ function x265_pixel_satd_64x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_64x32_neon
+function s265_pixel_satd_64x32_neon
     push            {r4, r5, r6, r7, r8, r9}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1723,33 +1723,11 @@ function x265_pixel_satd_64x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_64x48_neon
+function s265_pixel_satd_64x48_neon
     push            {r4, r5, r6, r7, r8, r9}
     vpush           {d8-d11}
     mov             ip, lr
     eor             r7, r7
-    satd_64x16_neon
-    sub             r0, #48
-    sub             r2, #48
-    satd_64x16_neon
-    sub             r0, #48
-    sub             r2, #48
-    satd_64x16_neon
-    mov             r0, r7
-    vpop            {d8-d11}
-    pop             {r4, r5, r6, r7, r8, r9}
-    mov             lr, ip
-    bx              lr
-endfunc
-
-function x265_pixel_satd_64x64_neon
-    push            {r4, r5, r6, r7, r8, r9}
-    vpush           {d8-d11}
-    mov             ip, lr
-    eor             r7, r7
-    satd_64x16_neon
-    sub             r0, #48
-    sub             r2, #48
     satd_64x16_neon
     sub             r0, #48
     sub             r2, #48
@@ -1764,7 +1742,29 @@ function x265_pixel_satd_64x64_neon
     bx              lr
 endfunc
 
-function x265_pixel_satd_48x64_neon
+function s265_pixel_satd_64x64_neon
+    push            {r4, r5, r6, r7, r8, r9}
+    vpush           {d8-d11}
+    mov             ip, lr
+    eor             r7, r7
+    satd_64x16_neon
+    sub             r0, #48
+    sub             r2, #48
+    satd_64x16_neon
+    sub             r0, #48
+    sub             r2, #48
+    satd_64x16_neon
+    sub             r0, #48
+    sub             r2, #48
+    satd_64x16_neon
+    mov             r0, r7
+    vpop            {d8-d11}
+    pop             {r4, r5, r6, r7, r8, r9}
+    mov             lr, ip
+    bx              lr
+endfunc
+
+function s265_pixel_satd_48x64_neon
     push            {r4, r5, r6, r7, r8, r9}
     vpush           {d8-d11}
     mov             ip, lr
@@ -1823,7 +1823,7 @@ endfunc
 .endm
 
 .macro sa8d_satd_8x8 satd=
-function x265_sa8d_\satd\()8x8_neon, export=0
+function s265_sa8d_\satd\()8x8_neon, export=0
     LOAD_DIFF_8x4   q8,  q9,  q10, q11
     vld1.64         {d7}, [r2], r3
     SUMSUB_AB       q0,  q1,  q8,  q9
@@ -1886,9 +1886,9 @@ endfunc
 
 sa8d_satd_8x8
 
-function x265_pixel_sa8d_8x8_neon
+function s265_pixel_sa8d_8x8_neon
     mov             ip,  lr
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vadd.u16        q0,  q8,  q9
     HORIZ_ADD       d0,  d0,  d1
     mov             lr,  ip
@@ -1898,16 +1898,16 @@ function x265_pixel_sa8d_8x8_neon
     bx              lr
 endfunc
 
-function x265_pixel_sa8d_8x16_neon
+function s265_pixel_sa8d_8x16_neon
     push            {r4, r5}
     mov             ip,  lr
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vadd.u16        q0,  q8,  q9
     HORIZ_ADD       d0,  d0,  d1
     vmov.32         r5, d0[0]
     add             r5,  r5,  #1
     lsr             r5,  r5,  #1
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vadd.u16        q0,  q8,  q9
     HORIZ_ADD       d0,  d0,  d1
     vmov.32         r4, d0[0]
@@ -1919,23 +1919,23 @@ function x265_pixel_sa8d_8x16_neon
     bx              lr
 endfunc
 
-function x265_pixel_sa8d_16x16_neon
+function s265_pixel_sa8d_16x16_neon
     vpush           {d8 - d11}
     mov             ip,  lr
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpaddl.u16      q4,  q8
     vpaddl.u16      q5,  q9
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpadal.u16      q4,  q8
     vpadal.u16      q5,  q9
     sub             r0,  r0,  r1,  lsl #4
     sub             r2,  r2,  r3,  lsl #4
     add             r0,  r0,  #8
     add             r2,  r2,  #8
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpadal.u16      q4,  q8
     vpadal.u16      q5,  q9
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpaddl.u16      q8,  q8
     vpaddl.u16      q9,  q9
     vadd.u32        q0,  q4,  q8
@@ -1951,7 +1951,7 @@ function x265_pixel_sa8d_16x16_neon
     bx              lr
 endfunc
 
-function x265_quant_neon
+function s265_quant_neon
     push            {r4-r6}
     ldr             r4, [sp, #3* 4]
     mov             r12, #1
@@ -2010,7 +2010,7 @@ function x265_quant_neon
     bx              lr
 endfunc
 
-function x265_nquant_neon
+function s265_nquant_neon
     push            {r4}
     neg             r12, r3
     vdup.s32        q0, r12                 // q0= -qbits
@@ -2060,20 +2060,20 @@ function x265_nquant_neon
     bx              lr
 endfunc
 .macro sa8d_16x16 reg
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpaddl.u16      q4,  q8
     vpaddl.u16      q5,  q9
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpadal.u16      q4,  q8
     vpadal.u16      q5,  q9
     sub             r0,  r0,  r1,  lsl #4
     sub             r2,  r2,  r3,  lsl #4
     add             r0,  r0,  #8
     add             r2,  r2,  #8
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpadal.u16      q4,  q8
     vpadal.u16      q5,  q9
-    bl              x265_sa8d_8x8_neon
+    bl              s265_sa8d_8x8_neon
     vpaddl.u16      q8,  q8
     vpaddl.u16      q9,  q9
     vadd.u32        q0,  q4,  q8
@@ -2086,7 +2086,7 @@ endfunc
     lsr             \reg,  \reg,  #1
 .endm
 
-function x265_pixel_sa8d_16x32_neon
+function s265_pixel_sa8d_16x32_neon
     push            {r4, r5}
     vpush           {d8 - d11}
     mov             ip,  lr
@@ -2105,7 +2105,7 @@ function x265_pixel_sa8d_16x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_sa8d_32x32_neon
+function s265_pixel_sa8d_32x32_neon
     push            {r4 - r7}
     vpush           {d8 - d11}
     mov             ip,  lr
@@ -2140,7 +2140,7 @@ function x265_pixel_sa8d_32x32_neon
     bx              lr
 endfunc
 
-function x265_pixel_sa8d_32x64_neon
+function s265_pixel_sa8d_32x64_neon
     push            {r4 - r10}
     vpush           {d8 - d11}
     mov             ip,  lr
@@ -2175,7 +2175,7 @@ function x265_pixel_sa8d_32x64_neon
     bx              lr
 endfunc
 
-function x265_pixel_sa8d_64x64_neon
+function s265_pixel_sa8d_64x64_neon
     push            {r4-r10}
     vpush           {d8-d11}
     mov             ip,  lr
@@ -2228,7 +2228,7 @@ endfunc
 
 /***** dequant_scaling*****/
 // void dequant_scaling_c(const int16_t* quantCoef, const int32_t* deQuantCoef, int16_t* coef, int num, int per, int shift)
-function x265_dequant_scaling_neon
+function s265_dequant_scaling_neon
     push            {r4, r5, r6, r7}
     ldr             r4, [sp, #16]       // per
     ldr             r5, [sp, #20]       //.shift
@@ -2259,7 +2259,7 @@ dequant_loop1:
 
     vshl.s32        q1, q3
     vshl.s32        q9, q3
-    vqmovn.s32      d16, q1             // x265_clip3
+    vqmovn.s32      d16, q1             // s265_clip3
     vqmovn.s32      d17, q9
     subs            r3, #1
     vst1.16         {q8}, [r2]!
@@ -2279,7 +2279,7 @@ dequant_loop2:
 
     vmul.s32        q1, q2              // quantCoef * deQuantCoef
     vmul.s32        q9, q10
-    vqmovn.s32      d16, q1             // x265_clip3
+    vqmovn.s32      d16, q1             // s265_clip3
     vqmovn.s32      d17, q9
 
     vqshl.s16       q8, q0             // coefQ << per - shift
@@ -2292,7 +2292,7 @@ dequant_loop2:
 endfunc
 
 // void dequant_normal_c(const int16_t* quantCoef, int16_t* coef, int num, int scale, int shift)
-function x265_dequant_normal_neon
+function s265_dequant_normal_neon
     ldr             r12, [sp]            // shift
 #if HIGH_BIT_DEPTH  // NEVER TEST path
     cmp             r3, #32768
@@ -2329,8 +2329,8 @@ function x265_dequant_normal_neon
 endfunc
 
 /********* ssim ***********/
-// void x265_ssim_4x4x2_core_neon(const pixel* pix1, intptr_t stride1, const pixel* pix2, intptr_t stride2, int sums[2][4]);
-function x265_ssim_4x4x2_core_neon
+// void s265_ssim_4x4x2_core_neon(const pixel* pix1, intptr_t stride1, const pixel* pix2, intptr_t stride2, int sums[2][4]);
+function s265_ssim_4x4x2_core_neon
     ldr             r12, [sp]
 
     vld1.64         {d0}, [r0], r1
@@ -2386,7 +2386,7 @@ function x265_ssim_4x4x2_core_neon
 endfunc
 
 // int psyCost_pp(const pixel* source, intptr_t sstride, const pixel* recon, intptr_t rstride)
-function x265_psyCost_4x4_neon
+function s265_psyCost_4x4_neon
     vld1.32         {d16[]}, [r0,:32], r1                   // d16 = [A03 A02 A01 A00 A03 A02 A01 A00]
     vld1.32         {d17[]}, [r0,:32], r1                   // d17 = [A13 A12 A11 A10 A13 A12 A11 A10]
     vld1.32         {d16[1]}, [r0,:32], r1                  // d16 = [A23 A22 A21 A20 A03 A02 A01 A00]
@@ -2449,7 +2449,7 @@ function x265_psyCost_4x4_neon
     bx              lr
 endfunc
 
-function x265_psyCost_8x8_neon
+function s265_psyCost_8x8_neon
 
     vpush           {q4-q7}
 

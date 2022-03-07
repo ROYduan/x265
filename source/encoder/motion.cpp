@@ -19,20 +19,20 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
  *
  * This program is also available under a commercial proprietary license.
- * For more information, contact us at license @ x265.com.
+ * For more information, contact us at license @ s265.com.
  *****************************************************************************/
 
 #include "common.h"
 #include "primitives.h"
 #include "lowres.h"
 #include "motion.h"
-#include "x265.h"
+#include "s265.h"
 
 #if _MSC_VER
 #pragma warning(disable: 4127) // conditional  expression is constant (macros use this construct)
 #endif
 
-using namespace X265_NS;
+using namespace S265_NS;
 
 namespace {
 
@@ -45,7 +45,7 @@ struct SubpelWorkload
     bool hpel_satd;
 };
 
-const SubpelWorkload workload[X265_MAX_SUBPEL_LEVEL + 1] =
+const SubpelWorkload workload[S265_MAX_SUBPEL_LEVEL + 1] =
 {
     { 1, 4, 0, 4, false }, // 4 SAD HPEL only
     { 1, 4, 1, 4, false }, // 4 SAD HPEL + 4 SATD QPEL
@@ -103,9 +103,9 @@ MotionEstimate::MotionEstimate()
 {
     ctuAddr = -1;
     absPartIdx = -1;
-    searchMethod = X265_HEX_SEARCH;
-    searchMethodL0 = X265_HEX_SEARCH;
-    searchMethodL1 = X265_HEX_SEARCH;
+    searchMethod = S265_HEX_SEARCH;
+    searchMethodL0 = S265_HEX_SEARCH;
+    searchMethodL1 = S265_HEX_SEARCH;
     subpelRefine = 2;
     blockwidth = blockheight = 0;
     blockOffset = 0;
@@ -167,7 +167,7 @@ MotionEstimate::~MotionEstimate()
 void MotionEstimate::setSourcePU(pixel *fencY, intptr_t stride, intptr_t offset, int pwidth, int pheight, const int method, const int searchL0, const int searchL1, const int refine)
 {
     partEnum = partitionFromSizes(pwidth, pheight);
-    X265_CHECK(LUMA_4x4 != partEnum, "4x4 inter partition detected!\n");
+    S265_CHECK(LUMA_4x4 != partEnum, "4x4 inter partition detected!\n");
     sad = primitives.pu[partEnum].sad;
     ads = primitives.pu[partEnum].ads;
     satd = primitives.pu[partEnum].satd;
@@ -187,14 +187,14 @@ void MotionEstimate::setSourcePU(pixel *fencY, intptr_t stride, intptr_t offset,
 
     /* copy PU block into cache */
     primitives.pu[partEnum].copy_pp(fencPUYuv.m_buf[0], FENC_STRIDE, fencY + offset, stride);
-    X265_CHECK(!bChromaSATD, "chroma distortion measurements impossible in this code path\n");
+    S265_CHECK(!bChromaSATD, "chroma distortion measurements impossible in this code path\n");
 }
 
 /* Called by Search::predInterSearch() or --pme equivalent, chroma residual might be considered */
 void MotionEstimate::setSourcePU(const Yuv& srcFencYuv, int _ctuAddr, int cuPartIdx, int puPartIdx, int pwidth, int pheight, const int method, const int refine, bool bChroma)
 {
     partEnum = partitionFromSizes(pwidth, pheight);
-    X265_CHECK(LUMA_4x4 != partEnum, "4x4 inter partition detected!\n");
+    S265_CHECK(LUMA_4x4 != partEnum, "4x4 inter partition detected!\n");
     sad = primitives.pu[partEnum].sad;
     ads = primitives.pu[partEnum].ads;
     satd = primitives.pu[partEnum].satd;
@@ -209,8 +209,8 @@ void MotionEstimate::setSourcePU(const Yuv& srcFencYuv, int _ctuAddr, int cuPart
 
     /* Enable chroma residual cost if subpelRefine level is greater than 2 and chroma block size
      * is an even multiple of 4x4 pixels (indicated by non-null chromaSatd pointer) */
-    bChromaSATD = subpelRefine > 2 && chromaSatd && (srcFencYuv.m_csp != X265_CSP_I400 && bChroma);
-    X265_CHECK(!(bChromaSATD && !workload[subpelRefine].hpel_satd), "Chroma SATD cannot be used with SAD hpel\n");
+    bChromaSATD = subpelRefine > 2 && chromaSatd && (srcFencYuv.m_csp != S265_CSP_I400 && bChroma);
+    S265_CHECK(!(bChromaSATD && !workload[subpelRefine].hpel_satd), "Chroma SATD cannot be used with SAD hpel\n");
 
     ctuAddr = _ctuAddr;
     absPartIdx = cuPartIdx + puPartIdx;
@@ -336,7 +336,7 @@ void MotionEstimate::setSourcePU(const Yuv& srcFencYuv, int _ctuAddr, int cuPart
 #define CROSS(start, x_max, y_max) \
     { \
         int16_t i = start; \
-        if ((x_max) <= X265_MIN(mvmax.x - omv.x, omv.x - mvmin.x)) \
+        if ((x_max) <= S265_MIN(mvmax.x - omv.x, omv.x - mvmin.x)) \
             for (; i < (x_max) - 2; i += 4) { \
                 COST_MV_X4(i, 0, -i, 0, i + 2, 0, -i - 2, 0); } \
         for (; i < (x_max); i += 2) \
@@ -347,7 +347,7 @@ void MotionEstimate::setSourcePU(const Yuv& srcFencYuv, int _ctuAddr, int cuPart
                 COST_MV(omv.x - i, omv.y); \
         } \
         i = start; \
-        if ((y_max) <= X265_MIN(mvmax.y - omv.y, omv.y - mvmin.y)) \
+        if ((y_max) <= S265_MIN(mvmax.y - omv.y, omv.y - mvmin.y)) \
             for (; i < (y_max) - 2; i += 4) { \
                 COST_MV_X4(0, i, 0, -i, 0, i + 2, 0, -i - 2); } \
         for (; i < (y_max); i += 2) \
@@ -730,9 +730,9 @@ void MotionEstimate::refineMV(ReferencePlanes* ref,
     }
 
     // check mv range for slice bound
-    X265_CHECK(((pmv.y >= qmvmin.y) & (pmv.y <= qmvmax.y)), "mv beyond range!");
+    S265_CHECK(((pmv.y >= qmvmin.y) & (pmv.y <= qmvmax.y)), "mv beyond range!");
     
-    x265_emms();
+    s265_emms();
     outQMv = bmv;
 }
 
@@ -791,11 +791,11 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
         {
             bcost = cost;
             bmv = 0;
-            bmv.y = X265_MAX(X265_MIN(0, mvmax.y), mvmin.y);
+            bmv.y = S265_MAX(S265_MIN(0, mvmax.y), mvmin.y);
         }
     }
 
-    X265_CHECK(!(ref->isLowres && numCandidates), "lowres motion candidates not allowed\n")
+    S265_CHECK(!(ref->isLowres && numCandidates), "lowres motion candidates not allowed\n")
     // measure SAD cost at each QPEL motion vector candidate
     for (int i = 0; i < numCandidates; i++)
     {
@@ -817,7 +817,7 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
     int search = ref->isHMELowres ? (hme ? searchMethodL0 : searchMethodL1) : searchMethod;
     switch (search)
     {
-    case X265_DIA_SEARCH:
+    case S265_DIA_SEARCH:
     {
         /* diamond search, radius 1 */
         bcost <<= 4;
@@ -842,7 +842,7 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
         break;
     }
 
-    case X265_HEX_SEARCH:
+    case S265_HEX_SEARCH:
     {
 me_hex2:
         /* hexagon search, radius 2 */
@@ -943,7 +943,7 @@ me_hex2:
         break;
     }
 
-    case X265_UMH_SEARCH:
+    case S265_UMH_SEARCH:
     {
         int ucost1, ucost2;
         int16_t cross_start = 1;
@@ -951,7 +951,7 @@ me_hex2:
         /* refine predictors */
         omv = bmv;
         ucost1 = bcost;
-        X265_CHECK(((pmv.y >= mvmin.y) & (pmv.y <= mvmax.y)), "pmv outside of search range!");
+        S265_CHECK(((pmv.y >= mvmin.y) & (pmv.y <= mvmax.y)), "pmv outside of search range!");
         DIA1_ITER(pmv.x, pmv.y);
         if (pmv.notZero())
             DIA1_ITER(0, 0);
@@ -1051,7 +1051,7 @@ me_hex2:
         uint16_t i = 1;
         do
         {
-            if (4 * i > X265_MIN4(mvmax.x - omv.x, omv.x - mvmin.x,
+            if (4 * i > S265_MIN4(mvmax.x - omv.x, omv.x - mvmin.x,
                                   mvmax.y - omv.y, omv.y - mvmin.y))
             {
                 for (int j = 0; j < 16; j++)
@@ -1129,7 +1129,7 @@ me_hex2:
         break;
     }
 
-    case X265_STAR_SEARCH: // Adapted from HM ME
+    case S265_STAR_SEARCH: // Adapted from HM ME
     {
         int bPointNr = 0;
         int bDistance = 0;
@@ -1239,20 +1239,20 @@ me_hex2:
         break;
     }
 
-    case X265_SEA:
+    case S265_SEA:
     {
         // Successive Elimination Algorithm
-        const int32_t minX = X265_MAX(omv.x - (int32_t)merange, mvmin.x);
-        const int32_t minY = X265_MAX(omv.y - (int32_t)merange, mvmin.y);
-        const int32_t maxX = X265_MIN(omv.x + (int32_t)merange, mvmax.x);
-        const int32_t maxY = X265_MIN(omv.y + (int32_t)merange, mvmax.y);
+        const int32_t minX = S265_MAX(omv.x - (int32_t)merange, mvmin.x);
+        const int32_t minY = S265_MAX(omv.y - (int32_t)merange, mvmin.y);
+        const int32_t maxX = S265_MIN(omv.x + (int32_t)merange, mvmax.x);
+        const int32_t maxY = S265_MIN(omv.y + (int32_t)merange, mvmax.y);
         const uint16_t *p_cost_mvx = m_cost_mvx - qmvp.x;
         const uint16_t *p_cost_mvy = m_cost_mvy - qmvp.y;
         int16_t* meScratchBuffer = NULL;
         int scratchSize = merange * 2 + 4;
         if (scratchSize)
         {
-            meScratchBuffer = X265_MALLOC(int16_t, scratchSize);
+            meScratchBuffer = S265_MALLOC(int16_t, scratchSize);
             memset(meScratchBuffer, 0, sizeof(int16_t)* scratchSize);
         }
 
@@ -1390,11 +1390,11 @@ me_hex2:
                 COST_MV(minX + meScratchBuffer[i], tmv.y);
         }
         if (meScratchBuffer)
-            x265_free(meScratchBuffer);
+            s265_free(meScratchBuffer);
         break;
     }
 
-    case X265_FULL_SEARCH:
+    case S265_FULL_SEARCH:
     {
         // dead slow exhaustive search, but at least it uses sad_x4()
         MV tmv;
@@ -1402,10 +1402,10 @@ me_hex2:
         if (ref->isHMELowres)
         {
             merange = (merange < 0 ? -merange : merange);
-            mvmin_y = X265_MAX(mvmin.y, -merange);
-            mvmin_x = X265_MAX(mvmin.x, -merange);
-            mvmax_y = X265_MIN(mvmax.y, merange);
-            mvmax_x = X265_MIN(mvmax.x, merange);
+            mvmin_y = S265_MAX(mvmin.y, -merange);
+            mvmin_x = S265_MAX(mvmin.x, -merange);
+            mvmax_y = S265_MIN(mvmax.y, merange);
+            mvmax_x = S265_MIN(mvmax.x, merange);
         }
         for (tmv.y = mvmin_y; tmv.y <= mvmax_y; tmv.y++)
         {
@@ -1441,7 +1441,7 @@ me_hex2:
     }
 
     default:
-        X265_CHECK(0, "invalid motion estimate mode\n");
+        S265_CHECK(0, "invalid motion estimate mode\n");
         break;
     }
 
@@ -1458,7 +1458,7 @@ me_hex2:
     // check mv range for slice bound
     if ((maxSlices > 1) & ((bmv.y < qmvmin.y) | (bmv.y > qmvmax.y)))
     {
-        bmv.y = x265_min(x265_max(bmv.y, qmvmin.y), qmvmax.y);
+        bmv.y = s265_min(s265_max(bmv.y, qmvmin.y), qmvmax.y);
         bcost = subpelCompare(ref, bmv, satd) + mvcost(bmv);
     }
 
@@ -1561,9 +1561,9 @@ me_hex2:
     }
 
     // check mv range for slice bound
-    X265_CHECK(((bmv.y >= qmvmin.y) & (bmv.y <= qmvmax.y)), "mv beyond range!");
+    S265_CHECK(((bmv.y >= qmvmin.y) & (bmv.y <= qmvmax.y)), "mv beyond range!");
 
-    x265_emms();
+    s265_emms();
     outQMv = bmv;
     return bcost;
 }
@@ -1576,7 +1576,7 @@ int MotionEstimate::subpelCompare(ReferencePlanes *ref, const MV& qmv, pixelcmp_
     int yFrac = qmv.y & 0x3;
     int cost;
     const intptr_t fencStride = FENC_STRIDE;
-    X265_CHECK(fencPUYuv.m_size == FENC_STRIDE, "fenc buffer is assumed to have FENC_STRIDE by sad_x3 and sad_x4\n");
+    S265_CHECK(fencPUYuv.m_size == FENC_STRIDE, "fenc buffer is assumed to have FENC_STRIDE by sad_x3 and sad_x4\n");
 
     ALIGN_VAR_32(pixel, subpelbuf[MAX_CU_SIZE * MAX_CU_SIZE]);
     
@@ -1613,8 +1613,8 @@ int MotionEstimate::subpelCompare(ReferencePlanes *ref, const MV& qmv, pixelcmp_
         const pixel* refCb = ref->getCbAddr(ctuAddr, absPartIdx) + refOffset;
         const pixel* refCr = ref->getCrAddr(ctuAddr, absPartIdx) + refOffset;
 
-        X265_CHECK((hshift == 0) || (hshift == 1), "hshift must be 0 or 1\n");
-        X265_CHECK((vshift == 0) || (vshift == 1), "vshift must be 0 or 1\n");
+        S265_CHECK((hshift == 0) || (hshift == 1), "hshift must be 0 or 1\n");
+        S265_CHECK((vshift == 0) || (vshift == 1), "vshift must be 0 or 1\n");
 
         xFrac = mvx & 7;
         yFrac = mvy & 7;
