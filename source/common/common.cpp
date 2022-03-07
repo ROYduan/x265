@@ -104,7 +104,7 @@ int s265_exp2fix8(double x)
 
 void s265_internal_log(const s265_param* param, const char* caller, int level, const char *psz_fmt, ...)
 {
-    if(level <= param->logLevel )
+    if (level <= param->logLevel)
     {
         const int bufferSize = 4096;
         char buffer[bufferSize]={0};
@@ -131,19 +131,20 @@ void s265_internal_log(const s265_param* param, const char* caller, int level, c
             log_level = "unknown";
             break;
         }
-        if (caller){
+        if (caller)
+        {
             p += sprintf(buffer, "%-4s [%s]: ", caller, log_level);
-        }   
+        }
 
         va_list arg;
-        va_start( arg, psz_fmt );
+        va_start(arg, psz_fmt);
         vsnprintf(buffer + p, bufferSize - p, psz_fmt, arg);
-        va_end( arg );
+        va_end(arg);
 
-        if( !param )
-            s265_log_default( NULL, level, "%s", buffer);
-        else 
-            param->pf_log( param->p_log_private, level, "%s", buffer );          
+        if (!param)
+            s265_log_default(NULL, level, "%s", buffer);
+        else
+            param->pf_log(param->p_log_private, level, "%s", buffer);
 
     }
 }
@@ -151,7 +152,7 @@ void s265_internal_log(const s265_param* param, const char* caller, int level, c
 void s265_log_default(void *p_unused, int level, const char *psz_fmt,  ...)
 {
     char *psz_prefix;
-    switch( level )
+    switch (level)
     {
         case S265_LOG_ERROR:
             psz_prefix = "error";
@@ -171,7 +172,7 @@ void s265_log_default(void *p_unused, int level, const char *psz_fmt,  ...)
     }
     va_list list;
     va_start(list, psz_fmt);
-    vfprintf( stderr, psz_fmt, list);
+    vfprintf(stderr, psz_fmt, list);
     va_end(list);
 }
 

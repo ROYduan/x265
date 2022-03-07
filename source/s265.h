@@ -848,7 +848,7 @@ typedef struct s265_param
 
     /*== Logging Features ==*/
 
-    void        (*pf_log)( void *, int i_level, const char *fmt, ...);
+    void        (*pf_log)(void *, int i_level, const char *fmt, ...);
 
     void        *p_log_private;
 
