@@ -418,18 +418,21 @@ enum SignificanceMapContextType
 /* located in pixel.cpp */
 void extendPicBorder(pixel* recon, intptr_t stride, int width, int height, int marginX, int marginY);
 
+
 /* located in common.cpp */
 int64_t  s265_mdate(void);
-#define  s265_log(param, ...) general_log(param, "s265", __VA_ARGS__)
+#define  s265_log(param,level,psz_fmt,...) s265_internal_log(param, "s265", level, psz_fmt, ##__VA_ARGS__)
 #define  s265_log_file(param, ...) general_log_file(param, "s265", __VA_ARGS__)
 void     general_log(const s265_param* param, const char* caller, int level, const char* fmt, ...);
+void     s265_internal_log(const s265_param* param, const char* caller, int i_level, const char *psz_fmt, ...);
+void     s265_log_default(void *p_unused, int level, const char *psz_fmt,  ...);
 #if _WIN32
 void     general_log_file(const s265_param* param, const char* caller, int level, const char* fmt, ...);
 FILE*    s265_fopen(const char* fileName, const char* mode);
 int      s265_unlink(const char* fileName);
 int      s265_rename(const char* oldName, const char* newName);
 #else
-#define  general_log_file(param, caller, level, fmt, ...) general_log(param, caller, level, fmt, __VA_ARGS__)
+#define  general_log_file(param, caller, level, fmt, ...) s265_internal_log(param, caller, level, fmt, ##__VA_ARGS__)
 #define  s265_fopen(fileName, mode) fopen(fileName, mode)
 #define  s265_unlink(fileName) unlink(fileName)
 #define  s265_rename(oldName, newName) rename(oldName, newName)

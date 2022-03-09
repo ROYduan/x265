@@ -102,6 +102,80 @@ int s265_exp2fix8(double x)
     return (s265_exp2_lut[i & 63] + 256) << (i >> 6) >> 8;
 }
 
+void s265_internal_log(const s265_param* param, const char* caller, int level, const char *psz_fmt, ...)
+{
+    if (level <= param->logLevel)
+    {
+        const int bufferSize = 4096;
+        char buffer[bufferSize]={0};
+        int p = 0;
+        const char* log_level;
+        switch (level)
+        {
+        case S265_LOG_ERROR:
+            log_level = "error";
+            break;
+        case S265_LOG_WARNING:
+            log_level = "warning";
+            break;
+        case S265_LOG_INFO:
+            log_level = "info";
+            break;
+        case S265_LOG_DEBUG:
+            log_level = "debug";
+            break;
+        case S265_LOG_FULL:
+            log_level = "full";
+            break;
+        default:
+            log_level = "unknown";
+            break;
+        }
+        if (caller)
+        {
+            p += sprintf(buffer, "%-4s [%s]: ", caller, log_level);
+        }
+
+        va_list arg;
+        va_start(arg, psz_fmt);
+        vsnprintf(buffer + p, bufferSize - p, psz_fmt, arg);
+        va_end(arg);
+
+        if (!param)
+            s265_log_default(NULL, level, "%s", buffer);
+        else
+            param->pf_log(param->p_log_private, level, "%s", buffer);
+
+    }
+}
+
+void s265_log_default(void *p_unused, int level, const char *psz_fmt,  ...)
+{
+    char *psz_prefix;
+    switch (level)
+    {
+        case S265_LOG_ERROR:
+            psz_prefix = "error";
+            break;
+        case S265_LOG_WARNING:
+            psz_prefix = "warning";
+            break;
+        case S265_LOG_INFO:
+            psz_prefix = "info";
+            break;
+        case S265_LOG_DEBUG:
+            psz_prefix = "debug";
+            break;
+        default:
+            psz_prefix = "unknown";
+            break;
+    }
+    va_list list;
+    va_start(list, psz_fmt);
+    vfprintf(stderr, psz_fmt, list);
+    va_end(list);
+}
+
 void general_log(const s265_param* param, const char* caller, int level, const char* fmt, ...)
 {
     if (param && level > param->logLevel)
