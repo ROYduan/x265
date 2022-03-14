@@ -1,0 +1,61 @@
+diff --git a/configure b/configure
+index 6409b94b65..0ad90934f3 100755
+--- a/configure
++++ b/configure
+@@ -289,6 +289,7 @@ External library support:
+   --enable-libwebp         enable WebP encoding via libwebp [no]
+   --enable-libx264         enable H.264 encoding via x264 [no]
+   --enable-libx265         enable HEVC encoding via x265 [no]
++  --enable-libs265         enable HEVC encoding via s265 [no]
+   --enable-libxavs         enable AVS encoding via xavs [no]
+   --enable-libxavs2        enable AVS2 encoding via xavs2 [no]
+   --enable-libxcb          enable X11 grabbing using XCB [autodetect]
+@@ -1727,6 +1728,7 @@ EXTERNAL_LIBRARY_GPL_LIST="
+     libvidstab
+     libx264
+     libx265
++    libs265
+     libxavs
+     libxavs2
+     libxvid
+@@ -3292,6 +3294,7 @@ libx264_encoder_select="atsc_a53"
+ libx264rgb_encoder_deps="libx264 x264_csp_bgr"
+ libx264rgb_encoder_select="libx264_encoder"
+ libx265_encoder_deps="libx265"
++libs265_encoder_deps="libs265"
+ libxavs_encoder_deps="libxavs"
+ libxavs2_encoder_deps="libxavs2"
+ libxvid_encoder_deps="libxvid"
+@@ -6478,6 +6481,8 @@ enabled libx264           && { check_pkg_config libx264 x264 "stdint.h x264.h" x
+                              check_cpp_condition libx262 x264.h "X264_MPEG2"
+ enabled libx265           && require_pkg_config libx265 x265 x265.h x265_api_get &&
+                              require_cpp_condition libx265 x265.h "X265_BUILD >= 70"
++enabled libs265           && require_pkg_config libs265 s265 s265.h s265_api_get &&
++                             require_cpp_condition libs265 s265.h "S265_BUILD >= 70"
+ enabled libxavs           && require libxavs "stdint.h xavs.h" xavs_encoder_encode "-lxavs $pthreads_extralibs $libm_extralibs"
+ enabled libxavs2          && require_pkg_config libxavs2 "xavs2 >= 1.3.0" "stdint.h xavs2.h" xavs2_api_get
+ enabled libxvid           && require libxvid xvid.h xvid_global -lxvidcore
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index b3d284d7d0..715accaac3 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -1071,6 +1071,7 @@ OBJS-$(CONFIG_LIBWEBP_ANIM_ENCODER)       += libwebpenc_common.o libwebpenc_anim
+ OBJS-$(CONFIG_LIBX262_ENCODER)            += libx264.o
+ OBJS-$(CONFIG_LIBX264_ENCODER)            += libx264.o
+ OBJS-$(CONFIG_LIBX265_ENCODER)            += libx265.o
++OBJS-$(CONFIG_LIBS265_ENCODER)            += libs265.o
+ OBJS-$(CONFIG_LIBXAVS_ENCODER)            += libxavs.o
+ OBJS-$(CONFIG_LIBXAVS2_ENCODER)           += libxavs2.o
+ OBJS-$(CONFIG_LIBXVID_ENCODER)            += libxvid.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 2e9a3581de..348ef4742c 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -765,6 +765,7 @@ extern AVCodec ff_libx262_encoder;
+ extern AVCodec ff_libx264_encoder;
+ extern AVCodec ff_libx264rgb_encoder;
+ extern AVCodec ff_libx265_encoder;
++extern AVCodec ff_libs265_encoder;
+ extern AVCodec ff_libxavs_encoder;
+ extern AVCodec ff_libxavs2_encoder;
+ extern AVCodec ff_libxvid_encoder;

@@ -1,0 +1,51 @@
+How to Build an ffmpeg with s265:
+
+1. Build libs265
+Before building s265 on Linux, you should install the list of tools below:
+    gcc 4.8.5 or newer
+    nasm
+    cmake
+You can build the code by the following steps:
+   cd build/linux
+   ./make-Makefiles.bash
+   make
+then, you will found the generated build files   s265.pc, libs265.a, s265_config.h in directory build/linux
+
+
+2. Build ffmpeg with libs265
+  0) git clone -b release/4.4  https://github.com/FFmpeg/FFmpeg.git ffmpeg 
+     note: ffmpeg 5.0 will build fail,because api change
+  1) change to ffmpeg directory
+    mkdir -p 3rd/include
+    mkdir -p 3rd/lib
+    mkdir -p 3rd/lib/pkgconfig
+  2) change to s265 directory
+    cp source/s265.h  build/linux/s265_config.h   ../ffmpeg/3rd/include
+    cp build/linux/libs265.a   ../ffmpeg/3rd/lib
+    cp build/linux/s265.pc   ../ffmpeg/3rd/lib/pkgconfig
+
+   then, modify s265.pc in ../ffmpeg/3rd/lib/pkgconfig like bellow:
+	   prefix=/usr/local --> prefix=./3rd
+
+    cp ffmpeg_wrapper/libs265.c to ffmpeg/libavcodec
+  3) back to ffmpeg directory
+     change ./configure file by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
+     change libavcodec/Makefile by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
+     change libavcodec/allcodecs.c by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
+  4) configure with libs265 by adding some options like below:
+     in ffmpeg path:
+     export PKG_CONFIG_PATH="./3rd/lib/pkgconfig/"
+     ./configure --extra-cflags='-I./3rd/include'\
+                 --extra-ldflags='-L./3rd/lib'\
+                 --extra-libs='./3rd/lib/libs265.a -lstdc++ -lm -lrt -ldl -lpthread'\
+                 --enable-libs265 --enable-gpl
+  5) run make to generate an ffmpeg
+     make
+
+3. coding example test
+   ./ffmpeg -i xxx.mp4  -c:v libs265 -preset slow  -crf 23  -s265-params bframes=7   -y tests265.mp4
+
+
+
+
+
