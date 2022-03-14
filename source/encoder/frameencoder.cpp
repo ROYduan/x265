@@ -2136,7 +2136,8 @@ void FrameEncoder::noiseReductionUpdate()
 #if ENABLE_LIBVMAF
 void FrameEncoder::vmafFrameLevelScore()
 {
-    PicYuv *fenc = m_frame->m_fencPic;
+    //PicYuv *fenc = m_frame->m_fencPic;
+    PicYuv *fenc = m_frame->m_originalPic;
     PicYuv *recon = m_frame->m_reconPic;
 
     s265_vmaf_framedata *vmafframedata = (s265_vmaf_framedata*)s265_malloc(sizeof(s265_vmaf_framedata));

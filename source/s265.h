@@ -1530,6 +1530,15 @@ typedef struct s265_param
 
     } rc;
 
+    struct {
+        int enable;
+        int gopsize;
+        int qp;
+        int thres[2];//
+        float strength[3];
+        int method;
+    }mctf;
+
     /*== Video Usability Information ==*/
     struct
     {

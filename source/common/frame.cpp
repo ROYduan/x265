@@ -69,6 +69,8 @@ Frame::Frame()
 bool Frame::create(s265_param *param, float* quantOffsets)
 {
     m_fencPic = new PicYuv;
+    m_originalPic = new PicYuv;
+    m_filteredPic = new PicYuv;
     m_param = param;
     CHECKED_MALLOC_ZERO(m_rcData, RcStats, 1);
 
@@ -144,6 +146,15 @@ bool Frame::create(s265_param *param, float* quantOffsets)
                                                         m_lowres.maxBlocksInRow * m_lowres.maxBlocksInCol;
             m_quantOffsets = new float[cuCount];
         }
+
+        if (!m_originalPic->create(param, !!m_param->bCopyPicToFrame))
+        {
+            return false;
+        }
+        if (!m_filteredPic->create(param, !!m_param->bCopyPicToFrame))
+        {
+            return false;
+        }
         return true;
     }
     return false;
@@ -205,6 +216,22 @@ void Frame::destroy()
             m_fencPic->destroy();
         delete m_fencPic;
         m_fencPic = NULL;
+    }
+
+    if (m_originalPic)
+    {
+        if (m_param->bCopyPicToFrame)
+            m_originalPic->destroy();
+        delete m_originalPic;
+        m_originalPic = NULL;
+    }
+
+    if (m_filteredPic)
+    {
+        if (m_param->bCopyPicToFrame)
+            m_filteredPic->destroy();
+        delete m_filteredPic;
+        m_filteredPic = NULL;
     }
 
     if (m_reconPic)

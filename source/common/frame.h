@@ -84,6 +84,8 @@ public:
 
     /* Data associated with s265_picture */
     PicYuv*                m_fencPic;
+    PicYuv*                m_originalPic;             // store org pic for psnr calculation
+    PicYuv*                m_filteredPic;             // 
     int                    m_poc;
     int                    m_encodeOrder;
     int64_t                m_pts;                // user provided presentation time stamp

@@ -257,6 +257,16 @@ void s265_param_default(s265_param* param)
     param->bEnableRdRefine = 0;
     param->bMultiPassOptRPS = 0;
     param->bSsimRd = 0;
+    /* Temporal Filter*/
+    param->mctf.enable = 0;
+    param->mctf.gopsize = 4;
+    param->mctf.qp = 17;
+    param->mctf.thres[0] = 10;
+    param->mctf.thres[1] = 24;
+    param->mctf.strength[0] = 1.5;//I
+    param->mctf.strength[1] = 1.5;//P
+    param->mctf.strength[2] = 0.95;//Bref
+    param->mctf.method = 0;//0: org, 1: JVET_V0056_MCTF
 
     /* Rate control options */
     param->rc.vbvMaxBitrate = 0;
@@ -1125,6 +1135,24 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("dpb-method")    p->rc.dpbMethod = atoi(value);
     OPT("pyramid-qp-method")    p->rc.pyQpMethod = atoi(value);
     OPT("cost-calculate-pskip")    p->rc.costCalPskip = atoi(value);
+    OPT("t-filter-enable")
+        p->mctf.enable = atobool(value);
+    OPT("t-filter-gopsize")
+        p->mctf.gopsize = atoi(value);
+    OPT("t-filter-thres0")
+        p->mctf.thres[0] = atoi(value);
+    OPT("t-filter-thres1")
+        p->mctf.thres[1] = atoi(value);
+    OPT("t-filter-strength0")
+        p->mctf.strength[0] = atof(value);
+    OPT("t-filter-strength1")
+        p->mctf.strength[1] = atof(value);
+    OPT("t-filter-strength2")
+        p->mctf.strength[2] = atof(value);
+    OPT("t-filter-method")
+        p->mctf.method = atof(value);
+
+
     OPT("slow-firstpass") p->rc.bEnableSlowFirstPass = atobool(value);
     OPT("strict-cbr")
     {
@@ -2603,6 +2631,17 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->reconfigWindowSize = src->reconfigWindowSize;
     dst->bResetZoneConfig = src->bResetZoneConfig;
     dst->decoderVbvMaxRate = src->decoderVbvMaxRate;
+
+    dst->mctf.enable = src->mctf.enable;
+    dst->mctf.gopsize = src->mctf.gopsize;
+    dst->mctf.qp = src->mctf.qp;
+    dst->mctf.thres[0] = src->mctf.thres[0];
+    dst->mctf.thres[1] = src->mctf.thres[1];
+    dst->mctf.strength[0] = src->mctf.strength[0];//I
+    dst->mctf.strength[1] = src->mctf.strength[1];//P
+    dst->mctf.strength[2] = src->mctf.strength[2];//Bref
+    dst->mctf.method = src->mctf.method;
+
 
     if (src->rc.zonefileCount && src->rc.zones && src->bResetZoneConfig)
     {
