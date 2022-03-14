@@ -707,30 +707,28 @@ if(ENABLE_SHARED)
     endif()
 endif()
 
-if(S265_LATEST_TAG)
-    # convert lists of link libraries into -lstdc++ -lm etc..
-    foreach(LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${PLATFORM_LIBS})
-        if(IS_ABSOLUTE ${LIB} AND EXISTS ${LIB})
-            list(APPEND PLIBLIST "${LIB}")
-        else()
-            list(APPEND PLIBLIST "-l${LIB}")
-        endif()
-    endforeach()
-    if(PLIBLIST)
-        # blacklist of libraries that should not be in Libs.private
-        list(REMOVE_ITEM PLIBLIST "-lc" "-lpthread" "-lmingwex" "-lmingwthrd"
-            "-lmingw32" "-lmoldname" "-lmsvcrt" "-ladvapi32" "-lshell32"
-            "-luser32" "-lkernel32")
-        string(REPLACE ";" " " PRIVATE_LIBS "${PLIBLIST}")
-    else()
-        set(PRIVATE_LIBS "")
-    endif(PLIBLIST)
-
-    # Produce a pkg-config file
-    configure_file("s265.pc.in" "s265.pc" @ONLY)
-    install(FILES       "${CMAKE_CURRENT_BINARY_DIR}/s265.pc"
-            DESTINATION "${LIB_INSTALL_DIR}/pkgconfig")
+# convert lists of link libraries into -lstdc++ -lm etc..
+foreach(LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES} ${PLATFORM_LIBS})
+if(IS_ABSOLUTE ${LIB} AND EXISTS ${LIB})
+    list(APPEND PLIBLIST "${LIB}")
+else()
+    list(APPEND PLIBLIST "-l${LIB}")
 endif()
+endforeach()
+if(PLIBLIST)
+# blacklist of libraries that should not be in Libs.private
+list(REMOVE_ITEM PLIBLIST "-lc" "-lpthread" "-lmingwex" "-lmingwthrd"
+    "-lmingw32" "-lmoldname" "-lmsvcrt" "-ladvapi32" "-lshell32"
+    "-luser32" "-lkernel32")
+string(REPLACE ";" " " PRIVATE_LIBS "${PLIBLIST}")
+else()
+set(PRIVATE_LIBS "")
+endif(PLIBLIST)
+
+# Produce a pkg-config file
+configure_file("s265.pc.in" "s265.pc" @ONLY)
+install(FILES       "${CMAKE_CURRENT_BINARY_DIR}/s265.pc"
+    DESTINATION "${LIB_INSTALL_DIR}/pkgconfig")
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"

@@ -4,33 +4,44 @@ How to Build an ffmpeg with s265:
 Before building s265 on Linux, you should install the list of tools below:
     gcc 4.8.5 or newer
     nasm
+    cmake
 You can build the code by the following steps:
-   cd s265/source
-   mkdir build
-   cmake ..
-   make 
-then, you will found the generated build files   s265/libs265.a/s265_config.h/s265.pc  in directory s265/
+   cd build/linux
+   ./make-Makefiles.bash
+   make
+then, you will found the generated build files   s265.h/s265.pc/libs265.a/s265_config.h  in directory s265/source/s265.h and s265/source/build/libs265.a s265/source/build/s265_config.h s265/source/build/s265.pc
+
+node:to get s265.pc,need modify source/CMakeLists.txt,
+this: configure_file("s265.pc.in" "s265.pc" @ONLY)  get s265.pc
+but S265_LATEST_TAG is false
 
 2. Build ffmpeg with libs265
+  0) git clone -b release/4.4  https://github.com/FFmpeg/FFmpeg.git ffmpeg 
+     note: ffmpeg 5.0 will build fail,because api change
   1) change to ffmpeg directory
-    mkdir 3rd/libs265/include
-    mkdir 3rd/libs265/lib
-    mkdir 3rd/libs265/pkgconfig
+    mkdir -p 3rd/include
+    mkdir -p 3rd/lib
+    mkdir -p 3rd/lib/pkgconfig
   2) change to s265 directory
-    cp s265.h s265_config.h  ../ffmpeg/3rd/libs265/include
-    cp libs265.a libs265.so  ../ffmpeg/3rd/libs265/lib
-    cp s265.pc  ../ffmpeg/3rd/libs265/pkgconfig
-    cp libs265.c to ffmpeg/libavcodec
+    cp source/s265.h source/build/s265_config.h   ../ffmpeg/3rd/include
+    cp source/build/libs265.a   ../ffmpeg/3rd/lib
+
+    s265.pc modify:
+	prefix=/usr/local --> prefix=./3rd
+    cp ffmpeg_wrapper/s265.pc   ../ffmpeg/3rd/lib/pkgconfig
+
+    cp ffmpeg_wrapper/libs265.c to ffmpeg/libavcodec
   3) back to ffmpeg directory
-     change ./configure file by everywhere there is a row with "x265", adding a copied line with replacing "x265" to "s265"
-     change libavcodec/Makefile by everywhere there is a row with "x265", adding a copied line with replacing "x265" to "s265"
-     change libavcodec/allcodecs.c by everywhere there is a row with "x265", adding a copied line with replacing "x265" to "s265"
-     ##eg: an recommended change can be referenced by  the patch file "libs265_support_diff.patch" in s265/ffmpeg_wrapper
+     change ./configure file by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
+     change libavcodec/Makefile by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
+     change libavcodec/allcodecs.c by everywhere there is a row with "x265" "X265", adding a copied line with replacing "x265" to "s265","X265" to "S265"
   4) configure with libs265 by adding some options like below:
-     ./configure --extra-cflags='-I./3rd/libs265/include'\
-                 --extra-ldflags='-L./3rd/libs265/lib'\
-                 --extra-libs='./3rd/libs265/lib/libs265.a -lstdc++ -lm -lrt -ldl'\
-                 --enable-libs265
+     in ffmpeg path:
+     export PKG_CONFIG_PATH="./3rd/lib/pkgconfig/"
+     ./configure --extra-cflags='-I./3rd/include'\
+                 --extra-ldflags='-L./3rd/lib'\
+                 --extra-libs='./3rd/lib/libs265.a -lstdc++ -lm -lrt -ldl -lpthread'\
+                 --enable-libs265 --enable-gpl
   5) run make to generate an ffmpeg
      make
 
