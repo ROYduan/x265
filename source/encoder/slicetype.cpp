@@ -1805,11 +1805,11 @@ void Lookahead::slicetypeDecide()
 
                 for (b = 1; b <= bframes; b++)
                 {
-                    for (p1 = b+1; frames[p1]->i_level >= frames[b]->i_level && p1<=bframes+1; p1++)
-                            ; // find new bref or p level lower than cur b
-                    for (p0 = b-1; frames[p0]->i_level >= frames[b]->i_level && p0>=0; p0--)
-                            ; // find new bref or p level lower than cur b
-                    if (!isp0available && p0==0)
+                    for (p1 = b + 1; p1 <= bframes + 1 && frames[p1]->i_level >= frames[b]->i_level; p1++)
+                        ; // find new bref or p level lower than cur b
+                    for (p0 = b - 1; p0 >= 0 && frames[p0]->i_level >= frames[b]->i_level; p0--)
+                        ; // find new bref or p level lower than cur b
+                    if (!isp0available && p0 == 0)
                         p0 = b;
 
                     estGroup.singleCost(p0, p1, b);
@@ -2590,6 +2590,12 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
         for (int j = keyintLimit + 1; j <= numFrames; j += m_param->keyframeMax)
         {
             frames[j]->sliceType = S265_TYPE_I;
+            frames[j]->i_level = 0;
+            frames[j]->i_gop_size = 1;
+            frames[j]->i_bref = 1;
+            frames[j]->i_max_depth = 0;
+            frames[j]->i_gop_id = 1;
+            frames[j]->i_temporal_id = 0;
             resetStart = S265_MIN(resetStart, j + 1);
         }
 
