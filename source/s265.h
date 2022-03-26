@@ -1537,6 +1537,8 @@ typedef struct s265_param
         int thres[2];//
         float strength[3];
         int method;
+        int mvMatch;
+        int range; //0:default longth 1:auto_adapt 
     }mctf;
 
     /*== Video Usability Information ==*/

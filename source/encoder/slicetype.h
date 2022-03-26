@@ -216,7 +216,7 @@ protected:
     int check_gop16( Lowres **frames, int32_t gop_start );
 
     /* temporal filter */
-    void filter_input( Frame **frames, Lowres **lowresFrames, int32_t b,float est_qp );
+    void filter_input( Frame **frames, Lowres **lowresFrames, int32_t b,float est_qp, int bframe );
     int temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b, const int32_t s_range, int replace, int32_t qp);
     void apply_motion( MV *lowres_mv, Frame * frame, Frame *curFrame, pixel *dst[3], int *inter_cost, int32_t *intra_cost );
     void bilateral_filter( pixel *corrected_pics[10][3], Frame *curFrame, double overall_strength,  int32_t num_refs, const int32_t s_range, int32_t m_qp, int32_t offset_index[10] );

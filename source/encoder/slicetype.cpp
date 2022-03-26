@@ -1861,7 +1861,7 @@ void Lookahead::slicetypeDecide()
                 //printf("bframes num %d\n", bframes);
                 float est_qp = m_param->mctf.qp;
                 //float est_qp = 17;
-                filter_input( list, newframes, b, est_qp );
+                filter_input( list, newframes, b, est_qp, bframes );
             }
         }
     }
@@ -2343,6 +2343,16 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
         const int32_t width = source_width >> csx;
         int32_t       block_index = 0;
         int32_t       shift = 1 << (4 - csy);
+        //zy for test
+        int pix_num = 0;
+        int right_mv = 0;
+        int ref_index = refFrame->m_poc;
+        int cur_index = curFrame->m_poc;
+        int32_t dir = cur_index > ref_index ? 1 : 0;
+        //int32_t dist = cur_index > ref_index ? cur_index - ref_index - 1 : ref_index - cur_index - 1;
+        int32_t dist = cur_index > ref_index ? cur_index - ref_index : ref_index - cur_index;
+        MV *new_lowres_mv = refFrame->m_lowres.lowresMvs[dir][dist];
+
         for( int32_t y = 0; y < height; y += block_size_y )
         {
             for( int32_t x = 0; x < width; x += block_size_x )
@@ -2350,25 +2360,47 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
                 block_index = (x / shift) + (y / shift) * mb_stride;
                 //assert(block_index < h->mb.i_mb_count);
 
-                if( m_param->mctf.thres[0]
-                    && (intra_cost[block_index] * m_param->mctf.thres[0] <= inter_cost[block_index] * 10 || inter_cost[block_index] > 64 * m_param->mctf.thres[1] / 2) )
-                {  // the larger m_iTemporalFilterThres means the less possibility to unfilter
-                    for( int32_t by = 0; by < block_size_y; by++ )
+                
+                const int16_t mv_x = lowres_mv[block_index].x << 3; // 1 for int 1/4 pel, 2 for 1/16 pel
+                const int16_t mv_y = lowres_mv[block_index].y << 3; // 1 for int 1/4 pel, 2 for 1/16 pel
+                const int32_t dx = mv_x >> csx;
+                const int32_t dy = mv_y >> csy;
+                const int32_t *x_filter = s_interpolation_filter[(dx & 0xf) >> 2];
+                const int32_t *y_filter = s_interpolation_filter[(dy & 0xf) >> 2]; // will add 6 bit.
+                const int32_t x_int = mv_x >> (4 + csx);
+                const int32_t y_int = mv_y >> (4 + csy);
+                int32_t target_x = s265_clip3(0, (int32_t)source_width, x + x_int);
+                int32_t target_y = s265_clip3(0, (int32_t)source_height, y + y_int);
+                int32_t new_block_index = (target_x / shift) + (target_y / shift) * mb_stride;
+                const int16_t new_mv_x = new_lowres_mv[new_block_index].x << 3; // 1 for int 1/4 pel, 2 for 1/16 pel
+                const int16_t new_mv_y = new_lowres_mv[new_block_index].y << 3; // 1 for int 1/4 pel, 2 for 1/16 pel
+
+                int mv_not_match = 0;
+                int mv_not_avalible = 0;
+                if (m_param->mctf.mvMatch)
+                {
+                    if (lowres_mv[block_index].x == 0x7FFF || lowres_mv[block_index].y == 0x7FFF)
                     {
-                        if(y+by>=height)
+                        mv_not_avalible = 1;
+                    }
+                    if (new_mv_x + mv_x != 0 || new_mv_y + mv_y != 0)
+                    {
+                        mv_not_match = 1;
+                    }
+                }
+
+                if (mv_not_match || mv_not_avalible || ( m_param->mctf.thres[0]
+                    && (intra_cost[block_index] * m_param->mctf.thres[0] <= inter_cost[block_index] * 10 || inter_cost[block_index] > 64 * m_param->mctf.thres[1] / 2) ))
+                { // the larger m_iTemporalFilterThres means the less possibility to unfilter
+                    for (int32_t by = 0; by < block_size_y; by++)
+                    {
+                        if (y + by >= height)
                             break;
-                        memcpy( (dst_image + (y + by) * stride + x), (cur_image + (y + by) * stride + x), block_size_x * sizeof(cur_image[0]) );
+                        memcpy((dst_image + (y + by) * stride + x), (cur_image + (y + by) * stride + x), block_size_x * sizeof(cur_image[0]));
                     }
                     continue;
                 }
-                const int16_t  mv_x = lowres_mv[block_index].x << 3;  // 1 for int 1/4 pel, 2 for 1/16 pel
-                const int16_t  mv_y = lowres_mv[block_index].y << 3;  // 1 for int 1/4 pel, 2 for 1/16 pel
-                const int32_t  dx = mv_x >> csx;
-                const int32_t  dy = mv_y >> csy;
-                const int32_t  *x_filter = s_interpolation_filter[(dx & 0xf) >> 2];
-                const int32_t  *y_filter = s_interpolation_filter[(dy & 0xf) >> 2];  // will add 6 bit.
-                const int32_t x_int = mv_x >> (4 + csx);
-                const int32_t y_int = mv_y >> (4 + csy);
+
                 int32_t temp_array[23][16];// 16+7
                 //temporal_filter_row( height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter );
                 temporal_filter_row_c( height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter );
@@ -2792,14 +2824,23 @@ int Lookahead::temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b
         if( idx < b )
         {
             estGroup.singleCost(idx, b, b);
+            if(m_param->mctf.mvMatch)
+            {
+                estGroup.singleCost(idx, b, idx);//add for test
+            }
         }
         else
         {
             estGroup.singleCost(b, idx, b);
+            if(m_param->mctf.mvMatch)
+            {
+                estGroup.singleCost(b, idx, idx);//add for test
+            }
         }
 
         int32_t  dir  = idx > b ? 1 : 0;
-        int32_t  dist = idx > b ? idx - b - 1 : b - idx - 1;
+        //int32_t  dist = idx > b ? idx - b - 1 : b - idx - 1;
+        int32_t  dist = idx > b ? idx - b : b - idx;
         MV *lowres_mv = lowresFrames[b]->lowresMvs[dir][dist];
         int *inter_cost = lowresFrames[b]->lowresMvCosts[dir][dist];
         int32_t *intra_cost = lowresFrames[b]->intraCost;
@@ -2828,8 +2869,6 @@ int Lookahead::temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b
         // }
         // fclose(outyuv);
             
-
-
         num_ref++;
         orig_offset++;
     }
@@ -2868,14 +2907,20 @@ int Lookahead::temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b
 }
 
 
-void Lookahead::filter_input( Frame **frames, Lowres **lowresFrames, int32_t b,float est_qp )
+void Lookahead::filter_input( Frame **frames, Lowres **lowresFrames, int32_t b,float est_qp, int bframe )
 {
     int32_t filter_range = 2;
     if(m_param->mctf.method)
     {
         filter_range = 4;
     }
-    int qp = s265_clip3( (int)( est_qp + 0.5 ),17,40 );
+    if (m_param->mctf.range)
+    {
+        int frame_range = (bframe + 2) / 4;
+        filter_range = S265_MIN(filter_range, frame_range);
+    }
+    int qp = s265_clip3( 17,40, (int)( est_qp + 0.5 ) );
+
     //ZY TODO: now mctf always replace org, so use an org copy to calculat psnr, this will be fix later 
     temporal_filter( frames, lowresFrames, b, filter_range, 0, qp);
     

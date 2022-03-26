@@ -267,6 +267,8 @@ void s265_param_default(s265_param* param)
     param->mctf.strength[1] = 1.5;//P
     param->mctf.strength[2] = 0.95;//Bref
     param->mctf.method = 0;//0: org, 1: JVET_V0056_MCTF
+    param->mctf.mvMatch = 0;//0: do not check mv match 1: check mv
+    param->mctf.range = 0;//0:default longth 1:auto_adapt 
 
     /* Rate control options */
     param->rc.vbvMaxBitrate = 0;
@@ -1139,6 +1141,8 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         p->mctf.enable = atobool(value);
     OPT("t-filter-gopsize")
         p->mctf.gopsize = atoi(value);
+    OPT("t-filter-qp")
+        p->mctf.qp = atoi(value);
     OPT("t-filter-thres0")
         p->mctf.thres[0] = atoi(value);
     OPT("t-filter-thres1")
@@ -1150,8 +1154,11 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("t-filter-strength2")
         p->mctf.strength[2] = atof(value);
     OPT("t-filter-method")
-        p->mctf.method = atof(value);
-
+        p->mctf.method = atoi(value);
+    OPT("t-filter-mvmatch")
+        p->mctf.mvMatch = atoi(value);
+    OPT("t-filter-range")
+        p->mctf.range = atoi(value);
 
     OPT("slow-firstpass") p->rc.bEnableSlowFirstPass = atobool(value);
     OPT("strict-cbr")
@@ -2641,6 +2648,8 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->mctf.strength[1] = src->mctf.strength[1];//P
     dst->mctf.strength[2] = src->mctf.strength[2];//Bref
     dst->mctf.method = src->mctf.method;
+    dst->mctf.mvMatch = src->mctf.mvMatch;
+    dst->mctf.range = src->mctf.range;
 
 
     if (src->rc.zonefileCount && src->rc.zones && src->bResetZoneConfig)
