@@ -184,9 +184,9 @@ void determineLevel(const s265_param &param, VPS& vps)
         /* The value of NumPocTotalCurr shall be less than or equal to 8 */
         int numPocTotalCurr = param.maxNumReferences + vps.numReorderPics;
         /*这里的8应该是个估计值，并不一定是必须的，如果参考帧管理得当，numPocTotalCurr大于8不会让PDB过限制*/
-        if(param.bBPyramid<S265_B_PYRAMID_HIER)
+        if (numPocTotalCurr > 8)
         {
-            if (numPocTotalCurr > 8)
+            if (!(param.bBPyramid == S265_B_PYRAMID_HIER && param.maxNumReferences <= 6))
             {
                 s265_log(&param, S265_LOG_WARNING, "level %s detected, but NumPocTotalCurr (total references) is non-compliant\n", levels[i].name);
                 vps.ptl.profileIdc = Profile::NONE;
@@ -196,7 +196,6 @@ void determineLevel(const s265_param &param, VPS& vps)
                 return;
             }
         }
-
 
 #define CHECK_RANGE(value, main, high) (high != MAX_UINT && value > main && value <= high)
 
@@ -220,7 +219,7 @@ void determineLevel(const s265_param &param, VPS& vps)
         vps.ptl.minCrForLevel = levels[i].minCompressionRatio;
         vps.ptl.maxLumaSrForLevel = levels[i].maxLumaSamplesPerSecond;
         break;
-    }
+        }
 
     static const char *profiles[] = { "None", "Main", "Main 10", "Main Still Picture", "RExt" };
     static const char *tiers[]    = { "Main", "High" };
@@ -305,6 +304,15 @@ bool enforceLevel(s265_param& param, VPS& vps)
     vps.numReorderPics = (param.bBPyramid && param.bframes > 1) ? reorderPicsPyramid : !!param.bframes;
     vps.maxDecPicBuffering = S265_MIN(MAX_NUM_REF, S265_MAX(vps.numReorderPics + 2, (uint32_t)param.maxNumReferences) + 1);
 
+    /* 在没有bAllowNonConformance的情况下对参考帧数量进行clip，保证DPB小于8*/
+    if (!param.bAllowNonConformance)
+    {
+        //S265_B_PYRAMID_HIER 通过小心使用，能够保证6个参考帧的情况下PDB不超过8
+        if (param.bBPyramid == S265_B_PYRAMID_HIER)
+            param.maxNumReferences = 6;
+        else
+            param.maxNumReferences = 8 - vps.numReorderPics;
+    }
     /* no level specified by user, just auto-detect from the configuration */
     if (param.levelIdc <= 0)
         return true;
