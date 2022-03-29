@@ -104,7 +104,7 @@ int s265_exp2fix8(double x)
 
 void s265_internal_log(const s265_param* param, const char* caller, int level, const char *psz_fmt, ...)
 {
-    if (level <= param->logLevel)
+    if (param && level <= param->logLevel)
     {
         const int bufferSize = 4096;
         char buffer[bufferSize]={0};
