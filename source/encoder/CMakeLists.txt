@@ -4,8 +4,11 @@ if(GCC)
     add_definitions(-Wno-uninitialized)
     if(CC_HAS_NO_STRICT_OVERFLOW)
         # GCC 4.9.2 gives warnings we know we can ignore in this file
-        set_source_files_properties(slicetype.cpp PROPERTIES COMPILE_FLAGS -Wno-strict-overflow)
+        set_source_files_properties(slicetype.cpp PROPERTIES COMPILE_FLAGS "-mavx  -mavx2  -Wno-strict-overflow" )
+    else()
+        set_source_files_properties(slicetype.cpp PROPERTIES COMPILE_FLAGS "-mavx  -mavx2" )
     endif(CC_HAS_NO_STRICT_OVERFLOW)
+    add_definitions(-DUSE_TEMPORAL_FILTER_AVX=1)
 endif()
 if(MSVC)
    add_definitions(/wd4701) # potentially uninitialized local variable 'foo' used

@@ -2133,9 +2133,7 @@ int Lookahead::check_gop16( Lowres **frames, int32_t gop_start )
 }
 
 //#if ( S264_TEMPORAL_FILTERING && HAVE_AVX2 )// temproal-filtering
-#include <immintrin.h>
-#include <emmintrin.h>
-#include <smmintrin.h>
+
 static const double  s_chroma_factor = 0.55;
 static const int32_t s_sigma_multiplier = 9;
 static const int32_t s_sigma_zero_point = 10;
@@ -2167,101 +2165,103 @@ static const uint32_t permute_left_table[9][8] = { {0, 1, 2, 3, 4, 5, 6, 7}, {0,
 static const uint32_t permute_right_table[8][8] = { {0, 1, 2, 3, 4, 5, 6, 7}, {0, 1, 2, 3, 4, 5, 6, 6}, {0, 1, 2, 3, 4, 5, 5, 5}, {0, 1, 2, 3, 4, 4, 4, 4}, {0, 1, 2, 3, 3, 3, 3, 3},
     {0, 1, 2, 2, 2, 2, 2, 2}, {0, 1, 1, 1, 1, 1, 1, 1}, {0, 0, 0, 0, 0, 0, 0, 0} };
 
+#ifdef USE_TEMPORAL_FILTER_AVX
+#include <immintrin.h>
+#include <emmintrin.h>
+#include <smmintrin.h>
+static void temporal_filter_row( const int32_t height, const int32_t width, const int32_t y, const int32_t x, const int32_t stride, const int32_t block_size_x, const int32_t block_size_y,
+    const int32_t y_int, const int32_t x_int, pixel *src_image, int32_t temp_array[23][16], const int32_t *x_filter )
+{
+    const int32_t num_filter_taps = 7;
+    const int32_t centre_tap_offset = 3;
+    const int     step_x = 8;
+    for( int32_t by = 1; by < block_size_y + num_filter_taps; by++ )
+    {
+        const int32_t  y_offset = X265_MAX(0, X265_MIN(height - 1, y + by + y_int - centre_tap_offset));
+        const pixel *source_row = src_image + y_offset * stride;
+        for( int32_t bx = 0; bx < block_size_x; bx += step_x )
+        {
+            int32_t        base = X265_MAX(-1, X265_MIN(width - 7, x + bx + x_int - centre_tap_offset));
+            const pixel *row_start = (source_row + base);
+            // AVX2
+            __m256i accum_a = _mm256_setzero_si256();
+#define PROCESS_FILTER( row_start1,filter )  {\
+            __m256i temp_array_avx2_a = _mm256_setzero_si256();\
+            __m256i filter_a = _mm256_set1_epi32(*(filter));\
+            temp_array_avx2_a = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(row_start1)));\
+            accum_a = _mm256_add_epi32(accum_a, _mm256_mullo_epi32(temp_array_avx2_a, filter_a));}
 
-//ZY TODO: need fix compilation problem to alternative C
+            PROCESS_FILTER( row_start + 1, x_filter + 1 );
+            PROCESS_FILTER( row_start + 2, x_filter + 2 );
+            PROCESS_FILTER( row_start + 3, x_filter + 3 );
+            PROCESS_FILTER( row_start + 4, x_filter + 4 );
+            PROCESS_FILTER( row_start + 5, x_filter + 5 );
+            PROCESS_FILTER( row_start + 6, x_filter + 6 );
+#undef PROCESS_FILTER
 
-// static void temporal_filter_row( const int32_t height, const int32_t width, const int32_t y, const int32_t x, const int32_t stride, const int32_t block_size_x, const int32_t block_size_y,
-//     const int32_t y_int, const int32_t x_int, pixel *src_image, int32_t temp_array[23][16], const int32_t *x_filter )
-// {
-//     const int32_t num_filter_taps = 7;
-//     const int32_t centre_tap_offset = 3;
-//     const int     step_x = 8;
-//     for( int32_t by = 1; by < block_size_y + num_filter_taps; by++ )
-//     {
-//         const int32_t  y_offset = X265_MAX(0, X265_MIN(height - 1, y + by + y_int - centre_tap_offset));
-//         const pixel *source_row = src_image + y_offset * stride;
-//         for( int32_t bx = 0; bx < block_size_x; bx += step_x )
-//         {
-//             int32_t        base = X265_MAX(-1, X265_MIN(width - 7, x + bx + x_int - centre_tap_offset));
-//             const pixel *row_start = (source_row + base);
-//             // AVX2
-//             __m256i accum_a = _mm256_setzero_si256();
-// #define PROCESS_FILTER( row_start1,filter )  {\
-//             __m256i temp_array_avx2_a = _mm256_setzero_si256();\
-//             __m256i filter_a = _mm256_set1_epi32(*(filter));\
-//             temp_array_avx2_a = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(row_start1)));\
-//             accum_a = _mm256_add_epi32(accum_a, _mm256_mullo_epi32(temp_array_avx2_a, filter_a));}
+            // padding left
+            if( base < 0 )
+            {
+                int32_t pad_num = X265_MIN( step_x, abs(x + bx + x_int - centre_tap_offset + 1) );
+                __m256i table = _mm256_lddqu_si256( (__m256i *)permute_left_table + pad_num );
+                accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
+            }
 
-//             PROCESS_FILTER( row_start + 1, x_filter + 1 );
-//             PROCESS_FILTER( row_start + 2, x_filter + 2 );
-//             PROCESS_FILTER( row_start + 3, x_filter + 3 );
-//             PROCESS_FILTER( row_start + 4, x_filter + 4 );
-//             PROCESS_FILTER( row_start + 5, x_filter + 5 );
-//             PROCESS_FILTER( row_start + 6, x_filter + 6 );
-// #undef PROCESS_FILTER
+            // padding right
+            if( width - 7 < (x + bx + x_int - centre_tap_offset + 8) )
+            {
+                int     pad_num = X265_MIN( step_x, x + bx + x_int - centre_tap_offset + 8 - (width - 7) );
+                __m256i table = _mm256_lddqu_si256( (__m256i *)permute_right_table + pad_num - 1) ;
+                accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
+            }
+            // store
+            _mm256_storeu_si256( (__m256i *)(temp_array[by] + bx), accum_a );
+        }
+    }
+}
 
-//             // padding left
-//             if( base < 0 )
-//             {
-//                 int32_t pad_num = X265_MIN( step_x, abs(x + bx + x_int - centre_tap_offset + 1) );
-//                 __m256i table = _mm256_lddqu_si256( (__m256i *)permute_left_table + pad_num );
-//                 accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
-//             }
+static void temporal_filter_col( const int32_t x, const int32_t dst_stride, const int32_t block_size_x, const int32_t block_size_y, pixel *dst_row, const int32_t temp_array[23][16], const int32_t *y_filter )
+{
+    const pixel max_value = 255;
+    const int     step_x = 8;
+    const __m256i mm_min = _mm256_set1_epi32(0);
+    const __m256i mm_max = _mm256_set1_epi32((int32_t)max_value);
 
-//             // padding right
-//             if( width - 7 < (x + bx + x_int - centre_tap_offset + 8) )
-//             {
-//                 int     pad_num = X265_MIN( step_x, x + bx + x_int - centre_tap_offset + 8 - (width - 7) );
-//                 __m256i table = _mm256_lddqu_si256( (__m256i *)permute_right_table + pad_num - 1) ;
-//                 accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
-//             }
-//             // store
-//             _mm256_storeu_si256( (__m256i *)(temp_array[by] + bx), accum_a );
-//         }
-//     }
-// }
+    for( int32_t by = 0; by < block_size_y; by++, dst_row += dst_stride )
+    {
+        pixel *dst_pel = dst_row + x;
+        for( int32_t bx = 0; bx < block_size_x; bx += step_x, dst_pel += step_x )
+        {
+            // AVX2
+            __m256i accum_a = _mm256_setzero_si256();
 
-// static void temporal_filter_col( const int32_t x, const int32_t dst_stride, const int32_t block_size_x, const int32_t block_size_y, pixel *dst_row, const int32_t temp_array[23][16], const int32_t *y_filter )
-// {
-//     const pixel max_value = 255;
-//     const int     step_x = 8;
-//     const __m256i mm_min = _mm256_set1_epi32(0);
-//     const __m256i mm_max = _mm256_set1_epi32((int32_t)max_value);
+#define PROCESS_FILTER( temp_array1,filter ) {\
+            __m256i temp_array_avx2_a;\
+            temp_array_avx2_a = _mm256_loadu_si256( (const __m256i *)(temp_array1) );\
+            __m256i filter_a = _mm256_set1_epi32(*(filter));\
+            temp_array_avx2_a = _mm256_mullo_epi32( temp_array_avx2_a, filter_a );\
+            accum_a = _mm256_add_epi32( accum_a, temp_array_avx2_a );}
 
-//     for( int32_t by = 0; by < block_size_y; by++, dst_row += dst_stride )
-//     {
-//         pixel *dst_pel = dst_row + x;
-//         for( int32_t bx = 0; bx < block_size_x; bx += step_x, dst_pel += step_x )
-//         {
-//             // AVX2
-//             __m256i accum_a = _mm256_setzero_si256();
+            PROCESS_FILTER( temp_array[by + 1] + bx, y_filter + 1 );
+            PROCESS_FILTER( temp_array[by + 2] + bx, y_filter + 2 );
+            PROCESS_FILTER( temp_array[by + 3] + bx, y_filter + 3 );
+            PROCESS_FILTER( temp_array[by + 4] + bx, y_filter + 4 );
+            PROCESS_FILTER( temp_array[by + 5] + bx, y_filter + 5 );
+            PROCESS_FILTER( temp_array[by + 6] + bx, y_filter + 6 );
+#undef PROCESS_FILTER
 
-// #define PROCESS_FILTER( temp_array1,filter ) {\
-//             __m256i temp_array_avx2_a;\
-//             temp_array_avx2_a = _mm256_loadu_si256( (const __m256i *)(temp_array1) );\
-//             __m256i filter_a = _mm256_set1_epi32(*(filter));\
-//             temp_array_avx2_a = _mm256_mullo_epi32( temp_array_avx2_a, filter_a );\
-//             accum_a = _mm256_add_epi32( accum_a, temp_array_avx2_a );}
-
-//             PROCESS_FILTER( temp_array[by + 1] + bx, y_filter + 1 );
-//             PROCESS_FILTER( temp_array[by + 2] + bx, y_filter + 2 );
-//             PROCESS_FILTER( temp_array[by + 3] + bx, y_filter + 3 );
-//             PROCESS_FILTER( temp_array[by + 4] + bx, y_filter + 4 );
-//             PROCESS_FILTER( temp_array[by + 5] + bx, y_filter + 5 );
-//             PROCESS_FILTER( temp_array[by + 6] + bx, y_filter + 6 );
-// #undef PROCESS_FILTER
-
-//             const __m256i shift_11 = _mm256_set1_epi32(1 << 11);
-//             accum_a = _mm256_add_epi32(accum_a, shift_11);
-//             accum_a = _mm256_srai_epi32(accum_a, 12);
-//             accum_a = _mm256_min_epi32(mm_max, _mm256_max_epi32(accum_a, mm_min));
-//             __m256i pack_s32_16 = _mm256_packs_epi32(accum_a, accum_a);
-//             __m256i permute_16 = _mm256_permute4x64_epi64(pack_s32_16, 0x88);
-//             __m256i pack_s16_8 = _mm256_packus_epi16(permute_16, permute_16);
-//             _mm256_storeu_si256((__m256i *)(dst_pel), pack_s16_8);
-//         }
-//     }
-// }
+            const __m256i shift_11 = _mm256_set1_epi32(1 << 11);
+            accum_a = _mm256_add_epi32(accum_a, shift_11);
+            accum_a = _mm256_srai_epi32(accum_a, 12);
+            accum_a = _mm256_min_epi32(mm_max, _mm256_max_epi32(accum_a, mm_min));
+            __m256i pack_s32_16 = _mm256_packs_epi32(accum_a, accum_a);
+            __m256i permute_16 = _mm256_permute4x64_epi64(pack_s32_16, 0x88);
+            __m256i pack_s16_8 = _mm256_packus_epi16(permute_16, permute_16);
+            _mm256_storeu_si256((__m256i *)(dst_pel), pack_s16_8);
+        }
+    }
+}
+#endif
 
 static void temporal_filter_row_c( const int32_t height, const int32_t width, const int32_t y, const int32_t x, const int32_t stride, const int32_t block_size_x, const int32_t block_size_y,
     const int32_t y_int, const int32_t x_int, pixel *src_image, int32_t temp_array[23][16], const int32_t *x_filter )
@@ -2402,12 +2402,24 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
                 }
 
                 int32_t temp_array[23][16];// 16+7
-                //temporal_filter_row( height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter );
-                temporal_filter_row_c( height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter );
-
+#ifdef USE_TEMPORAL_FILTER_AVX
+                if (m_param->cpuid & X265_CPU_AVX)
+                    temporal_filter_row_c(height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter);
+                else
+                    temporal_filter_row(height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter);
+#else
+                temporal_filter_row_c(height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter);
+#endif
                 pixel *dst_row = dst_image + y * stride;
-                //temporal_filter_col( x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter );
-                temporal_filter_col_c( x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter );
+#ifdef USE_TEMPORAL_FILTER_AVX
+                if (m_param->cpuid & X265_CPU_AVX)
+                    temporal_filter_col(x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter);
+                else
+                    temporal_filter_col_c(x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter);
+
+#else
+                temporal_filter_col_c(x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter);
+#endif
             }
         }
     }
@@ -2416,48 +2428,48 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
 #define SHIFTBIT 16
 #define SHIFTVALUE (1 << SHIFTBIT)  // 2^16
 
-//ZY TODO: need fix compilation problem to alternative C
+#ifdef USE_TEMPORAL_FILTER_AVX
+static void bilateral_filter_core( const int32_t c, const int32_t height, const int32_t width, const int32_t num_refs, pixel *corrected_pics[10][3], const pixel *src_pel_row, const int32_t src_stride,
+    pixel *dst_pel_row, const int32_t dst_stride, const int32_t exp_value[2][1024], const int32_t offset_index[10] )
+{
+    const pixel max_sample_value = 255;
+    const int32_t step_x = 8;
 
-// static void bilateral_filter_core( const int32_t c, const int32_t height, const int32_t width, const int32_t num_refs, pixel *corrected_pics[10][3], const pixel *src_pel_row, const int32_t src_stride,
-//     pixel *dst_pel_row, const int32_t dst_stride, const int32_t exp_value[2][1024], const int32_t offset_index[10] )
-// {
-//     const pixel max_sample_value = 255;
-//     const int32_t step_x = 8;
-
-//     for( int32_t y = 0; y < height; y++, src_pel_row += src_stride, dst_pel_row += dst_stride )
-//     {
-//         const pixel *src_pel = src_pel_row;
-//         pixel       *dst_pel = dst_pel_row;
-//         for( int32_t x = 0; x < width; x += step_x, src_pel += step_x, dst_pel += step_x )
-//         {
-//             // const int32_t orgVal = (pixel_t)*srcPel;
-//             __m256i org_val_avx2 = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(src_pel)));
-//             __m256i temporal_weight_sum_avx2 = _mm256_set1_epi32((int32_t)(SHIFTVALUE));
-//             __m256i new_val_avx2 = _mm256_slli_epi32(org_val_avx2, 16);
-//             for( int32_t i = 0; i < num_refs; i++ )
-//             {
-//                 const pixel *corrected_pel_ptr = corrected_pics[i][c] + (y * src_stride + x);
-//                 const int32_t  index = X265_MIN(1, abs(offset_index[i]) - 1);
-//                 __m256i        ref_val_avx2 = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(corrected_pel_ptr)));
-//                 __m256i        diff_avx2 = _mm256_abs_epi32(_mm256_sub_epi32(ref_val_avx2, org_val_avx2));
-//                 __m256i        weight_avx2 = _mm256_i32gather_epi32(exp_value[index], diff_avx2, 4);
-//                 new_val_avx2 = _mm256_add_epi32(new_val_avx2, _mm256_mullo_epi32(weight_avx2, ref_val_avx2));
-//                 temporal_weight_sum_avx2 = _mm256_add_epi32(temporal_weight_sum_avx2, weight_avx2);
-//             }
-//             int32_t temporal_weight_sum_array[8];
-//             int32_t new_val_array[8];
-//             _mm256_storeu_si256((__m256i *)temporal_weight_sum_array, temporal_weight_sum_avx2);
-//             _mm256_storeu_si256((__m256i *)new_val_array, new_val_avx2);
-//             for( int i = 0; i < step_x; ++i )
-//             {
-//                 new_val_array[i] = (new_val_array[i] + temporal_weight_sum_array[i] / 2) / temporal_weight_sum_array[i];
-//                 pixel sample_val = (pixel)round(new_val_array[i]);
-//                 sample_val = (sample_val < 0 ? 0 : (sample_val > max_sample_value ? max_sample_value : sample_val));
-//                 *(dst_pel + i) = sample_val;
-//             }
-//         }
-//     }
-// }
+    for( int32_t y = 0; y < height; y++, src_pel_row += src_stride, dst_pel_row += dst_stride )
+    {
+        const pixel *src_pel = src_pel_row;
+        pixel       *dst_pel = dst_pel_row;
+        for( int32_t x = 0; x < width; x += step_x, src_pel += step_x, dst_pel += step_x )
+        {
+            // const int32_t orgVal = (pixel_t)*srcPel;
+            __m256i org_val_avx2 = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(src_pel)));
+            __m256i temporal_weight_sum_avx2 = _mm256_set1_epi32((int32_t)(SHIFTVALUE));
+            __m256i new_val_avx2 = _mm256_slli_epi32(org_val_avx2, 16);
+            for( int32_t i = 0; i < num_refs; i++ )
+            {
+                const pixel *corrected_pel_ptr = corrected_pics[i][c] + (y * src_stride + x);
+                const int32_t  index = X265_MIN(1, abs(offset_index[i]) - 1);
+                __m256i        ref_val_avx2 = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(corrected_pel_ptr)));
+                __m256i        diff_avx2 = _mm256_abs_epi32(_mm256_sub_epi32(ref_val_avx2, org_val_avx2));
+                __m256i        weight_avx2 = _mm256_i32gather_epi32(exp_value[index], diff_avx2, 4);
+                new_val_avx2 = _mm256_add_epi32(new_val_avx2, _mm256_mullo_epi32(weight_avx2, ref_val_avx2));
+                temporal_weight_sum_avx2 = _mm256_add_epi32(temporal_weight_sum_avx2, weight_avx2);
+            }
+            int32_t temporal_weight_sum_array[8];
+            int32_t new_val_array[8];
+            _mm256_storeu_si256((__m256i *)temporal_weight_sum_array, temporal_weight_sum_avx2);
+            _mm256_storeu_si256((__m256i *)new_val_array, new_val_avx2);
+            for( int i = 0; i < step_x; ++i )
+            {
+                new_val_array[i] = (new_val_array[i] + temporal_weight_sum_array[i] / 2) / temporal_weight_sum_array[i];
+                pixel sample_val = (pixel)round(new_val_array[i]);
+                sample_val = (sample_val < 0 ? 0 : (sample_val > max_sample_value ? max_sample_value : sample_val));
+                *(dst_pel + i) = sample_val;
+            }
+        }
+    }
+}
+#endif
 
 //ZY TODO: 代码风格统一
 void Lookahead::bilateral_filter_core_c( const int32_t c, const int32_t height, const int32_t width, const int32_t num_refs, pixel *corrected_pics[10][3], const pixel *src_pel_row, const int32_t src_stride,
@@ -2595,131 +2607,6 @@ void Lookahead::bilateral_filter_core_c( const int32_t c, const int32_t height, 
     }
 }
 
-// void Lookahead::bilateral_filter_core_c( const int32_t c, const int32_t height, const int32_t width, const int32_t num_refs, pixel *corrected_pics[10][3], const pixel *src_pel_row, const int32_t src_stride,
-//     pixel *dst_pel_row, const int32_t dst_stride, const int32_t exp_value[2][1024], const int32_t offset_index[10], double weightScaling, double sigmaSq )
-// {
-//     const pixel maxSampleValue = 255;
-//     const int32_t step_x = 1; //TODO:先逐个进行
-
-//     int refStrengthRow = 2;
-//     int s_range = 2;
-//     if (num_refs == s_range * 2)
-//     {
-//         refStrengthRow = 0;
-//     }
-//     else if (num_refs == s_range)
-//     {
-//         refStrengthRow = 1;
-//     }
-
-
-//     for( int32_t y = 0; y < height; y++, src_pel_row += src_stride, dst_pel_row += dst_stride )
-//     {
-//         const pixel *src_pel = src_pel_row;
-//         pixel       *dst_pel = dst_pel_row;
-//         for( int32_t x = 0; x < width; x += step_x, src_pel += step_x, dst_pel += step_x )
-//         {
-//             const int orgVal = (int) *src_pel;
-//             double temporalWeightSum = 1.0;
-//             double newVal = (double) orgVal;
-
-//             for( int32_t i = 0; i < num_refs; i++ )
-//             {
-//                 const pixel *pCorrectedPelPtr = corrected_pics[i][c] + (y * src_stride + x);
-//                 int refVal = (int) *pCorrectedPelPtr;
-//                 const int32_t  index = X265_MIN(1, abs(offset_index[i]) - 1);
-//                 double diff = (double)(refVal - orgVal);
-//                 diff *= 4;
-//                 double diffSq = diff * diff;
-//                 const double weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
-//                 newVal += weight * refVal;
-//                 temporalWeightSum += weight;
-//             }
-//             newVal /= temporalWeightSum;
-//             pixel sampleVal = (pixel)round(newVal);
-//             sampleVal=(sampleVal<0?0 : (sampleVal>maxSampleValue ? maxSampleValue : sampleVal));
-//             *dst_pel = sampleVal;
-//         }
-//     }
-// }
-
-
-// static void bilateral_filter2( pixel *corrected_pics[10][3], Frame *curFrame, double overall_strength,  int32_t num_refs,
-//     const int32_t s_range, int32_t m_qp, int32_t offset_index[10] )
-// {
-//     pixel *src[3] ={0};
-//     src[0] = curFrame->m_originalPic->m_picOrg[0];
-//     pixel *dst[3] ={0};
-//     dst[0] = curFrame->m_fencPic->m_picOrg[0];
-//     int32_t stride[3]={0};
-//     stride[0] = curFrame->m_fencPic->m_stride;
-//     int32_t source_height = curFrame->m_fencPic->m_picHeight;
-//     int32_t source_width = curFrame->m_fencPic->m_picWidth;
-//     int32_t ref_strength_row = 2;
-//     if( num_refs == s_range * 2 )
-//     {
-//         ref_strength_row = 0;
-//     }
-//     else if( num_refs == s_range )
-//     {
-//         ref_strength_row = 1;
-//     }
-
-//     const int32_t luma_sigma_sq = (m_qp - s_sigma_zero_point) * (m_qp - s_sigma_zero_point) * s_sigma_multiplier;
-//     const int32_t chroma_sigma_sq = 30 * 30;
-//     double        filtering_double[2];
-//     int32_t       exp_value[2][1024];
-
-//     for( int32_t c = 0; c < 1/*3*/; c++ )
-//     {
-//         int32_t           shift = c ? 1 : 0;
-//         const int32_t     height = source_height >> shift;
-//         const int32_t     width = source_width >> shift;
-//         const pixel      *src_pel_row = src[c];
-//         const int32_t     src_stride = stride[c];
-//         pixel            *dst_pel_row = dst[c];
-//         const int32_t     dst_stride = stride[c];
-//         const int32_t     sigma_sq = c ? chroma_sigma_sq : luma_sigma_sq;
-//         const double      weight_scaling = overall_strength * (c ? s_chroma_factor : 0.4);
-//         for( int m = 0; m < 2; m++ )
-//         {
-//             filtering_double[m] = weight_scaling * s_ref_strengths[ref_strength_row][m];
-//         }
-//         const pixel max_sample_value = 255;
-//         const int32_t bit_depth_diff_weighting = 4;
-//         // if( c < 2 )
-//         // {//table calulate only for Y and U, V just reuse from U
-//         //     for( int i = 0; i <= max_sample_value; i++ )
-//         //     {
-//         //         for( int m = 0; m < 2; m++ )
-//         //         {
-//         //             exp_value[m][i] = (int32_t)( exp(-i * i * bit_depth_diff_weighting * bit_depth_diff_weighting / (2 * sigma_sq * 1.0)) * filtering_double[m] * SHIFTVALUE + 0.5 );
-//         //         }
-//         //     }
-//         // }
-//         //bilateral_filter_core( c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index );
-//         bilateral_filter_core_c( c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index, weight_scaling, luma_sigma_sq );
-//         pixel *tmpSrc = curFrame->m_originalPic->m_picOrg[0];
-//         pixel *tmpDst = curFrame->m_fencPic->m_picOrg[0];
-//         double result = 0;
-//         int  max = 0;
-//         for(int y = 0; y < curFrame->m_originalPic->m_picHeight; y++)
-//         {
-//             for(int x = 0; x < curFrame->m_originalPic->m_picWidth; x++)
-//             {
-//                 result += abs(tmpSrc[x] - tmpDst[x]);
-//                 if(max<abs(tmpSrc[x] - tmpDst[x]))
-//                     max = abs(tmpSrc[x] - tmpDst[x]);
-//             }
-//             tmpSrc += curFrame->m_originalPic->m_stride;
-//             tmpDst += curFrame->m_originalPic->m_stride;
-//         }
-//         printf("frame diff is %f, max diff is %d\n", result, max);
-//         result++;
-//     }
-// }
-
-
 void Lookahead::bilateral_filter( pixel *corrected_pics[10][3], Frame *curFrame, double overall_strength,  int32_t num_refs,
     const int32_t s_range, int32_t m_qp, int32_t offset_index[10] )
 {
@@ -2761,20 +2648,30 @@ void Lookahead::bilateral_filter( pixel *corrected_pics[10][3], Frame *curFrame,
         {
             filtering_double[m] = weight_scaling * s_ref_strengths[ref_strength_row][m];
         }
-        //const pixel max_sample_value = 255;
-        //const int32_t bit_depth_diff_weighting = 4;
-        // if( c < 2 )
-        // {//table calulate only for Y and U, V just reuse from U
-        //     for( int i = 0; i <= max_sample_value; i++ )
-        //     {
-        //         for( int m = 0; m < 2; m++ )
-        //         {
-        //             exp_value[m][i] = (int32_t)( exp(-i * i * bit_depth_diff_weighting * bit_depth_diff_weighting / (2 * sigma_sq * 1.0)) * filtering_double[m] * SHIFTVALUE + 0.5 );
-        //         }
-        //     }
-        // }
-        //bilateral_filter_core( c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index );
+#ifdef USE_TEMPORAL_FILTER_AVX
+        //simd method not support mctf.method 1
+        if ((m_param->cpuid & X265_CPU_AVX) && !m_param->mctf.method)
+        {
+            const pixel max_sample_value = 255;
+            const int32_t bit_depth_diff_weighting = 4;
+            if (c < 2)
+            { // table calulate only for Y and U, V just reuse from U
+                for (int i = 0; i <= max_sample_value; i++)
+                {
+                    for (int m = 0; m < 2; m++)
+                    {
+                        exp_value[m][i] = (int32_t)(exp(-i * i * bit_depth_diff_weighting * bit_depth_diff_weighting / (2 * sigma_sq * 1.0)) * filtering_double[m] * SHIFTVALUE + 0.5);
+                    }
+                }
+            }
+            bilateral_filter_core(c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index);
+        }
+        else
+            bilateral_filter_core_c(c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index, weight_scaling, sigma_sq);
+
+#else
         bilateral_filter_core_c( c, height, width, num_refs, corrected_pics, src_pel_row, src_stride, dst_pel_row, dst_stride, exp_value, offset_index, weight_scaling, sigma_sq );
+#endif
         pixel *tmpSrc = curFrame->m_originalPic->m_picOrg[0];
         pixel *tmpDst = curFrame->m_fencPic->m_picOrg[0];
         double result = 0;
@@ -2850,24 +2747,6 @@ int Lookahead::temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b
         orig_offset_index[num_ref] = orig_offset;
         //printf("Tempoal filter deal frame poc: %d, frame_type:%d, ref poc %d\n", frames[b]->m_poc, lowresFrames[b]->sliceType, frames[idx]->m_poc);
         apply_motion( lowres_mv, frames[idx], frames[b], temp[num_ref], inter_cost, intra_cost );
-        // FILE *outyuv = fopen("tmpyuv.yuv", "wb");
-        // for(int i=0; i<frames[b]->m_fencPic->m_picHeight; i++)
-        // {
-        //     fwrite(temp[num_ref][0]+i*frames[b]->m_fencPic->m_stride, sizeof(pixel), frames[b]->m_fencPic->m_picWidth, outyuv );
-        // }
-        // for(int i=0; i<frames[b]->m_fencPic->m_picHeight; i++)
-        // {
-        //     fwrite(temp[num_ref][0]+i*frames[b]->m_fencPic->m_stride, sizeof(pixel), frames[b]->m_fencPic->m_picWidth, outyuv );
-        // }
-        // for(int i=0; i<frames[b]->m_fencPic->m_picHeight>>2; i++)
-        // {
-        //     fwrite(frames[b]->m_fencPic->m_picOrg[1]+i*frames[b]->m_fencPic->m_strideC, 1, frames[b]->m_fencPic->m_picWidth>>1, outyuv );
-        // }
-        // for(int i=0; i<frames[b]->m_fencPic->m_picHeight>>2; i++)
-        // {
-        //     fwrite(frames[b]->m_fencPic->m_picOrg[2]+i*frames[b]->m_fencPic->m_strideC, 1, frames[b]->m_fencPic->m_picWidth>>1, outyuv );
-        // }
-        // fclose(outyuv);
             
         num_ref++;
         orig_offset++;
@@ -2879,24 +2758,12 @@ int Lookahead::temporal_filter( Frame **frames, Lowres **lowresFrames, int32_t b
     {
         return 0;
     }
-    //pixel* tmp = frames[b]->m_fencPic->m_picOrg[0];
-    // for (int y = 0; y<500; y++)
-    // {
-    //     for (int x=0;x<500;x++)
-    //     {
-    //         tmp[x] = 255;
-    //     }
-    //     tmp += frames[b]->m_fencPic->m_stride;
-    // }
 
     //if( replace )
     {
         bilateral_filter( temp, frames[b], overall_strength, num_ref, s_range, qp, orig_offset_index );
     }
-    // else
-    // {
-    //     //bilateral_filter( temp, frames[b]->plane, frames[b]->plane_dnr, frames[b]->i_stride, overall_strength, h->param.i_height, h->param.i_width, num_ref, s_range, qp, orig_offset_index );
-    // }
+
     for( int32_t i = 0; i < num_ref; i++ )
     {
         if( temp[i][0] )
