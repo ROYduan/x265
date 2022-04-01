@@ -678,7 +678,6 @@ namespace S265_NS {
                 OPT("preset")  /* handled above */;
                 OPT("tune")    /* handled above */;
                 OPT("output-depth")   /* handled above */;
-                OPT("recon-y4m-exec") reconPlayCmd = optarg;
                 OPT("svt")    /* handled above */;
                 OPT("qpfile")
                 {

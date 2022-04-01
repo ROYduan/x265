@@ -29,7 +29,6 @@
 #include "param.h"
 #include "input/input.h"
 #include "output/output.h"
-#include "output/reconplay.h"
 
 #include <getopt.h>
 
@@ -389,7 +388,6 @@ static const struct option long_options[] =
         FILE*       qpfile;
         FILE*       zoneFile;
         FILE*    dolbyVisionRpu;    /* File containing Dolby Vision BL RPU metadata */
-        const char* reconPlayCmd;
         const s265_api* api;
         s265_param* param;
         s265_vmaf_data* vmafData;
@@ -407,7 +405,6 @@ static const struct option long_options[] =
 
         /* ABR ladder settings */
         bool isAbrLadderConfig;
-        bool enableScaler;
         char*    encName;
         char*    reuseName;
         uint32_t encId;
@@ -426,7 +423,6 @@ static const struct option long_options[] =
             qpfile = NULL;
             zoneFile = NULL;
             dolbyVisionRpu = NULL;
-            reconPlayCmd = NULL;
             api = NULL;
             param = NULL;
             vmafData = NULL;
@@ -438,7 +434,6 @@ static const struct option long_options[] =
             prevUpdateTime = 0;
             bDither = false;
             isAbrLadderConfig = false;
-            enableScaler = false;
             encName = NULL;
             reuseName = NULL;
             encId = 0;

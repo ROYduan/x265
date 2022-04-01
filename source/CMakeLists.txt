@@ -740,7 +740,7 @@ add_custom_target(uninstall
 set(ENABLE_CLI ON CACHE BOOL "Build standalone CLI application")
 if(ENABLE_CLI)
     file(GLOB InputFiles input/input.cpp input/yuv.cpp input/y4m.cpp input/*.h)
-    file(GLOB OutputFiles output/output.cpp output/reconplay.cpp output/*.h
+    file(GLOB OutputFiles output/output.cpp output/*.h
                           output/yuv.cpp output/y4m.cpp # recon
                           output/raw.cpp)               # muxers
     source_group(input FILES ${InputFiles})
