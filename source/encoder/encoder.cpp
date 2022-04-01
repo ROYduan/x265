@@ -2642,7 +2642,6 @@ void Encoder::initSPS(SPS *sps)
     vui.defaultDisplayWindow.topOffset = m_param->vui.defDispWinTopOffset;
     vui.defaultDisplayWindow.bottomOffset = m_param->vui.defDispWinBottomOffset;
     vui.defaultDisplayWindow.leftOffset = m_param->vui.defDispWinLeftOffset;
-
     vui.hrdParametersPresentFlag = m_param->bEmitHRDSEI;
 
     vui.timingInfo.numUnitsInTick = m_param->fpsDenom;

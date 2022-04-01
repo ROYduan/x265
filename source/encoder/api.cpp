@@ -73,6 +73,8 @@ static const char* summaryCSVHeader =
     "I count, I ave-QP, I kbps, I-PSNR Y, I-PSNR U, I-PSNR V, I-SSIM (dB), "
     "P count, P ave-QP, P kbps, P-PSNR Y, P-PSNR U, P-PSNR V, P-SSIM (dB), "
     "B count, B ave-QP, B kbps, B-PSNR Y, B-PSNR U, B-PSNR V, B-SSIM (dB), ";
+
+// new 一个派生类Encoder，返回一个基类s265_encoder指针
 s265_encoder *s265_encoder_open(s265_param *p)
 {
     if (!p)

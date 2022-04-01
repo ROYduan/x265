@@ -967,12 +967,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("b-adapt")
     {
         p->bFrameAdaptive = atoi(value);
-        // p->bFrameAdaptive = atobool(value);
-        // if (bError || p->bFrameAdaptive)
-        // {
-        //     bError = false;
-        //     p->bFrameAdaptive = atoi(value);
-        // }
     }
     OPT("ref") p->maxNumReferences = atoi(value);
     OPT("limit-refs") p->limitReferences = atoi(value);
