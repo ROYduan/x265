@@ -257,11 +257,11 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define MAX_CU_SIZE             (1 << MAX_LOG2_CU_SIZE)     // maximum allowable size of CU
 
 #define LOG2_UNIT_SIZE          2                           // log2(unitSize)
-#define UNIT_SIZE               (1 << LOG2_UNIT_SIZE)       // unit size of CU partition
+#define UNIT_SIZE               (1 << LOG2_UNIT_SIZE)       // unit size of CU partition 4x4 为单位
 
-#define LOG2_RASTER_SIZE        (MAX_LOG2_CU_SIZE - LOG2_UNIT_SIZE)
-#define RASTER_SIZE             (1 << LOG2_RASTER_SIZE)
-#define MAX_NUM_PARTITIONS      (RASTER_SIZE * RASTER_SIZE)
+#define LOG2_RASTER_SIZE        (MAX_LOG2_CU_SIZE - LOG2_UNIT_SIZE)// 4
+#define RASTER_SIZE             (1 << LOG2_RASTER_SIZE)      // 16
+#define MAX_NUM_PARTITIONS      (RASTER_SIZE * RASTER_SIZE)  // 256
 
 #define MIN_PU_SIZE             4
 #define MIN_TU_SIZE             4

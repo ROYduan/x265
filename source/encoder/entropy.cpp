@@ -763,17 +763,17 @@ void Entropy::encodeCTU(const CUData& ctu, const CUGeom& cuGeom)
     encodeCU(ctu, cuGeom, 0, 0, bEncodeDQP);
 }
 
-/* encode a CU block recursively */
+/*商编码 encode a CU block recursively */
 void Entropy::encodeCU(const CUData& ctu, const CUGeom& cuGeom, uint32_t absPartIdx, uint32_t depth, bool& bEncodeDQP)
 {
     const Slice* slice = ctu.m_slice;
 
-    int cuSplitFlag = !(cuGeom.flags & CUGeom::LEAF);
-    int cuUnsplitFlag = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
+    int cuSplitFlag = !(cuGeom.flags & CUGeom::LEAF);//0:叶子cu节点,不可再分割 1:非叶子结点可在分割
+    int cuUnsplitFlag = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);//0:需要被强制分割，1:没有被强制分割 
 
-    if (!cuUnsplitFlag)
+    if (!cuUnsplitFlag)//被强制分割时
     {
-        uint32_t qNumParts = cuGeom.numPartitions >> 2;
+        uint32_t qNumParts = cuGeom.numPartitions >> 2;// 1/4部分的 partion
         if (depth == slice->m_pps->maxCuDQPDepth && slice->m_pps->bUseDQP)
             bEncodeDQP = true;
         for (uint32_t qIdx = 0; qIdx < 4; ++qIdx, absPartIdx += qNumParts)

@@ -81,17 +81,17 @@ class ThreadPool
 {
 public:
 
-    sleepbitmap_t m_sleepBitmap;
-    int           m_numProviders;
+    sleepbitmap_t m_sleepBitmap;//用于管理线程池里面的线程的sleep状态
+    int           m_numProviders; //该线程池有几个任务派发者‘领导’对应该线程池派任务  create时赋值
     int           m_numWorkers;//该线程池有多少个可以工作的线程
     void*         m_numaMask; // node mask in linux, cpu mask in windows
 #if defined(_WIN32_WINNT) && _WIN32_WINNT >= _WIN32_WINNT_WIN7 
     GROUP_AFFINITY m_groupAffinity;
 #endif
-    bool          m_isActive;
+    bool          m_isActive;//该pool 中的所有workers 都共用该标志
 
-    JobProvider** m_jpTable;
-    WorkerThread* m_workers;
+    JobProvider** m_jpTable;//该线程池的任务派发者(’领导们‘)都记录在了jptable 里面 对应 m_numProviders个
+    WorkerThread* m_workers;//该线程池的线程“工人”记录在WorkerThread指针
 
     ThreadPool();
     ~ThreadPool();

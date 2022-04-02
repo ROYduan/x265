@@ -1525,18 +1525,19 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
 
     int checkTransformSkip = m_slice->m_pps->bTransformSkipEnabled && !cu.m_tqBypass[0] && cu.m_partSize[0] != SIZE_2Nx2N;
 
-    // loop over partitions
+    // loop over partitions 1个或者4个
     for (uint32_t puIdx = 0; puIdx < numPU; puIdx++, absPartIdx += qNumParts)
     {
         uint32_t bmode = 0;
 
-        if (intraMode.cu.m_lumaIntraDir[puIdx] != (uint8_t)ALL_IDX)
+        if (intraMode.cu.m_lumaIntraDir[puIdx] != (uint8_t)ALL_IDX)//已经做过intra search了
             bmode = intraMode.cu.m_lumaIntraDir[puIdx];
         else
         {
             uint64_t candCostList[MAX_RD_INTRA_MODES];
             uint32_t rdModeList[MAX_RD_INTRA_MODES];
             uint64_t bcost;
+            //                 2 + [1...6]          + (([0...3]+ [0...1]))
             int maxCandCount = 2 + m_param->rdLevel + ((depth + initTuDepth) >> 1);
 
             {

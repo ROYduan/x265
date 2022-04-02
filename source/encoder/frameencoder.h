@@ -122,6 +122,7 @@ public:
 
     virtual ~FrameEncoder() {}
 
+// 这里的virtual 完全没有必要了
     virtual bool init(Encoder *top, int numRows, int numCols);
 
     void destroy();
@@ -154,7 +155,7 @@ public:
 
     CTURow*                  m_rows;
     uint16_t                 m_sliceAddrBits;// 用几个bits 来表示slice header中的 sliceaddr 这个语法元素
-    uint32_t                 m_sliceGroupSize;
+    uint32_t                 m_sliceGroupSize;// 均分下来 一个slice 有多少行ctu
     uint32_t*                m_sliceBaseRow;    
     uint32_t*                m_sliceMaxBlockRow;
     int64_t                  m_rowSliceTotalBits[2];
@@ -237,7 +238,7 @@ protected:
     bool writeToneMapInfo(s265_sei_payload *payload);
 
     /* Called by WaveFront::findJob() */
-    virtual void processRow(int row, int threadId);
+    virtual void processRow(int row, int threadId);//重写基类wavefront的函数
     virtual void processRowEncoder(int row, ThreadLocalData& tld);
 
     void enqueueRowEncoder(int row) { WaveFront::enqueueRow(row * 2 + 0); }

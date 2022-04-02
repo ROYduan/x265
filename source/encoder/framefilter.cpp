@@ -582,7 +582,7 @@ void FrameFilter::processRow(int row)
 
     if (!m_param->bEnableLoopFilter && !m_useSao)
     {
-        processPostRow(row);
+        processPostRow(row);//不需要deblock 不需要sao 计算完psnr ssim 直接 return
         return;
     }
     FrameData& encData = *m_frame->m_encData;
@@ -630,12 +630,12 @@ void FrameFilter::processRow(int row)
 
     // NOTE: slices parallelism will be execute out-of-order
     int numRowFinished = 0;
-    if (m_frame->m_reconRowFlag)
+    if (m_frame->m_reconRowFlag)// 如果指针不为空
     {
         for (numRowFinished = 0; numRowFinished < m_numRows; numRowFinished++)
         {
             if (!m_frame->m_reconRowFlag[numRowFinished].get())
-                break;
+                break;// 找到一个还没完成重建的ctu行 则break
 
             if (numRowFinished == row)
                 continue;
@@ -658,7 +658,7 @@ void FrameFilter::processRow(int row)
     }
 
     if (ctu->m_bLastRowInSlice)
-        processPostRow(row);
+        processPostRow(row);//已经完成了整个重建了
 }
 
 void FrameFilter::processPostRow(int row)
@@ -671,7 +671,7 @@ void FrameFilter::processPostRow(int row)
     if(m_param->searchMethod == S265_SEA)
         computeMEIntegral(row);
     // Notify other FrameEncoders that this row of reconstructed pixels is available
-    m_frame->m_reconRowFlag[row].set(1);
+    m_frame->m_reconRowFlag[row].set(1);// 完成了整个重建了 deblock sao 都完成了 设置该ctu 行 的m_reconRowFlag 为ture
 
     uint32_t cuAddr = lineStartCUAddr;
     if (m_param->bEnablePsnr)
@@ -728,7 +728,7 @@ void FrameFilter::processPostRow(int row)
         uint32_t height = m_parallelFilter[row].getCUHeight();
         m_frameEncoder->initDecodedPictureHashSEI(row, cuAddr, height);
     } // end of (m_param->maxSlices == 1)
-
+    // ？？？ 
     if (ATOMIC_INC(&m_frameEncoder->m_completionCount) == 2 * (int)m_frameEncoder->m_numRows)
     {
         m_frameEncoder->m_completionEvent.trigger();

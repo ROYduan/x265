@@ -750,6 +750,8 @@ int s265_get_slicetype_poc_and_scenecut(s265_encoder *enc, int *slicetype, int *
     return -1;
 }
 
+// 只提供了api接口 实际编码器本身不会调用
+// 因为 里面会阻塞等到所有ref 都完成重构
 int s265_get_ref_frame_list(s265_encoder *enc, s265_picyuv** l0, s265_picyuv** l1, int sliceType, int poc, int* pocL0, int* pocL1)
 {
     if (!enc)

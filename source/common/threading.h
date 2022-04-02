@@ -806,7 +806,7 @@ protected:
 
 // Utility class which adds elapsed time of the scope of the object into the
 // accumulator provided to the constructor
-// 待时间统计的 可以自释放的锁
+// 带有时间统计的 可以自释放的锁
 struct ScopedElapsedTime
 {
     ScopedElapsedTime(int64_t& accum) : accumlatedTime(accum) { startTime = s265_mdate(); }
@@ -819,6 +819,7 @@ protected:
     int64_t& accumlatedTime;
 
     // do not allow assignments
+    // 只提供声明，不提供定义，如果有调用则报链接错误
     ScopedElapsedTime &operator =(const ScopedElapsedTime &);
 };
 
@@ -837,7 +838,7 @@ public:
 
     //< Derived class must implement ThreadMain.
     // 所有继承了thread的子类 必须重写 运行主函数
-    virtual void threadMain() = 0;
+    virtual void threadMain() = 0;// 纯虚函数，该类不能实例化对象，只能倍派生类集成
 
     //< Returns true if thread was successfully created
     bool start();// 创建并执行线程（线程函数是一个虚接口需要由派生类中的  threadMain 重新实现）

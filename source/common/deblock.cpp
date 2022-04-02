@@ -87,7 +87,7 @@ void Deblock::deblockCU(const CUData* cu, const CUGeom& cuGeom, const int32_t di
         return;
     }
 
-    uint32_t numUnits = 1 << (cuGeom.log2CUSize - LOG2_UNIT_SIZE);
+    uint32_t numUnits = 1 << (cuGeom.log2CUSize - LOG2_UNIT_SIZE); // for 64x64 cuGeom ----> 16
     setEdgefilterPU(cu, absPartIdx, dir, blockStrength, numUnits);
     setEdgefilterTU(cu, absPartIdx, 0, dir, blockStrength);
     setEdgefilterMultiple(absPartIdx, dir, 0, bsCuEdge(cu, absPartIdx, dir), blockStrength, numUnits);
@@ -101,7 +101,7 @@ void Deblock::deblockCU(const CUData* cu, const CUGeom& cuGeom, const int32_t di
             blockStrength[partIdx] = getBoundaryStrength(cu, dir, partIdx, blockStrength);
     }
 
-    const uint32_t partIdxIncr = DEBLOCK_SMALLEST_BLOCK >> LOG2_UNIT_SIZE;
+    const uint32_t partIdxIncr = DEBLOCK_SMALLEST_BLOCK >> LOG2_UNIT_SIZE;// 2
     uint32_t shiftFactor = (dir == EDGE_VER) ? cu->m_hChromaShift : cu->m_vChromaShift;
     uint32_t chromaMask = ((DEBLOCK_SMALLEST_BLOCK << shiftFactor) >> LOG2_UNIT_SIZE) - 1;
     uint32_t e0 = (dir == EDGE_VER ? g_zscanToPelX[absPartIdx] : g_zscanToPelY[absPartIdx]) >> LOG2_UNIT_SIZE;
@@ -341,8 +341,9 @@ void Deblock::edgeFilterLuma(const CUData* cuQ, uint32_t absPartIdx, uint32_t de
         srcStep = 1;
         src += (edge << LOG2_UNIT_SIZE) * stride;
     }
-
+    // depth0(64x64) --> numUnits 16; depth1（32x32） --> numUnits 8
     uint32_t numUnits = cuQ->m_slice->m_sps->numPartInCUSize >> depth;
+    //对于一条边界，按照4个pix 为单位进行滤波
     for (uint32_t idx = 0; idx < numUnits; idx++)
     {
         uint32_t partQ = calcBsIdx(absPartIdx, dir, edge, idx);

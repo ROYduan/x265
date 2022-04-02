@@ -379,26 +379,26 @@ static const struct option long_options[] =
     { 0, 0, 0, 0 },
     { 0, 0, 0, 0 }
 };
-
+    /* 命令行接口 */
     struct CLIOptions
     {
-        InputFile* input;
-        ReconFile* recon;
-        OutputFile* output;
-        FILE*       qpfile;
-        FILE*       zoneFile;
+        InputFile* input;  // 输入文件，抽象类, 定义在 \input\input.h 中
+        ReconFile* recon;  // 重构文件，抽象类，定义在 \output\output.h 中
+        OutputFile* output;// 输出文件，抽象类，定义在 \output\output.h 中
+        FILE*       qpfile;// 量化因子文件指针
+        FILE*       zoneFile;// csv日志文件指针
         FILE*    dolbyVisionRpu;    /* File containing Dolby Vision BL RPU metadata */
         const s265_api* api;
-        s265_param* param;
+        s265_param* param; // x265编码器参数集
         s265_vmaf_data* vmafData;
-        bool bProgress;
-        bool bForceY4m;
+        bool bProgress; // 是否输出编码进度和其他一些编码状态数据
+        bool bForceY4m; // 如果输入文件是Y4M格式，需要强制指定输入格式
         bool bDither;
-        uint32_t seek;              // number of frames to skip from the beginning
-        uint32_t framesToBeEncoded; // number of frames to encode
-        uint64_t totalbytes;
-        int64_t startTime;
-        int64_t prevUpdateTime;
+        uint32_t seek;              // number of frames to skip from the beginning // 输入视频起始需要跳过的帧数
+        uint32_t framesToBeEncoded; // number of frames to encode // 需要编码的帧数
+        uint64_t totalbytes; // 已编码的数据字节数
+        int64_t startTime;   // 起始编码时间点
+        int64_t prevUpdateTime; // 上一次编码信息输出的时间点
 
         int argCnt;
         char** argString;
@@ -413,9 +413,9 @@ static const struct option long_options[] =
         uint32_t saveLevel;
         uint32_t numRefs;
 
-        /* in microseconds */
+        /* in microseconds 相邻两次编码状态输出的最小时间间隔，单位微妙 */
         static const int UPDATE_INTERVAL = 250000;
-        CLIOptions()
+        CLIOptions()// 构造函数，初始化上述各成员变量
         {
             input = NULL;
             recon = NULL;
@@ -445,11 +445,11 @@ static const struct option long_options[] =
         }
 
         void destroy();
-        void printStatus(uint32_t frameNum);
-        bool parse(int argc, char **argv);
+        void printStatus(uint32_t frameNum);// 打印编码状态信息
+        bool parse(int argc, char **argv);// 命令行参数解析
         bool parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount);
-        bool parseQPFile(s265_picture &pic_org);
-        bool parseZoneFile();
+        bool parseQPFile(s265_picture &pic_org);// 解释量化因子QP文件
+        bool parseZoneFile();// 解析分区间段的编码参数量文件
     };
 #ifdef __cplusplus
 }

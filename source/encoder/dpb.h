@@ -68,7 +68,7 @@ public:
         m_pyramid_type = param->bBPyramid;
         m_dpb_method = param->rc.dpbMethod;
         m_bRefreshPending = false;
-        m_frameDataFreeList = NULL;
+        m_frameDataFreeList = NULL;//链表初始化
         m_bOpenGOP = param->bOpenGOP;
         m_bTemporalSublayer = !!param->bEnableTemporalSubLayers;
     }

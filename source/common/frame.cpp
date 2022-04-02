@@ -122,7 +122,7 @@ bool Frame::create(s265_param *param, float* quantOffsets)
         CHECKED_MALLOC_ZERO(m_edgeBitPlane, pixel, bitPlaneSize);
         m_edgeBitPic = m_edgeBitPlane + lumaMarginY * stride + lumaMarginX;
     }
-
+    //完成空间allocate
     if (m_fencPic->create(param, !!m_param->bCopyPicToFrame) && m_lowres.create(param, m_fencPic, param->rc.qgSize))
     {
         S265_CHECK((m_reconColCount == NULL), "m_reconColCount was initialized");

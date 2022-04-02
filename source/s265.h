@@ -322,7 +322,7 @@ typedef struct s265_picture
     /* presentation time stamp: user-specified, returned on output */
     int64_t pts;
 
-    /* display time stamp: ignored on input, copied from reordered pts. Returned
+    /* decoding time stamp: ignored on input, copied from reordered pts. Returned
      * on output */
     int64_t dts;
 
@@ -697,12 +697,12 @@ typedef struct s265_param
      * for all values of frameNumThreads greater than 1. All other forms of
      * rate-control can be negatively impacted by increases to the number of
      * frame threads because the extra concurrency adds uncertainty to the
-     * bitrate estimations. Frame parallelism is generally limited by the the
-     * is generally limited by the the number of CU rows
+     * bitrate estimations. Frame parallelism is generally limited by the number 
+     * of CU rows
      *
      * When thread pools are used, each frame thread is assigned to a single
      * pool and the frame thread itself is given the node affinity of its pool.
-     * But when no thread pools are used no node affinity is assigned. */
+     * But when no thread pools are used, no node affinity is assigned. */
     int       frameNumThreads;
 
     /* Comma seperated list of threads per NUMA node. If "none", then no worker
@@ -1627,11 +1627,11 @@ typedef struct s265_param
     /* Enable motion vector refinement in load mode*/
     int       mvRefine;
 
-    /* Log of maximum CTU size */
+    /* Log of maximum CTU size 64x64--> 6 32x32-->5 16x16-->4*/
     uint32_t  maxLog2CUSize;
 
     /* Actual CU depth with respect to config depth */
-    uint32_t  maxCUDepth;
+    uint32_t  maxCUDepth;//eg:maxcu 64x64 mincu 8x8 --> 3; maxcu 64x64 mincu 16x16 -->2
 
     /* CU depth with respect to maximum transform size */
     uint32_t  unitSizeDepth;
@@ -1701,7 +1701,7 @@ typedef struct s265_param
     /* Last frame of the chunk. Frames following this in display order will be
     * used in taking lookahead decisions, but, they will not be encoded.
     * Default 0 (disabled). */
-    int       chunkEnd;
+    int       chunkEnd;//lg: 比如编码前100帧,可能需要读入105帧,
     /* File containing base64 encoded SEI messages in POC order */
     const char*    naluFile;
 

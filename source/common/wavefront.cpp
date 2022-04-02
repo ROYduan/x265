@@ -109,7 +109,7 @@ void WaveFront::findJob(int threadId)
             {
                 /* we cleared the bit, we get to process the row */
                 // 其中 w*32 +id 为编码row对应的任务id
-                processRow(w * 32 + id, threadId);
+                processRow(w * 32 + id, threadId);// 通过wavefront的纯虚函数接口调用 FrameEncoder 的processRow
                 m_helpWanted = true;
                 return; /* check for a higher priority task */
             }

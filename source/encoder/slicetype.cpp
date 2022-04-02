@@ -1084,7 +1084,7 @@ void Lookahead::getWorkerStats(int64_t& batchElapsedTime, uint64_t& batchCount, 
 
 bool Lookahead::create()
 {
-    int numTLD = 1 + (m_pool ? m_pool->m_numWorkers : 0);
+    int numTLD = 1 + (m_pool ? m_pool->m_numWorkers : 0);// 注意threadlocaldata 在使用了线程池下，比线程池里面的线程个数要多1
     m_tld = new LookaheadTLD[numTLD];
     for (int i = 0; i < numTLD; i++)
     {
@@ -1154,10 +1154,10 @@ void Lookahead::destroy()
 /* Called by API thread */
 void Lookahead::addPicture(Frame& curFrame, int sliceType)
 {
-    // 添加到inputQueue
-    checkLookaheadQueue(m_inputCount);
+    // 首先检查inputQueue 如果满足帧数要求了会触发slicetypedecision
+    checkLookaheadQueue(m_inputCount); // 这里应该放到 addPicture(curFrame);后,添加完后立马检查并触发
     curFrame.m_lowres.sliceType = sliceType;
-    addPicture(curFrame);
+    addPicture(curFrame);//否则添加到 m_inputQueue
 }
 
 void Lookahead::addPicture(Frame& curFrame)
@@ -1180,7 +1180,15 @@ void Lookahead::checkLookaheadQueue(int &frameCnt)
             m_filled = true; /* full capacity plus mini-gop lag */
     }
 
+    // 以下代码仅仅 提前 启动lookahead线程池里面的worker进入slicetype 分析决策
+    // 不需要下面的代码 也可以的
+
     m_inputLock.acquire();
+   // 首次满足lookahead分析需要的帧数时,将从这里唤醒lookahead线程池里面的worker线程触发（WorkerThread::threadMain()函数中的m_wakeEvent.wait()）
+   // 从而进入wihle循环 执行 m_curJobProvider->findJob(m_id);(通过虚函数执行 Lookahead::findJob)
+   // 但是Lookahead::findJob 中需要首先获取 m_inputLock.acquire();
+   // 而 显然 该m_inputLock已经被当前PassEncoder线程 占有
+   // 故而Lookahead::findJob会继续阻塞
     if (m_pool && m_inputQueue.size() >= m_fullQueueSize)
         tryWakeOne();
     m_inputLock.release();
@@ -1233,7 +1241,7 @@ void Lookahead::findJob(int /*workerThreadID*/)
 Frame* Lookahead::getDecidedPicture()
 {
     if (m_filled)
-    {// 有帧才尝试取
+    {// lookahead 中有足够的帧了有帧才尝试取
         m_outputLock.acquire();
         Frame *out = m_outputQueue.popFront();
         m_outputLock.release();
@@ -1311,6 +1319,7 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
     default:
         return;
     }
+    // 注意 assuming 需要的cost 在lookahead 阶段已经计算过了
     S265_CHECK(curFrame->m_lowres.costEst[b - p0][p1 - b] > 0, "Slice cost not estimated\n")
 
     if (m_param->rc.cuTree && !m_param->rc.bStatRead)
@@ -1323,6 +1332,7 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
         else
             curFrame->m_lowres.satdCost = curFrame->m_lowres.costEst[b - p0][p1 - b];
     }
+    // VBV 时需要计算每个 ctu 行的cost
     if (m_param->rc.vbvBufferSize && m_param->rc.vbvMaxBitrate)
     {
         /* aggregate lowres row satds to CTU resolution */
@@ -1380,6 +1390,7 @@ void PreLookaheadGroup::processTasks(int workerThreadID)
 {
     if (workerThreadID < 0)
         workerThreadID = m_lookahead.m_pool ? m_lookahead.m_pool->m_numWorkers : 0;
+    // 当 workerthreadID 为 -1 时，表示在pool 模式下使用额外的lookaheadTLD进行preLookahead 分析
     LookaheadTLD& tld = m_lookahead.m_tld[workerThreadID];
 
     m_lock.acquire();
@@ -1497,6 +1508,7 @@ void Lookahead::slicetypeDecide()
 
         curFrame = m_inputQueue.first();
         frames[0] = m_lastNonB;
+        //构建frames 数组将分析需要的帧放到frames[1...maxSearch]
         for (j = 0; j < maxSearch; j++)//最多分析这么多帧
         {
             if (!curFrame) break;//遇到null了，后面没有帧了
@@ -1516,7 +1528,7 @@ void Lookahead::slicetypeDecide()
     {
         if (m_pool)
             pre.tryBondPeers(*m_pool, pre.m_jobTotal);
-        pre.processTasks(-1);//     启动pre-analysis 含有 lowres_init 和intra_cost_estimate
+        pre.processTasks(-1);//     启动pre-analysis 含有 lowres_init 和aq and intra_cost_estimate
         pre.waitForExit();
     }
 

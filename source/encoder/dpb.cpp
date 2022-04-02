@@ -47,7 +47,7 @@ DPB::~DPB()
         curFrame->destroy();
         delete curFrame;
     }
-
+// 用了一个单链表管理复用 frameData 数据结构
     while (m_frameDataFreeList)
     {
         FrameData* next = m_frameDataFreeList->m_freeListNext;
@@ -90,8 +90,12 @@ void DPB::recycleUnreferenced()
             iterFrame = m_picList.first();
 
             m_freeList.pushBack(*curFrame);
+            // 将curFrame 中的 m_encData （作为一个链表结点）链接到dpb中frameData的链头
+            // 或者说先将dpb中的整个m_encData链表连接到当前curFrame的m_encData结点之后,
+            // 再将curFrame的m_encData作为新的头结点重新赋值给DPB中frameData的链头
             curFrame->m_encData->m_freeListNext = m_frameDataFreeList;
             m_frameDataFreeList = curFrame->m_encData;
+
             for (int i = 0; i < INTEGRAL_PLANE_NUM; i++)
             {
                 if (curFrame->m_encData->m_meBuffer[i] != NULL)
@@ -162,6 +166,7 @@ void DPB::prepareEncode(Frame *newFrame)
     {
         /* m_bHasReferences starts out as true for non-B pictures, and is set to false
          * once no more pictures reference it */
+        // 其他帧，首先全都都先标记为作为参考
         newFrame->m_encData->m_bHasReferences = true;
     }
 
@@ -399,6 +404,7 @@ void DPB::decodingRefreshMarking(int pocCurr, NalUnitType nalUnitType)
     {
         /* If the nal_unit_type is IDR, all pictures in the reference picture
          * list are marked as "unused for reference" */
+        // IDR 全部标记为非参考
         Frame* iterFrame = m_picList.first();
         while (iterFrame)
         {
@@ -407,7 +413,7 @@ void DPB::decodingRefreshMarking(int pocCurr, NalUnitType nalUnitType)
             iterFrame = iterFrame->m_next;
         }
     }
-    else // CRA or No DR
+    else // CRA or No IDR
     {
         if (m_bRefreshPending && pocCurr > m_pocCRA)
         {
@@ -416,6 +422,8 @@ void DPB::decodingRefreshMarking(int pocCurr, NalUnitType nalUnitType)
              * the temporal reference of the latest CRA picture (pocCRA), mark
              * all reference pictures except the latest CRA picture as "unused
              * for reference" and set the bRefreshPending flag to false */
+            // 将poc 为与CRA 之前的帧 全部标记为不可参考
+            // 只保留当前poc 和 the latest CRA
             Frame* iterFrame = m_picList.first();
             while (iterFrame)
             {

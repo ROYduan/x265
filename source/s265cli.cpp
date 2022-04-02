@@ -385,15 +385,15 @@ namespace S265_NS {
             output->release();
         output = NULL;
     }
-
+/* 打印编码状态信息 */
     void CLIOptions::printStatus(uint32_t frameNum)
     {
         char buf[200];
         int64_t time = s265_mdate();
-
+        // 是否输出编码状态信息取决于：进度开关、当前编码帧数、上次信息输出和当前时间的间隔
         if (!bProgress || !frameNum || (prevUpdateTime && time - prevUpdateTime < UPDATE_INTERVAL))
             return;
-
+        // 计算编码帧率和码率
         int64_t elapsed = time - startTime;
         double fps = elapsed > 0 ? frameNum * 1000000. / elapsed : 0;
         float bitrate = 0.008f * totalbytes * (param->fpsNum / param->fpsDenom) / ((float)frameNum);
@@ -549,7 +549,7 @@ namespace S265_NS {
         {
             int optionsIndex = -1;
             int c = getopt_long(argc, argv, short_options, long_options, &optionsIndex);
-            if (c == -1)
+            if (c == -1)// 选项结束或错误，退出循环
                 break;
             else if (c == 'p')
                 preset = optarg;
@@ -844,10 +844,10 @@ namespace S265_NS {
 
             general_log(param, input->getName(), S265_LOG_INFO, "%s\n", buf);
         }
-       // 成员对象input 是一个 InputFile 的基类指针，这里
+       // 成员对象input 是一个 InputFile 的基类抽象指针，这里
        // 实例化后，input 指向派生类的对象(Y4MInput 或者 YUVInput）派生类都各自重写了
-       // startReader 同时派生类 还集成了thread类
-       // 所以 input->startReader 根据派生对象的不同调用不同派生类的startReader
+       // startReader 同时派生类 还继承成了thread类
+       // 所以 input->startReader 利用多态根据派生对象的不同调用不同派生类的startReader
        // startReader 里面又通过调用继承自thread类的start()
        // 接口启动线程 执行派生类各自重写的ThreadMain 进行frame的读入
         this->input->startReader();

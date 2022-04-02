@@ -101,7 +101,7 @@ private:
 
 public:
 
-    JobProvider*     m_curJobProvider;
+    JobProvider*     m_curJobProvider;//每个work线程都有自己的当前’领导‘给起分配任务
     BondedTaskGroup* m_bondMaster;
 
     WorkerThread(ThreadPool& pool, int id) : m_pool(pool), m_id(id) {}
@@ -124,14 +124,14 @@ void WorkerThread::threadMain()
     m_pool.setCurrentThreadAffinity();
 
     sleepbitmap_t idBit = (sleepbitmap_t)1 << m_id;
-    m_curJobProvider = m_pool.m_jpTable[0];
-    m_bondMaster = NULL;
+    m_curJobProvider = m_pool.m_jpTable[0];//线程启动时给的初始值，线程的默认领导是 线程池里面的第一个’领导‘
+    m_bondMaster = NULL;//初始值为null
 
-    SLEEPBITMAP_OR(&m_curJobProvider->m_ownerBitmap, idBit);
-    SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);
-    m_wakeEvent.wait();// 线程加锁 等待触发
+    SLEEPBITMAP_OR(&m_curJobProvider->m_ownerBitmap, idBit); // 将该线程加入其所属的jobprovider(‘领导’)的owerBitmap中进行管理
+    SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);// 将该线程加入其所属pool里面的sleepBitmap 管理
+    m_wakeEvent.wait();// 阻塞 等待m_wakeEvent.trigger信号触发继续
 
-    while (m_pool.m_isActive)// 线程池中的线程是否已经都起来了
+    while (m_pool.m_isActive)// 该线程池中的线程是否已经都起来了 每个worker 共用其所在的pool 的m_isActive
     {
         if (m_bondMaster)
         {
@@ -148,11 +148,14 @@ void WorkerThread::threadMain()
             /* if the current job provider still wants help, only switch to a
              * higher priority provider (lower slice type). Else take the first
              * available job provider with the highest priority */
+            // 是否当前的领导的工作需要帮忙，如果需要，先记录当前领导的工作的优先级
             int curPriority = (m_curJobProvider->m_helpWanted) ? m_curJobProvider->m_sliceType :
                                                                  INVALID_SLICE_PRIORITY + 1;
             int nextProvider = -1;
+            //遍历该线程所属线程池里面的 ‘领导们（jobprovider）’
             for (int i = 0; i < m_pool.m_numProviders; i++)
             {
+                //找到那些还有任务没有做完需要帮忙的’领导‘,并且 找出具有最紧急任务要帮做的’领导‘, curPriority 值越小优先级越高
                 if (m_pool.m_jpTable[i]->m_helpWanted &&
                     m_pool.m_jpTable[i]->m_sliceType < curPriority)
                 {
@@ -160,10 +163,14 @@ void WorkerThread::threadMain()
                     curPriority = m_pool.m_jpTable[i]->m_sliceType;
                 }
             }
+            //找到了具有最紧急任务要做的领导，并且该领导和自己的当前领导不一致时
             if (nextProvider != -1 && m_curJobProvider != m_pool.m_jpTable[nextProvider])
             {
+                // 在自己当前的领导管理的线程中，去掉‘自己线程’
                 SLEEPBITMAP_AND(&m_curJobProvider->m_ownerBitmap, ~idBit);
+                // 将自己的领导设为新的领导
                 m_curJobProvider = m_pool.m_jpTable[nextProvider];
+                // 把自己纳入新领导管理的名单中
                 SLEEPBITMAP_OR(&m_curJobProvider->m_ownerBitmap, idBit);
             }
         }
@@ -172,56 +179,63 @@ void WorkerThread::threadMain()
         /* While the worker sleeps, a job-provider or bond-group may acquire this
          * worker's sleep bitmap bit. Once acquired, that thread may modify 
          * m_bondMaster or m_curJobProvider, then waken the thread */
-        SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);
-        m_wakeEvent.wait();
+        SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);//该线程现在已经完成了所需要做的工作,重新归入sleep状态
+        m_wakeEvent.wait();//当次任务已经完成,进入挂起等待被唤起
     }
 
-    SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);
+    SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);// 如果线程池已经被标记停止工作，则该线程需要重新归入sleep状态
 }
 
 void JobProvider::tryWakeOne()
 {
+    //优先从’领导‘ 自己管理的线程m_ownerBitmap 中找到一个sleep 状态的线程
     int id = m_pool->tryAcquireSleepingThread(m_ownerBitmap, ALL_POOL_THREADS);
-    if (id < 0)
+    if (id < 0)//如果没有找到可用的线程，则标记自己需要帮助，然后返回
     {
         m_helpWanted = true;
         return;
     }
 
-    WorkerThread& worker = m_pool->m_workers[id];
+    WorkerThread& worker = m_pool->m_workers[id];// 取出该线程
+    //如果该线程的当下领导不是 ’自己‘,则改为自己
     if (worker.m_curJobProvider != this) /* poaching */
     {
         sleepbitmap_t bit = (sleepbitmap_t)1 << id;
+        //先将该worker原来的jobprovider“领导”管理的线程中除名
         SLEEPBITMAP_AND(&worker.m_curJobProvider->m_ownerBitmap, ~bit);
+        // 更改 领导 为 自己
         worker.m_curJobProvider = this;
+        // 将对应的bit 加入到 自己管理的bitmap
         SLEEPBITMAP_OR(&worker.m_curJobProvider->m_ownerBitmap, bit);
     }
-    worker.awaken();
+    worker.awaken(); // 唤醒 worker 继续, m_wakeEvent.trigger
 }
 
 int ThreadPool::tryAcquireSleepingThread(sleepbitmap_t firstTryBitmap, sleepbitmap_t secondTryBitmap)
 {
     unsigned long id;
 
+    // 首先从firstTryBitmap 中去得首个处于sleep状态的线程对应的id
     sleepbitmap_t masked = m_sleepBitmap & firstTryBitmap;
     while (masked)
     {
         SLEEPBITMAP_CTZ(id, masked);
 
         sleepbitmap_t bit = (sleepbitmap_t)1 << id;
-        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)// SLEEPBITMAP_AND 先返回m_sleepBitmap 的原始值，再做and操作
+        // 如果对应id的bit对应的线程目前处于sleep状态,则直接清零线程的sleep状态，将改id返回
+        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)// SLEEPBITMAP_AND （原子操作) 先返回m_sleepBitmap 的原始值，再做and操作
             return (int)id;
 
         masked = m_sleepBitmap & firstTryBitmap;
     }
-
+    // 如果没有则继续从 secondTryBitmap 寻找sleep状态的线程id
     masked = m_sleepBitmap & secondTryBitmap;
     while (masked)
     {
         SLEEPBITMAP_CTZ(id, masked);
 
         sleepbitmap_t bit = (sleepbitmap_t)1 << id;
-        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)
+        if (SLEEPBITMAP_AND(&m_sleepBitmap, ~bit) & bit)//  清零线程的sleep状态，将改id返回
             return (int)id;
 
         masked = m_sleepBitmap & secondTryBitmap;
@@ -235,6 +249,7 @@ int ThreadPool::tryBondPeers(int maxPeers, sleepbitmap_t peerBitmap, BondedTaskG
     int bondCount = 0;
     do
     {
+        // 
         int id = tryAcquireSleepingThread(peerBitmap, 0);
         if (id < 0)
             return bondCount;
@@ -398,7 +413,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
         }
     }
     if (!isThreadsReserved)
-    {
+    { // 0 表示 编码线程池
         if (!numPools)
         {
             s265_log(p, S265_LOG_DEBUG, "No pool thread available. Deciding frame-threads based on detected CPU threads\n");
@@ -406,7 +421,7 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
         }
 
         if (!p->frameNumThreads)//如果帧级多线程没有指定，则根据可用线程总数决定
-            ThreadPool::getFrameThreadsCount(p, totalNumThreads);
+            ThreadPool::getFrameThreadsCount(p, totalNumThreads);//内部改变p->frameNumThreads
     }
     
     if (!numPools)
@@ -417,33 +432,37 @@ ThreadPool* ThreadPool::allocThreadPools(s265_param* p, int& numPools, bool isTh
         s265_log(p, S265_LOG_DEBUG, "Reducing number of thread pools for frame thread count\n");
         numPools = S265_MAX(p->frameNumThreads / 2, 1);
     }
-    if (isThreadsReserved)
+    if (isThreadsReserved) // 1: lookahead 专用线程池
         numPools = 1;//如果是lookahead 线程池，限定一个线程池
     ThreadPool *pools = new ThreadPool[numPools];//新建numpools 个线程池对象
     if (pools)
     {
         //lookahead 线程只用0号线程池里面的线程
+        // for lookahead 1; for else > 2 + 1
+        // 每个 pool 最多有 mzxproviders 个’领导‘
         int maxProviders = (p->frameNumThreads + numPools - 1) / numPools + !isThreadsReserved; /* +1 is Lookahead, always assigned to threadpool 0 */
         int node = 0;
         for (int i = 0; i < numPools; i++)
         {
-            while (!threadsPerPool[node])
+            while (!threadsPerPool[node])// 找到一个可以启线程的node
                 node++;
             int numThreads = S265_MIN(MAX_POOL_THREADS, threadsPerPool[node]);
             int origNumThreads = numThreads;
             if (i == 0 && p->lookaheadThreads > numThreads / 2)
             {
+                // 如果开了lookahead 线程池，则 第0个线程池用于lookahead，如果lookahead线程的个数要大于该node可以启动的线程的数量的一半
                 p->lookaheadThreads = numThreads / 2;
                 s265_log(p, S265_LOG_DEBUG, "Setting lookahead threads to a maximum of half the total number of threads\n");
             }
+
             if (isThreadsReserved)
             {   // lookahead 线程只允许一个providers
                 numThreads = p->lookaheadThreads;
                 maxProviders = 1;
             }
-
-            else if (i == 0)//否则 非lookahead线程，共线程数减去lookahead占去的线程数
+            else if (i == 0)//否则 非lookahead线程的首个线程池，共线程数减去lookahead占去的线程数(留后后面单独建立lookahead线程池）,余下的线程数
                 numThreads -= p->lookaheadThreads;
+            
             if (!pools[i].create(numThreads, maxProviders, nodeMaskPerPool[node]))
             {
                 S265_FREE(pools);
@@ -506,7 +525,7 @@ bool ThreadPool::create(int numThreads, int maxProviders, uint64_t nodeMask)
     (void)nodeMask;
 #endif
 
-    m_numWorkers = numThreads;
+    m_numWorkers = numThreads; //worker 用来完成某个具体任务的子线程
     // 线程资源分配 该线程池中 分配numThreads个工作线程
     m_workers = S265_MALLOC(WorkerThread, numThreads);
 
@@ -515,9 +534,10 @@ bool ThreadPool::create(int numThreads, int maxProviders, uint64_t nodeMask)
     if (m_workers)
         for (int i = 0; i < numThreads; i++)
             new (m_workers + i)WorkerThread(*this, i);// placement new
+    // 之所以先malloc 内存再 使用placement new 主要是为了内存对齐
     //二级指针
     m_jpTable = S265_MALLOC(JobProvider*, maxProviders);
-    m_numProviders = 0;
+    m_numProviders = 0;// 初始时该线程池没有“领导”
 
     return m_workers && m_jpTable;
 }
@@ -527,7 +547,7 @@ bool ThreadPool::start()
     m_isActive = true;
     for (int i = 0; i < m_numWorkers; i++)
     {
-        if (!m_workers[i].start())// 将线程池中的所有线程都启动起来 “实际是穿件并运行线程“
+        if (!m_workers[i].start())// 将线程池中的所有线程都启动起来 “实际是创建并运行线程“
         {
             m_isActive = false;
             return false;
@@ -540,13 +560,13 @@ void ThreadPool::stopWorkers()
 {
     if (m_workers)
     {
-        m_isActive = false;
+        m_isActive = false;// 设置线程结束while循环的标志
         for (int i = 0; i < m_numWorkers; i++)
         {
-            while (!(m_sleepBitmap & ((sleepbitmap_t)1 << i)))
+            while (!(m_sleepBitmap & ((sleepbitmap_t)1 << i)))//如果线程i 不在sleep状态,等一会儿继续判断该线程，直至线程编程sleep状态
                 GIVE_UP_TIME();
-            m_workers[i].awaken();
-            m_workers[i].stop();
+            m_workers[i].awaken();//唤醒被阻塞的线程
+            m_workers[i].stop();//等待线程i运行结束通过m_isActive=false 使得线程可以退出while死循环
         }
     }
 }

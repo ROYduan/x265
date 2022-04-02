@@ -75,13 +75,13 @@ struct CUGeom
     enum {
         INTRA           = 1<<0, // CU is intra predicted
         PRESENT         = 1<<1, // CU is not completely outside the frame
-        SPLIT_MANDATORY = 1<<2, // CU split is mandatory if CU is inside frame and can be split
+        SPLIT_MANDATORY = 1<<2, // CU split is mandatory（强制性的） if CU is inside frame and can be split
         LEAF            = 1<<3, // CU is a leaf node of the CTU
         SPLIT           = 1<<4, // CU is currently split in four child CUs.
     };
     
     // (1 + 4 + 16 + 64) = 85.
-    enum { MAX_GEOMS = 85 };
+    enum { MAX_GEOMS = 85 };// 1x64x64 4x32x32 16x16x16 64x8x8
 
     uint32_t log2CUSize;    // Log of the CU size.
     uint32_t childOffset;   // offset of the first child CU from current CU
@@ -375,6 +375,7 @@ struct CUDataMemPool
             uint32_t sizeC = sizeL >> (CHROMA_H_SHIFT(csp) + CHROMA_V_SHIFT(csp));
             CHECKED_MALLOC(trCoeffMemBlock, coeff_t, (sizeL + sizeC * 2) * numInstances);
         }
+        //numPartition 一个ctu里面4x4partition的数量,numInstances 为ctu的个数,
         CHECKED_MALLOC(charMemBlock, uint8_t, numPartition * numInstances * CUData::BytesPerPartition);
         CHECKED_MALLOC_ZERO(mvMemBlock, MV, numPartition * 4 * numInstances);
         CHECKED_MALLOC(distortionMemBlock, sse_t, numPartition * numInstances);

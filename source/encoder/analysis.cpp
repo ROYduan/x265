@@ -93,7 +93,7 @@ bool Analysis::create(ThreadLocalData *tld)
     cacheCost = S265_MALLOC(uint64_t, costArrSize);
 
     int csp = m_param->internalCsp;
-    uint32_t cuSize = m_param->maxCUSize;
+    uint32_t cuSize = m_param->maxCUSize;// 64/32
 
     bool ok = true;
     for (uint32_t depth = 0; depth <= m_param->maxCUDepth; depth++, cuSize >>= 1)
@@ -136,10 +136,10 @@ void Analysis::destroy()
 
 Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, const Entropy& initialContext)
 {
-    m_slice = ctu.m_slice;
-    m_frame = &frame;
-    m_bChromaSa8d = m_param->rdLevel >= 3;
-    m_param = m_frame->m_param;
+    m_slice = ctu.m_slice;//取CTU所在slice
+    m_frame = &frame; //取CTU所在frame
+    m_bChromaSa8d = m_param->rdLevel >= 3;//若rdlevel>=3则要计算chroma的sa8d
+    m_param = m_frame->m_param; //取param
 
 #if _DEBUG || CHECKED_BUILD
     invalidateContexts(0);
@@ -147,23 +147,27 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 
     int qp = setLambdaFromQP(ctu, m_slice->m_pps->bUseDQP ? calculateQpforCuSize(ctu, cuGeom) : m_slice->m_sliceQp);
     ctu.setQPSubParts((int8_t)qp, 0, 0);
-
+    //0深度四叉树加载context
     m_rqt[0].cur.load(initialContext);
     ctu.m_meanQP = initialContext.m_meanQP;
+    //复制YUV数据到0深度的modeDepth中
     m_modeDepth[0].fencYuv.copyFromPicYuv(*m_frame->m_fencPic, ctu.m_cuAddr, 0);
 
-    if (m_param->bSsimRd)
+    if (m_param->bSsimRd) ////若使用ssim rdo
         calculateNormFactor(ctu, qp);
 
-    uint32_t numPartition = ctu.m_numPartitions;
+    uint32_t numPartition = ctu.m_numPartitions;////取CTU的4x4块个数
     if (m_param->bCTUInfo && (*m_frame->m_ctuInfo + ctu.m_cuAddr))
     {
+        //取CTU的info
         s265_ctu_info_t* ctuTemp = *m_frame->m_ctuInfo + ctu.m_cuAddr;
-        int32_t depthIdx = 0;
-        uint32_t maxNum8x8Partitions = 64;
+        int32_t depthIdx = 0;//深度0
+        uint32_t maxNum8x8Partitions = 64;//最大64个8x8块
+        //取目标数据存储 depthInfoPtr/contentInfoPtr/prevCtuInfoChangePtr
         uint8_t* depthInfoPtr = m_frame->m_addOnDepth[ctu.m_cuAddr];
         uint8_t* contentInfoPtr = m_frame->m_addOnCtuInfo[ctu.m_cuAddr];
         int* prevCtuInfoChangePtr = m_frame->m_addOnPrevChange[ctu.m_cuAddr];
+        //遍历全部的partition，拷贝API外的编码分析数据到目标depthInfoPtr/contentInfoPtr/prevCtuInfoChangePtr中
         do
         {
             uint8_t depth = (uint8_t)ctuTemp->ctuPartitions[depthIdx];
@@ -192,6 +196,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 
     if (m_slice->m_sliceType == I_SLICE)
     {
+        // intra 分析
         compressIntraCU(ctu, cuGeom, qp);
     }
     else
@@ -421,15 +426,15 @@ void Analysis::qprdRefine(const CUData& parentCTU, const CUGeom& cuGeom, int32_t
     md.bestMode->cu.copyToPic(depth);
     md.bestMode->reconYuv.copyToPicYuv(*m_frame->m_reconPic, parentCTU.m_cuAddr, cuGeom.absPartIdx);
 }
-
+// intraCU rdo
 uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t qp)
 {
     uint32_t depth = cuGeom.depth;
     ModeDepth& md = m_modeDepth[depth];
     md.bestMode = NULL;
 
-    bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
-    bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
+    bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);// 0: 叶子结点，不能split 1:  非叶子结点可以split
+    bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);// 0:强制split了 1:可以不split
 
     bool bAlreadyDecided = m_param->intraRefine != 4 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] != (uint8_t)ALL_IDX;
     bool bDecidedDepth = m_param->intraRefine != 4 && parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;

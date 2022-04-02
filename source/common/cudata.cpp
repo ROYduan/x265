@@ -232,7 +232,7 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const s26
     {
         /* Each CU's data is layed out sequentially within the charMemBlock */
         uint8_t *charBuf = dataPool.charMemBlock + (m_numPartitions * BytesPerPartition) * instance;
-
+        // 以64x64CTU为例:24个每个成员 每个成员占用256个字节，
         m_qp        = (int8_t*)charBuf; charBuf += m_numPartitions;
         m_qpAnalysis = (int8_t*)charBuf; charBuf += m_numPartitions;
         m_log2CUSize         = charBuf; charBuf += m_numPartitions;

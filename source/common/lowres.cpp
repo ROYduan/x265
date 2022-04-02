@@ -64,7 +64,7 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
     maxBlocksInCol = (lines + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
     maxBlocksInRowFullRes = maxBlocksInRow * 2;
     maxBlocksInColFullRes = maxBlocksInCol * 2;
-    int cuCount = maxBlocksInRow * maxBlocksInCol;//lowres_cu count
+    int cuCount = maxBlocksInRow * maxBlocksInCol;//lowres_cu count 
     int cuCountFullRes = (qgSize > 8) ? cuCount : cuCount << 2;
     isHMELowres = param->bEnableHME ? 1 : 0;
 
@@ -102,8 +102,8 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
         maxAQDepth = 0;
         for (uint32_t d = 0; d < 4; d++)
         {
-            int ctuSizeIdx = 6 - g_log2Size[param->maxCUSize];
-            int aqDepth = g_log2Size[param->maxCUSize] - g_log2Size[qgSize];
+            int ctuSizeIdx = 6 - g_log2Size[param->maxCUSize];// 0: 64x64 1: 32x32  2:16x16
+            int aqDepth = g_log2Size[param->maxCUSize] - g_log2Size[qgSize];// for qgSize==8, 0:64x64  1:32x32  2:16x16  3:8x8
             if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])
                 continue;
 
@@ -314,7 +314,7 @@ void Lowres::init(PicYuv *origPic, int poc)
     extendPicBorder(lowresPlane[3], lumaStride, width, lines, origPic->m_lumaMarginX, origPic->m_lumaMarginY);
     
     if (origPic->m_param->bEnableHME)
-    {   // 分3级搜素算法,将
+    {   // 分3级搜素算法,将orig low lower
         primitives.frameInitLowerRes(lowresPlane[0],
             lowerResPlane[0], lowerResPlane[1], lowerResPlane[2], lowerResPlane[3],
             lumaStride, lumaStride/2, (width / 2), (lines / 2));

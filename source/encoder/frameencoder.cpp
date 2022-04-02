@@ -157,11 +157,13 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_sliceMaxBlockRow[m_param->maxSlices] = maxBlockRows;
 
     /* determine full motion search range */
+    /*计算依赖参考帧的搜索范围*/
     int range  = m_param->searchRange;       /* fpel search */
     range += !!(m_param->searchMethod < 2);  /* diamond/hex range check lag */
     range += NTAPS_LUMA / 2;                 /* subpel filter half-length */
     range += 2 + (MotionEstimate::hpelIterationCount(m_param->subpelRefine) + 1) / 2; /* subpel refine steps */
     m_refLagRows = /*(m_param->maxSlices > 1 ? 1 : 0) +*/ 1 + ((range + m_param->maxCUSize - 1) / m_param->maxCUSize);
+    //m_refLagRows 一般是3个ctu行
 
     // NOTE: 2 times of numRows because both Encoder and Filter in same queue
     //ctu 行级编码任务数量 以及 ctu 行级滤波 任务数量 放在一个队列 
@@ -170,7 +172,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
         s265_log(m_param, S265_LOG_ERROR, "unable to initialize wavefront queue\n");
         m_pool = NULL;
     }
-    //filter 任务的初始化
+    //帧级filter 任务的初始化
     m_frameFilter.init(top, this, numRows, numCols);
 
     // initialize HRD parameters of SPS
@@ -220,39 +222,44 @@ bool FrameEncoder::initializeGeoms()
 
     // body
     CUData::calcCTUGeoms(maxCUSize, maxCUSize, maxCUSize, minCUSize, m_cuGeoms);
+    //首先全部初始化为第0个 CUGeom
     memset(m_ctuGeomMap, 0, sizeof(uint32_t) * m_numRows * m_numCols);
+
     if (allocGeoms == 1)
         return true;
 
     int countGeoms = 1;
     if (widthRem)
     {
-        // right
+        // right 右边剩余部分s
         CUData::calcCTUGeoms(widthRem, maxCUSize, maxCUSize, minCUSize, m_cuGeoms + countGeoms * CUGeom::MAX_GEOMS);
         for (uint32_t i = 0; i < m_numRows; i++)
         {
             uint32_t ctuAddr = m_numCols * (i + 1) - 1;
+            //右边的ctu 指向 第一个CUGeom
             m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
         }
         countGeoms++;
     }
     if (heightRem)
     {
-        // bottom
+        // bottom 底边剩余部分
         CUData::calcCTUGeoms(maxCUSize, heightRem, maxCUSize, minCUSize, m_cuGeoms + countGeoms * CUGeom::MAX_GEOMS);
         for (uint32_t i = 0; i < m_numCols; i++)
         {
             uint32_t ctuAddr = m_numCols * (m_numRows - 1) + i;
+            //底边的ctu 指向 第2个CUGeom
             m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
         }
         countGeoms++;
 
         if (widthRem)
         {
-            // corner
+            // corner 右下角剩余部分
             CUData::calcCTUGeoms(widthRem, heightRem, maxCUSize, minCUSize, m_cuGeoms + countGeoms * CUGeom::MAX_GEOMS);
 
             uint32_t ctuAddr = m_numCols * m_numRows - 1;
+            //最后一个ctu 指向 第3个CUGeom
             m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
             countGeoms++;
         }
@@ -264,20 +271,22 @@ bool FrameEncoder::initializeGeoms()
 
 bool FrameEncoder::startCompressFrame(Frame* curFrame)
 {
+    // 当该线程完成输出一个压缩帧时，会记录时间点 随后会调用有可能 调用 slicetypedecide 然后然后再进入该startcompressFrame函数
+    // 从这这段时间可以衡量slicetypedicision的耗时
     m_slicetypeWaitTime = s265_mdate() - m_prevOutputTime;
     m_frame = curFrame;
-    m_sliceType = curFrame->m_lowres.sliceType;
+    // 这个 m_sliceType 是 FrameEncoder 的基类’WaveFront‘的基类’JobProvider‘的成员
+    m_sliceType = curFrame->m_lowres.sliceType; //使用帧类型作为优先级判断标准，越重要的类更小的值的越需要更高的优先级
     curFrame->m_encData->m_frameEncoderID = m_jpId;
     curFrame->m_encData->m_jobProvider = this;
     curFrame->m_encData->m_slice->m_mref = m_mref;
 
     if (!m_cuGeoms)
-    {
+    {// 每个线程对象只做一次初始化
         if (!initializeGeoms())
             return false;
     }
-    //仅仅一个启动的动作
-    m_enable.trigger();
+    m_enable.trigger();// 仅仅一个启动的动作,触发 compressFrame 进入新一轮的循环
     return true;
 }
 // 子类FrameEncoder 的 threadMain 覆盖基类thread 的threadMain
@@ -304,11 +313,13 @@ void FrameEncoder::threadMain()
                 m_tld[i].analysis.initSearch(*m_param, m_top->m_scalingList);
                 m_tld[i].analysis.create(m_tld);
             }
-
+            // 该pool 有多少个’领导‘
             for (int i = 0; i < m_pool->m_numProviders; i++)
             {
+                //如果第i个’领导‘ 是一个FrameENcoder
                 if (m_pool->m_jpTable[i]->m_isFrameEncoder) /* ugh; over-allocation and other issues here */
                 {
+                    //
                     FrameEncoder *peer = dynamic_cast<FrameEncoder*>(m_pool->m_jpTable[i]);
                     peer->m_tld = m_tld;
                 }
@@ -328,8 +339,8 @@ void FrameEncoder::threadMain()
         m_localTldIdx = 0;
     }
 
-    m_done.trigger();     /* signal that thread is initialized */
-    //等待 m_enable.trigger() 信号
+    m_done.trigger();     /* 触发 m_frameEncoder[i]->m_done.wait()继续 signal that thread is initialized */
+    //挂起，进入等待 m_enable.trigger() 信号，该信号由FrameEncoder::startCompressFrame(）函数触发
     m_enable.wait();      /* Encoder::encode() triggers this event */
 
     while (m_threadActive)
@@ -340,8 +351,8 @@ void FrameEncoder::threadMain()
                 m_frame->m_copied.wait();
         }
         compressFrame();
-        m_done.trigger(); /* FrameEncoder::getEncodedPicture() blocks for this event */
-        m_enable.wait();
+        m_done.trigger(); /*  触发FrameEncoder::getEncodedPicture() 继续*/
+        m_enable.wait(); /*挂起等待 由FrameEncoder::startCompressFrame(）函数触发的信号*/
     }
 }
 
@@ -763,7 +774,7 @@ void FrameEncoder::compressFrame()
     if (m_param->bEnableWavefront)
     {
         int i = 0;
-        //多个slice时，每个slice有多少个row,
+        //多个slice时，每个slice有多少个ctu_row,
         for (uint32_t rowInSlice = 0; rowInSlice < m_sliceGroupSize; rowInSlice++)
         {
             //每个slice的同编号row对应到不同slice时
@@ -772,21 +783,22 @@ void FrameEncoder::compressFrame()
                 const uint32_t sliceStartRow = m_sliceBaseRow[sliceId];
                 const uint32_t sliceEndRow = m_sliceBaseRow[sliceId + 1] - 1;
                 const uint32_t row = sliceStartRow + rowInSlice;
-                if (row > sliceEndRow)
-                    continue;
-                m_row_to_idx[row] = i;
-                m_idx_to_row[i] = row;// wpp下 每个任务的起始
+                if (row > sliceEndRow)// 超出图片底部了
+                    continue;// 注意只能 continue 不能用break, 会漏掉一些行
+                m_row_to_idx[row] = i;// 每一行使用一个rowprocess任务 记录任务id
+                m_idx_to_row[i] = row;// wpp下每个任务负责的row 行号
                 i += 1;
             }
         }
     }
 
-    if (m_param->bEnableWavefront)
-    {
+    if (m_param->bEnableWavefront)// wpp 下
+    {   //m_sliceGroupSize: 均分下来每个slice有多少行ctu
         for (uint32_t rowInSlice = 0; rowInSlice < m_sliceGroupSize; rowInSlice++)
         {
             for (uint32_t sliceId = 0; sliceId < m_param->maxSlices; sliceId++)
             {
+            // 这里启动行级编码器的顺序为:第（1...到最后一个）slice 的第一行,先启动，然后再第（1..到最后一个）slice的第二行启动，依次类推
                 const uint32_t sliceStartRow = m_sliceBaseRow[sliceId];
                 const uint32_t sliceEndRow = m_sliceBaseRow[sliceId + 1] - 1;
                 const uint32_t row = sliceStartRow + rowInSlice;
@@ -794,7 +806,7 @@ void FrameEncoder::compressFrame()
                 S265_CHECK(row < m_numRows, "slices row fault was detected");
 
                 if (row > sliceEndRow)
-                    continue;
+                    continue; // 注意只能 continue 不能用break, 会漏掉一些行
 
                 // block until all reference frames have reconstructed the rows we need
                 for (int l = 0; l < numPredDir; l++)
@@ -804,8 +816,9 @@ void FrameEncoder::compressFrame()
                         Frame *refpic = slice->m_refFrameList[l][ref];
 
                         // NOTE: we unnecessary wait row that beyond current slice boundary
+                        //m_refLagRows: fpp 帧级并行时 参考帧依赖
                         const int rowIdx = S265_MIN(sliceEndRow, (row + m_refLagRows));
-
+                        //等待依赖的参考帧部分完成
                         while (refpic->m_reconRowFlag[rowIdx].get() == 0)
                             refpic->m_reconRowFlag[rowIdx].waitForChange(0);
 
@@ -813,14 +826,15 @@ void FrameEncoder::compressFrame()
                             m_mref[l][ref].applyWeight(rowIdx, m_numRows, sliceEndRow, sliceId);
                     }
                 }
-
+                // 清除外部参考依赖bit
                 enableRowEncoder(m_row_to_idx[row]); /* clear external dependency for this row */
-                if (!rowInSlice)
+                if (!rowInSlice)//对于每个slice 的首个ctu 行
                 {
                     m_row0WaitTime = s265_mdate();
+                    // 清除内部依赖bit
                     enqueueRowEncoder(m_row_to_idx[row]); /* clear internal dependency, start wavefront */
                 }
-                tryWakeOne();
+                tryWakeOne(); // 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的encode 任务)
             } // end of loop rowInSlice
         } // end of loop sliceId
 
@@ -830,7 +844,7 @@ void FrameEncoder::compressFrame()
         while (m_completionEvent.timedWait(block_ms))
             tryWakeOne();
     }
-    else
+    else //非wpp 下
     {
         for (uint32_t i = 0; i < m_numRows + m_filterRowDelay; i++)
         {
@@ -1266,7 +1280,7 @@ void FrameEncoder::processRow(int row, int threadId)
     if (ATOMIC_INC(&m_activeWorkerCount) == 1 && m_stallStartTime)
         m_totalNoWorkerTime += s265_mdate() - m_stallStartTime;
 
-    // 因为编码和滤波分开来了,row(其实表示的是id),没个row 对应有两个id的任务，如果偶数id为编码则基数id为filter,否则反之
+    // 因为编码和滤波分开来了,row(其实表示的是id),每个row 对应有两个id的任务，如果偶数id为编码则基数id为filter,否则反之
     const uint32_t realRow = m_idx_to_row[row >> 1];
     const uint32_t typeNum = m_idx_to_row[row & 1];
 
@@ -1274,7 +1288,7 @@ void FrameEncoder::processRow(int row, int threadId)
         processRowEncoder(realRow, m_tld[threadId]);
     else//否则 表示:filter 任务
     {
-        m_frameFilter.processRow(realRow);
+        m_frameFilter.processRow(realRow);// deblock +sao
 
         // NOTE: Active next row
         if (realRow != m_sliceBaseRow[m_rows[realRow].sliceId + 1] - 1)
@@ -1287,7 +1301,7 @@ void FrameEncoder::processRow(int row, int threadId)
     m_totalWorkerElapsedTime += s265_mdate() - startTime; // not thread safe, but good enough
 }
 
-// Called by worker threads
+// Called by worker threads （编码任务）
 void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 {
     const uint32_t row = (uint32_t)intRow;
@@ -1394,6 +1408,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     }
 
     // Initialize restrict on MV range in slices
+    // mv 边界限制
     tld.analysis.m_sliceMinY = -(int32_t)(rowInSlice * m_param->maxCUSize * 4) + 3 * 4;
     tld.analysis.m_sliceMaxY = (int32_t)((endRowInSlicePlus1 - 1 - row) * (m_param->maxCUSize * 4) - 4 * 4);
 
@@ -1464,6 +1479,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             ctu->m_vbvAffected = true;
 
         // Does all the CU analysis, returns best top level mode decision
+        // 主要的分析函数入口
         Mode& best = tld.analysis.compressCTU(*ctu, *m_frame, m_cuGeoms[m_ctuGeomMap[cuAddr]], rowCoder);
 
         /* startPoint > encodeOrder is true when the start point changes for
@@ -1478,7 +1494,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
         /* advance top-level row coder to include the context of this CTU.
          * if SAO is disabled, rowCoder writes the final CTU bitstream */
-        rowCoder.encodeCTU(*ctu, m_cuGeoms[m_ctuGeomMap[cuAddr]]);
+        rowCoder.encodeCTU(*ctu, m_cuGeoms[m_ctuGeomMap[cuAddr]]);//enctory and bitstream output
 
         if (m_param->bEnableWavefront && col == 1)
             // Save CABAC state for next row
@@ -1721,6 +1737,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 m_rows[row + 1].completed + 2 <= curRow.completed)
             {
                 m_rows[row + 1].active = true;
+                // 变下一行所需的内部依赖解决了
                 enqueueRowEncoder(m_row_to_idx[row + 1]);
                 tryWakeOne(); /* wake up a sleeping thread or set the help wanted flag */
             }
@@ -1824,6 +1841,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     {
         if (rowInSlice >= m_filterRowDelay)
         {
+            // 外部依赖关系解决
             enableRowFilter(m_row_to_idx[row - m_filterRowDelay]);
 
             /* NOTE: Activate filter if first row (row 0) */
@@ -2099,13 +2117,15 @@ void FrameEncoder::vmafFrameLevelScore()
     s265_free(vmafframedata);
 }
 #endif
-
+// 当调用次函数时，如果该FrameEncoder 对应线程已经在编码（m_frame不为空）
+// 则需要等待该编码线程完成该帧的编码
+// 当然可能该编码线程已经编码完成了
 Frame *FrameEncoder::getEncodedPicture(NALList& output)
 {
     if (m_frame)
     {
         /* block here until worker thread completes */
-        m_done.wait();
+        m_done.wait();// 等待 compressFrame(); 完后后的 m_done.trigger()
 
         Frame *ret = m_frame;
         m_frame = NULL;
