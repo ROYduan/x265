@@ -414,7 +414,7 @@ int s265_encoder_encode(s265_encoder *enc, s265_nal **pp_nal, uint32_t *pi_nal, 
 {
     if (!enc)
         return -1;
-
+    // 基类指针转化为派生类指针
     Encoder *encoder = static_cast<Encoder*>(enc);
     int numEncoded;
 

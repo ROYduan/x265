@@ -996,6 +996,7 @@ bool Encoder::computeHistograms(s265_picture *pic)
     return true;
 }
 
+// 计算柱状图之间的 sad (the current and prev pictures)
 void Encoder::computeHistogramSAD(double *normalizedMaxUVSad, double *normalizedEdgeSad, int curPoc)
 {
 
@@ -1135,6 +1136,7 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
                 findSceneCuts(pic, bdropFrame, maxUVSad, edgeSad, isMaxThres, isHardSC);
             }
         }
+
 
         if (m_latestParam->forceFlush == 1)
         {
