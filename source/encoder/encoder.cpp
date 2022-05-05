@@ -2809,7 +2809,11 @@ void Encoder::printSummary()
         if (m_param->bEnablePsnr)
         {
             double globalPsnr = (m_analyzeAll.m_psnrSumY * 6 + m_analyzeAll.m_psnrSumU + m_analyzeAll.m_psnrSumV) / (8 * m_analyzeAll.m_numPics);
-            p += sprintf(buffer + p, ", Global PSNR: %.3f", globalPsnr);
+            double yPsnr = m_analyzeAll.m_psnrSumY / m_analyzeAll.m_numPics;
+            double uPsnr = m_analyzeAll.m_psnrSumU / m_analyzeAll.m_numPics;
+            double vPsnr = m_analyzeAll.m_psnrSumV / m_analyzeAll.m_numPics;
+            //p += sprintf(buffer + p, ", Global PSNR: %.3f", globalPsnr);
+            p += sprintf(buffer + p, ", Y PSNR: %.3f, U PSNR: %.3f, V PSNR: %.3f, Global PSNR: %.3f", yPsnr, uPsnr, vPsnr, globalPsnr);
         }
 
         if (m_param->bEnableSsim)
@@ -3967,7 +3971,15 @@ void Encoder::configure(s265_param *p)
         p->bEnableTemporalSubLayers = 0;
     }
 
-    m_bframeDelay = p->bframes ? (p->bBPyramid ? 2 : 1) : 0;
+    int pyramidDelay = 2;
+    if( p->bBPyramid== S265_B_PYRAMID_HIER )
+    {
+        if( p->bframes > 7 )
+            pyramidDelay = 4;
+        else if(p->bframes > 3 )
+            pyramidDelay = 3;
+    }
+    m_bframeDelay = p->bframes ? (p->bBPyramid ? pyramidDelay : 1) : 0;
 
     p->bFrameBias = S265_MIN(S265_MAX(-90, p->bFrameBias), 100);
     p->scenecutBias = (double)(p->scenecutBias / 100);

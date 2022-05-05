@@ -180,6 +180,15 @@ void RPS::sortDeltaPOC()
         deltaPOC[k] = dPOC;
         bUsed[k] = used;
     }
+
+    // zy test: use only 1 ref for both postive and negative ref
+    // int negativeFirst = 0;
+    // int postiveFirst = numberOfNegativePictures;
+    // for (int j = 0; j < numberOfPictures; j++)
+    // {
+    //     if (j != negativeFirst && j != postiveFirst)
+    //         bUsed[j] = 0;
+    // }
 }
 
 uint32_t Slice::realEndAddress(uint32_t endCUAddr) const

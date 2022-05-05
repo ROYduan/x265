@@ -194,6 +194,9 @@ struct Lowres : public ReferencePlanes
     uint16_t* lowresCosts[S265_BFRAME_MAX + 2][S265_BFRAME_MAX + 2];
     int32_t*  lowresMvCosts[2][S265_BFRAME_MAX + 2];
     MV*       lowresMvs[2][S265_BFRAME_MAX + 2];
+    int       largeMvs[S265_BFRAME_MAX + 2];
+    int       veryLargeMvs[S265_BFRAME_MAX + 2];
+    int       hasSmallMvs[S265_BFRAME_MAX + 2];
     uint32_t  maxBlocksInRow;
     uint32_t  maxBlocksInCol;
     uint32_t  maxBlocksInRowFullRes;
@@ -239,6 +242,16 @@ struct Lowres : public ReferencePlanes
     double interPCostPercDiff;
     double intraCostPercDiff;
     bool   m_bIsHardScenecut;
+
+    /*hierarchy prediction info*/
+    int     i_level;
+    int     i_gop_size;
+    int     i_bref;
+    int     i_max_depth;
+    int     i_gop_id;
+    int     i_temporal_id;
+    int     i_ref_value;
+
 
     bool create(s265_param* param, PicYuv *origPic, uint32_t qgSize);
     void destroy();

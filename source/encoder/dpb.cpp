@@ -180,7 +180,21 @@ void DPB::prepareEncode(Frame *newFrame)
         slice->m_numRefIdx[0] = s265_clip3(1, newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures);
     else
         slice->m_numRefIdx[0] = S265_MIN(newFrame->m_param->maxNumReferences, slice->m_rps.numberOfNegativePictures); // Ensuring L0 contains just the -ve POC
-    slice->m_numRefIdx[1] = S265_MIN(newFrame->m_param->bBPyramid ? 2 : 1, slice->m_rps.numberOfPositivePictures);
+    //slice->m_numRefIdx[1] = S265_MIN(newFrame->m_param->bBPyramid ? 2 : 1, slice->m_rps.numberOfPositivePictures);
+    if (newFrame->m_param->bBPyramid == S265_B_PYRAMID_HIER)
+    {
+        int maxDelay = 2;
+        if (newFrame->m_param->bframes > 7)
+            maxDelay = 4;
+        else if (newFrame->m_param->bframes > 3)
+            maxDelay = 3;
+        slice->m_numRefIdx[1] = S265_MIN(maxDelay, slice->m_rps.numberOfPositivePictures);
+    }
+    else
+    {
+        slice->m_numRefIdx[1] = S265_MIN(newFrame->m_param->bBPyramid ? 2 : 1, slice->m_rps.numberOfPositivePictures);
+    }
+
     slice->setRefPicList(m_picList);
 
     S265_CHECK(slice->m_sliceType != B_SLICE || slice->m_numRefIdx[1], "B slice without L1 references (non-fatal)\n");
@@ -218,16 +232,147 @@ void DPB::prepareEncode(Frame *newFrame)
     }
 }
 
+// void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBuffer)
+// {
+//     unsigned int poci = 0, numNeg = 0, numPos = 0;
+
+//     Frame* iterPic = m_picList.first();
+
+//     while (iterPic && (poci < maxDecPicBuffer - 1))
+//     {
+//         if ((iterPic->m_poc != curPoc) && iterPic->m_encData->m_bHasReferences)
+//         {
+//             if ((m_lastIDR >= curPoc) || (m_lastIDR <= iterPic->m_poc))
+//             {
+//                     rps->poc[poci] = iterPic->m_poc;
+//                     rps->deltaPOC[poci] = rps->poc[poci] - curPoc;
+//                     (rps->deltaPOC[poci] < 0) ? numNeg++ : numPos++;
+//                     rps->bUsed[poci] = !isRAP;
+//                     poci++;
+//             }
+//         }
+//         iterPic = iterPic->m_next;
+//     }
+
+//     rps->numberOfPictures = poci;
+//     rps->numberOfPositivePictures = numPos;
+//     rps->numberOfNegativePictures = numNeg;
+
+//     rps->sortDeltaPOC();
+// }
+
 void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBuffer)
 {
     unsigned int poci = 0, numNeg = 0, numPos = 0;
 
-    Frame* iterPic = m_picList.first();
 
+    Frame* curPic = m_picList.first();
+    while (curPic)
+    {
+        if (curPic->m_poc == curPoc)
+        {
+            break;
+        }
+        curPic = curPic->m_next;
+    }
+    int cur_temporal_id = curPic->m_lowres.i_temporal_id;
+    int cur_level = curPic->m_lowres.i_level;
+
+    if (m_dpb_method)
+    {
+
+        if (S265_B_PYRAMID_HIER == m_pyramid_type)
+        //if (0)
+        {
+            Frame *tmpPic = m_picList.first();
+            Frame *rmCanList[MAX_NUM_REF];
+            int rmCanScoreList[MAX_NUM_REF];
+            int rmCanNum = 0;
+            int totalRefNum = 0;
+            int maxLevel = 5;
+
+            //寻找可丢弃的参考帧
+            while (tmpPic)
+            {
+                if ((tmpPic->m_poc != curPoc) && tmpPic->m_encData->m_bHasReferences)
+                {
+                    int score = 100000;
+                    if (cur_level == 0)
+                    {
+                        tmpPic->m_lowres.i_ref_value = -1;
+                    }
+                    if (cur_temporal_id > 0 && tmpPic->m_lowres.i_temporal_id >= cur_temporal_id)
+                    {
+                        score = 0;
+                        tmpPic->m_lowres.i_ref_value = -2;
+                    }
+                    else if (cur_temporal_id == 0 && tmpPic->m_lowres.i_temporal_id > cur_temporal_id)
+                    {
+                        score = 0;
+                        tmpPic->m_lowres.i_ref_value = -2;
+                    }
+                    rmCanScoreList[rmCanNum] = score + tmpPic->m_lowres.i_ref_value * 1000 + (maxLevel - tmpPic->m_lowres.i_temporal_id) * 100 + tmpPic->m_poc;
+                    rmCanList[rmCanNum++] = tmpPic;
+                    totalRefNum++;
+                }
+                tmpPic = tmpPic->m_next;
+            }
+            if (totalRefNum > maxDecPicBuffer - 1)
+            {
+                //如果除去可丢弃帧依然大于maxDecPicBuffer - 1，那么舍弃掉所有可丢弃帧，由后面流程根据需要舍弃较远的i_temporal_id为0的参考帧
+                // if (totalRefNum - rmCanNum >= maxDecPicBuffer - 1)
+                // {
+                //     for (int i = 0; i < rmCanNum; i++)
+                //     {
+                //         rmCanList[i]->m_encData->m_bHasReferences = false;
+                //     }
+                // }
+                // else
+                {
+                    int tmpScore;
+                    //舍弃rmNum数量的参考帧，根据score大小
+                    int rmNum = totalRefNum - maxDecPicBuffer + 1;
+                    //找出score最小的几个，排到头部
+                    for (int i = 0; i < rmNum; i++)
+                    {
+                        for (int j = rmCanNum - 1; j > 0; j--)
+                        {
+                            if (rmCanScoreList[j] < rmCanScoreList[j - 1])
+                            {
+                                tmpPic = rmCanList[j];
+                                tmpScore = rmCanScoreList[j];
+                                rmCanList[j] = rmCanList[j - 1];
+                                rmCanScoreList[j] = rmCanScoreList[j - 1];
+                                rmCanList[j - 1] = tmpPic;
+                                rmCanScoreList[j - 1] = tmpScore;
+                            }
+                        }
+                        rmCanList[i]->m_encData->m_bHasReferences = false;
+                    }
+                }
+            }
+        }
+    }
+
+    Frame* iterPic = m_picList.first();
     while (iterPic && (poci < maxDecPicBuffer - 1))
     {
         if ((iterPic->m_poc != curPoc) && iterPic->m_encData->m_bHasReferences)
         {
+            if (!m_dpb_method)
+            {
+                if (cur_temporal_id > 0 && iterPic->m_lowres.i_temporal_id >= cur_temporal_id)
+                {
+                    iterPic->m_encData->m_bHasReferences = false;
+                    continue;
+                }
+                if (cur_temporal_id == 0 && iterPic->m_lowres.i_temporal_id > cur_temporal_id)
+                {
+                    iterPic->m_encData->m_bHasReferences = false;
+                    continue;
+                }
+            }
+
             if ((m_lastIDR >= curPoc) || (m_lastIDR <= iterPic->m_poc))
             {
                     rps->poc[poci] = iterPic->m_poc;

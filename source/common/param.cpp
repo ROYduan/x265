@@ -280,6 +280,10 @@ void s265_param_default(s265_param* param)
     param->rc.aqStrength = 1.0;
     param->rc.qpAdaptationRange = 1.0;
     param->rc.cuTree = 1;
+    param->rc.cuTreeType = 0;
+    param->rc.dpbMethod = 0;
+    param->rc.pyQpMethod = 0;
+    param->rc.costCalPskip = 0;
     param->rc.rfConstantMax = 0;
     param->rc.rfConstantMin = 0;
     param->rc.bStatRead = 0;
@@ -972,12 +976,13 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("bframe-bias") p->bFrameBias = atoi(value);
     OPT("b-adapt")
     {
-        p->bFrameAdaptive = atobool(value);
-        if (bError || p->bFrameAdaptive)
-        {
-            bError = false;
-            p->bFrameAdaptive = atoi(value);
-        }
+        p->bFrameAdaptive = atoi(value);
+        // p->bFrameAdaptive = atobool(value);
+        // if (bError || p->bFrameAdaptive)
+        // {
+        //     bError = false;
+        //     p->bFrameAdaptive = atoi(value);
+        // }
     }
     OPT("interlace")
     {
@@ -1055,7 +1060,7 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("hash") p->decodedPictureHashSEI = atoi(value);
     OPT("aud") p->bEnableAccessUnitDelimiters = atobool(value);
     OPT("info") p->bEmitInfoSEI = atobool(value);
-    OPT("b-pyramid") p->bBPyramid = atobool(value);
+    OPT("b-pyramid") p->bBPyramid = atoi(value);
     OPT("hrd") p->bEmitHRDSEI = atobool(value);
     OPT2("ipratio", "ip-factor") p->rc.ipFactor = atof(value);
     OPT2("pbratio", "pb-factor") p->rc.pbFactor = atof(value);
@@ -1116,6 +1121,10 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("input-csp") p->internalCsp = parseName(value, s265_source_csp_names, bError);
     OPT("me")        p->searchMethod = parseName(value, s265_motion_est_names, bError);
     OPT("cutree")    p->rc.cuTree = atobool(value);
+    OPT("cutree-type")    p->rc.cuTreeType = atoi(value);
+    OPT("dpb-method")    p->rc.dpbMethod = atoi(value);
+    OPT("pyramid-qp-method")    p->rc.pyQpMethod = atoi(value);
+    OPT("cost-calculate-pskip")    p->rc.costCalPskip = atoi(value);
     OPT("slow-firstpass") p->rc.bEnableSlowFirstPass = atobool(value);
     OPT("strict-cbr")
     {
@@ -1700,8 +1709,14 @@ int s265_check_params(s265_param* param)
         CHECK(param->edgeVarThreshold < 0.0f || param->edgeVarThreshold > 1.0f,
               "Minimum edge density percentage for a CU should be an integer between 0 to 100");
     }
-    CHECK(param->bframes && param->bframes >= param->lookaheadDepth && !param->rc.bStatRead,
-          "Lookahead depth must be greater than the max consecutive bframe count");
+    // CHECK(param->bframes && param->bframes >= param->lookaheadDepth && !param->rc.bStatRead,
+    //       "Lookahead depth must be greater than the max consecutive bframe count");
+    if(param->bframes && param->bframes >= param->lookaheadDepth && !param->rc.bStatRead)
+    {
+        s265_log(NULL, S265_LOG_WARNING,"Lookahead depth must be greater than the max consecutive bframe count\n");
+        s265_log(NULL, S265_LOG_WARNING,"Lookahead depth is set to: %d\n", param->bframes);
+        param->lookaheadDepth = param->bframes;
+    }
     CHECK(param->bframes < 0,
           "bframe count should be greater than zero");
     CHECK(param->bframes > S265_BFRAME_MAX,
@@ -1770,7 +1785,7 @@ int s265_check_params(s265_param* param)
           "Valid quality based range: -qpBDOffsetY to 51");
     CHECK(param->rc.rfConstantMin < -6 * (param->internalBitDepth - 8) || param->rc.rfConstantMin > 51,
           "Valid quality based range: -qpBDOffsetY to 51");
-    CHECK(param->bFrameAdaptive < 0 || param->bFrameAdaptive > 2,
+    CHECK(param->bFrameAdaptive < 0 || param->bFrameAdaptive > 3,
           "Valid adaptive b scheduling values 0 - none, 1 - fast, 2 - full");
     CHECK(param->logLevel<-1 || param->logLevel> S265_LOG_FULL,
           "Valid Logging level -1:none 0:error 1:warning 2:info 3:debug 4:full");
@@ -2158,7 +2173,8 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " gop-lookahead=%d", p->gopLookahead);
     s += sprintf(s, " bframes=%d", p->bframes);
     s += sprintf(s, " b-adapt=%d", p->bFrameAdaptive);
-    BOOL(p->bBPyramid, "b-pyramid");
+    s += sprintf(s, " b-pyramid=%d", p->bBPyramid);
+    //BOOL(p->bBPyramid, "b-pyramid");
     s += sprintf(s, " bframe-bias=%d", p->bFrameBias);
     s += sprintf(s, " rc-lookahead=%d", p->lookaheadDepth);
     s += sprintf(s, " lookahead-slices=%d", p->lookaheadSlices);
@@ -2566,6 +2582,10 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->minVbvFullness = src->minVbvFullness;
     dst->maxVbvFullness = src->maxVbvFullness;
     dst->rc.cuTree = src->rc.cuTree;
+    dst->rc.cuTreeType = src->rc.cuTreeType;
+    dst->rc.dpbMethod = src->rc.dpbMethod;
+    dst->rc.pyQpMethod = src->rc.pyQpMethod;
+    dst->rc.costCalPskip = src->rc.costCalPskip;
     dst->rc.rfConstantMax = src->rc.rfConstantMax;
     dst->rc.rfConstantMin = src->rc.rfConstantMin;
     dst->rc.bStatWrite = src->rc.bStatWrite;

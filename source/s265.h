@@ -554,6 +554,7 @@ typedef enum
 #define S265_B_ADAPT_NONE       0
 #define S265_B_ADAPT_FAST       1
 #define S265_B_ADAPT_TRELLIS    2
+#define S265_B_ADAPT_OPTIMAL_FAST    3
 
 #define S265_REF_LIMIT_DEPTH    1
 #define S265_REF_LIMIT_CU       2
@@ -613,6 +614,12 @@ typedef enum
 #define SLICE_TYPE_DELTA        0.3 /* The offset decremented or incremented for P-frames or b-frames respectively*/
 #define BACKWARD_WINDOW         1 /* Scenecut window before a scenecut */
 #define FORWARD_WINDOW          2 /* Scenecut window after a scenecut */
+
+/* Bpyramid options*/
+#define S265_B_PYRAMID_NONE          0
+#define S265_B_PYRAMID_STRICT        1
+#define S265_B_PYRAMID_NORMAL        2
+#define S265_B_PYRAMID_HIER          3
 
 typedef struct s265_cli_csp
 {
@@ -1436,6 +1443,12 @@ typedef struct s265_param
          * across frames and assigns more bits to these CUs. Improves encode efficiency.
          * Default: enabled */
         int       cuTree;
+
+
+        int       cuTreeType;
+        int       dpbMethod;
+        int       pyQpMethod;
+        int       costCalPskip;
 
         /* In CRF mode, maximum CRF as caused by VBV. 0 implies no limit */
         double    rfConstantMax;

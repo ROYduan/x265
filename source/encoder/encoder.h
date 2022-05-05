@@ -179,7 +179,7 @@ public:
 
     int64_t            m_firstPts;
     int64_t            m_bframeDelayTime;
-    int64_t            m_prevReorderedPts[2];
+    int64_t            m_prevReorderedPts[4]; //hier B in 15bframs is 4
     int64_t            m_encodeStartTime;
 
     int                m_pocLast;         // time index (POC)

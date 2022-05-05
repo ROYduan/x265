@@ -60,6 +60,7 @@ struct LookaheadTLD
     int             heightInCU;
     int             ncu;
     int             paddedLines;
+    int             usePskip;
 
 #if DETAILED_CU_STATS
     int64_t         batchElapsedTime;
@@ -75,6 +76,7 @@ struct LookaheadTLD
         for (int i = 0; i < 4; i++)
             wbuffer[i] = NULL;
         widthInCU = heightInCU = ncu = paddedLines = 0;
+        usePskip = 0;
 
 #if DETAILED_CU_STATS
         batchElapsedTime = 0;
@@ -89,6 +91,11 @@ struct LookaheadTLD
         widthInCU = w;
         heightInCU = h;
         ncu = n;
+    }
+
+    void setUsePskip(int bused)
+    {
+        usePskip = bused;
     }
 
     ~LookaheadTLD() { S265_FREE(wbuffer[0]); }
@@ -134,6 +141,12 @@ public:
     int           m_numRowsPerSlice;
     int           m_inputCount;
     double        m_cuTreeStrength;
+
+    int           m_preGopSize;
+
+    int           i_large_mv_thres;
+    int           i_large_mv_thres2;
+    int           i_large_mv_thres3;
 
     /* HME */
     int           m_4x4Width;
@@ -193,9 +206,14 @@ protected:
     /* called by slicetypeAnalyse() to effect cuTree adjustments to adaptive
      * quant offsets */
     void    cuTree(Lowres **frames, int numframes, bool bintra);
+    void    cuTree2(Lowres **frames, int numframes, bool bintra);
     void    estimateCUPropagate(Lowres **frames, double average_duration, int p0, int p1, int b, int referenced);
     void    cuTreeFinish(Lowres *frame, double averageDuration, int ref0Distance);
     void    computeCUTreeQpOffset(Lowres *frame, double averageDuration, int ref0Distance);
+
+    /* calculate cost for b frame adapt*/
+    int check_gop8( Lowres **frames, int32_t gop_start );
+    int check_gop16( Lowres **frames, int32_t gop_start );
 
     /* called by getEstimatedPictureCost() to finalize cuTree costs */
     int64_t frameCostRecalculate(Lowres **frames, int p0, int p1, int b);
@@ -240,6 +258,9 @@ public:
         int  costEst;
         int  costEstAq;
         int  intraMbs;
+        int  largeMvs;
+        int  veryLargeMvs;
+        int  hasSmallMvs;
     } m_slice[MAX_COOP_SLICES];
 
     int64_t singleCost(int p0, int p1, int b, bool intraPenalty = false);
