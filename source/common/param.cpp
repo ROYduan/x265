@@ -351,7 +351,6 @@ void s265_param_default(s265_param* param)
     param->toneMapFile = NULL;
     param->bDhdr10opt = 0;
     param->dolbyProfile = 0;
-    param->bCTUInfo = 0;
     param->bUseRcStats = 0;
     param->scaleFactor = 0;
     param->intraRefine = 0;
@@ -1267,7 +1266,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("dhdr10-opt") p->bDhdr10opt = atobool(value);
         OPT("idr-recovery-sei") p->bEmitIDRRecoverySEI = atobool(value);
         OPT("const-vbv") p->rc.bEnableConstVbv = atobool(value);
-        OPT("ctu-info") p->bCTUInfo = atoi(value);
         OPT("scale-factor") p->scaleFactor = atoi(value);
         OPT("refine-intra")p->intraRefine = atoi(value);
         OPT("refine-inter")p->interRefine = atoi(value);
@@ -1782,8 +1780,6 @@ int s265_check_params(s265_param* param)
         "qpmin exceeds supported range (0 to 69)");
     CHECK(param->log2MaxPocLsb < 4 || param->log2MaxPocLsb > 16,
         "Supported range for log2MaxPocLsb is 4 to 16");
-    CHECK(param->bCTUInfo < 0 || (param->bCTUInfo != 0 && param->bCTUInfo != 1 && param->bCTUInfo != 2 && param->bCTUInfo != 4 && param->bCTUInfo != 6) || param->bCTUInfo > 6,
-        "Supported values for bCTUInfo are 0, 1, 2, 4, 6");
     CHECK(param->interRefine > 3 || param->interRefine < 0,
         "Invalid refine-inter value, refine-inter levels 0 to 3 supported");
     CHECK(param->intraRefine > 4 || param->intraRefine < 0,
@@ -2003,7 +1999,6 @@ void s265_print_params(s265_param* param)
     TOOLOPT(param->bEnableStrongIntraSmoothing, "strong-intra-smoothing");
     TOOLVAL(param->lookaheadSlices, "lslices=%d");
     TOOLVAL(param->lookaheadThreads, "lthreads=%d")
-    TOOLVAL(param->bCTUInfo, "ctu-info=%d");
     TOOLOPT(param->bDynamicRefine, "dynamic-refine");
     if (param->maxSlices > 1)
         TOOLVAL(param->maxSlices, "slices=%d");
@@ -2253,7 +2248,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " refine-inter=%d", p->interRefine);
     s += sprintf(s, " refine-mv=%d", p->mvRefine);
     BOOL(p->bLimitSAO, "limit-sao");
-    s += sprintf(s, " ctu-info=%d", p->bCTUInfo);
     BOOL(p->bLowPassDct, "lowpass-dct");
     s += sprintf(s, " copy-pic=%d", p->bCopyPicToFrame);
     s += sprintf(s, " max-ausize-factor=%.1f", p->maxAUSizeFactor);
@@ -2587,7 +2581,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     if (src->toneMapFile) dst->toneMapFile = strdup(src->toneMapFile);
     else dst->toneMapFile = NULL;
     dst->bDhdr10opt = src->bDhdr10opt;
-    dst->bCTUInfo = src->bCTUInfo;
     dst->bUseRcStats = src->bUseRcStats;
     dst->interRefine = src->interRefine;
     dst->intraRefine = src->intraRefine;

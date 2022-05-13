@@ -131,11 +131,6 @@ namespace S265_NS {
         H1("   --[no-]splitrd-skip           Enable skipping split RD analysis when sum of split CU rdCost larger than one split CU rdCost for Intra CU. Default %s\n", OPT(param->bEnableSplitRdSkip));
         H1("   --nr-intra <integer>          An integer value in range of 0 to 2000, which denotes strength of noise reduction in intra CUs. Default 0\n");
         H1("   --nr-inter <integer>          An integer value in range of 0 to 2000, which denotes strength of noise reduction in inter CUs. Default 0\n");
-        H0("   --ctu-info <integer>          Enable receiving ctu information asynchronously and determine reaction to the CTU information (0, 1, 2, 4, 6) Default 0\n"
-            "                                    - 1: force the partitions if CTU information is present\n"
-            "                                    - 2: functionality of (1) and reduce qp if CTU information has changed\n"
-            "                                    - 4: functionality of (1) and force Inter modes when CTU Information has changed, merge/skip otherwise\n"
-            "                                    Enable this option only when planning to invoke the API function s265_encoder_ctu_info to copy ctu-info asynchronously\n");
         H0("\nCoding tools:\n");
         H0("-w/--[no-]weightp                Enable weighted prediction in P slices. Default %s\n", OPT(param->bEnableWeightedPred));
         H0("   --[no-]weightb                Enable weighted prediction in B slices. Default %s\n", OPT(param->bEnableWeightedBiPred));

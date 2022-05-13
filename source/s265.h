@@ -245,20 +245,6 @@ typedef struct s265_frame_stats
     double           unclippedBufferFillFinal;
 } s265_frame_stats;
 
-typedef struct s265_ctu_info_t
-{
-    int32_t ctuAddress;
-    int32_t ctuPartitions[64];
-    void*    ctuInfo;
-} s265_ctu_info_t;
-
-typedef enum
-{
-    NO_CTU_INFO = 0,
-    HAS_CTU_INFO = 1,
-    CTU_INFO_CHANGE = 2,
-}CTUInfo;
-
 /* Arbitrary User SEI
  * Payload size is in bytes and the payload pointer must be non-NULL. 
  * Payload types and syntax can be found in Annex D of the H.265 Specification.
@@ -1609,9 +1595,6 @@ typedef struct s265_param
      * tone mapping information changes. */
     int       bDhdr10opt;
 
-    /* Determine how s265 react to the content information recieved through the API */
-    int       bCTUInfo;
-
     /* Use ratecontrol statistics from pic_in, if available*/
     int       bUseRcStats;
 
@@ -2042,13 +2025,6 @@ void s265_encoder_close(s265_encoder *);
 
 int s265_encoder_intra_refresh(s265_encoder *);
 
-/* s265_encoder_ctu_info:
- *    Copy CTU information such as ctu address and ctu partition structure of all
- *    CTUs in each frame. The function is invoked only if "--ctu-info" is enabled and
- *    the encoder will wait for this copy to complete if enabled.
- */
-int s265_encoder_ctu_info(s265_encoder *, int poc, s265_ctu_info_t** ctu);
-
 /* s265_get_slicetype_poc_and_scenecut:
  *     get the slice type, poc and scene cut information for the current frame,
  *     returns negative on error, 0 when access unit were output.
@@ -2146,13 +2122,13 @@ typedef struct s265_api
 
     int           sizeof_frame_stats;   /* sizeof(s265_frame_stats) */
     int           (*encoder_intra_refresh)(s265_encoder*);
-    int           (*encoder_ctu_info)(s265_encoder*, int, s265_ctu_info_t**);
     int           (*get_slicetype_poc_and_scenecut)(s265_encoder*, int*, int*, int*);
     int           (*get_ref_frame_list)(s265_encoder*, s265_picyuv**, s265_picyuv**, int, int, int*, int*);
     FILE*         (*csvlog_open)(const s265_param*);
     void          (*csvlog_frame)(const s265_param*, const s265_picture*);
     void          (*csvlog_encode)(const s265_param*, const s265_stats *, int, int, int, char**);
     void          (*dither_image)(s265_picture*, int, int, int16_t*, int);
+
 #if ENABLE_LIBVMAF
     double        (*calculate_vmafscore)(s265_param *, s265_vmaf_data *);
     double        (*calculate_vmaf_framelevelscore)(s265_vmaf_framedata *);

@@ -1398,15 +1398,6 @@ Slice decision options
 	
 	**Range of values: Between 0 and `--bframes`
 
-.. option:: --ctu-info <0, 1, 2, 4, 6>
-
-	This value enables receiving CTU information asynchronously and determine reaction to the CTU information. Default 0.
-	1: force the partitions if CTU information is present.
-	2: functionality of (1) and reduce qp if CTU information has changed.
-	4: functionality of (1) and force Inter modes when CTU Information has changed, merge/skip otherwise.
-	This option should be enabled only when planning to invoke the API function s265_encoder_ctu_info to copy ctu-info asynchronously. 
-	If enabled without calling the API function, the encoder will wait indefinitely.
-
 .. option:: --intra-refresh
 
 	Enables Periodic Intra Refresh(PIR) instead of keyframe insertion.

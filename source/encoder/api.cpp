@@ -731,14 +731,6 @@ int s265_encoder_intra_refresh(s265_encoder *enc)
     encoder->m_bQueuedIntraRefresh = 1;
     return 0;
 }
-int s265_encoder_ctu_info(s265_encoder *enc, int poc, s265_ctu_info_t** ctu)
-{
-    if (!ctu || !enc)
-        return -1;
-    Encoder* encoder = static_cast<Encoder*>(enc);
-    encoder->copyCtuInfo(ctu, poc);
-    return 0;
-}
 
 int s265_get_slicetype_poc_and_scenecut(s265_encoder *enc, int *slicetype, int *poc, int *sceneCut)
 {
@@ -854,6 +846,7 @@ static const s265_api libapi =
     &s265_csvlog_frame,
     &s265_csvlog_encode,
     &s265_dither_image,
+
 #if ENABLE_LIBVMAF
     &s265_calculate_vmafscore,
     &s265_calculate_vmaf_framelevelscore,

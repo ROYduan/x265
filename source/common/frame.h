@@ -116,14 +116,8 @@ public:
     s265_analysis_data     m_analysisData;
     RcStats*               m_rcData;
 
-    s265_ctu_info_t**      m_ctuInfo;
     Event                  m_copied;
-    int*                   m_prevCtuInfoChange;
     int64_t                m_encodeStartTime;
-
-    uint8_t**              m_addOnDepth;
-    uint8_t**              m_addOnCtuInfo;
-    int**                  m_addOnPrevChange;
 
     /* Average feature values of frames being considered for classification */
     uint64_t*              m_classifyRd;

@@ -294,8 +294,6 @@ public:
 
     bool isReconfigureRc(s265_param* latestParam, s265_param* param_in);
 
-    void copyCtuInfo(s265_ctu_info_t** frameCtuInfo, int poc);
-
     int copySlicetypePocAndSceneCut(int *slicetype, int *poc, int *sceneCut);
 
     int getRefFrameList(PicYuv** l0, PicYuv** l1, int sliceType, int poc, int* pocL0, int* pocL1);

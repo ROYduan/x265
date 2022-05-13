@@ -216,14 +216,6 @@ changes made to the parameters for auto-detection and other reasons::
      *     This API must be called after(poc >= lookaheadDepth + bframes + 2) condition check */
      int s265_get_ref_frame_list(s265_encoder *encoder, s265_picyuv**, s265_picyuv**, int, int, int*, int*);
  
-**s265_encoder_ctu_info** may be used to provide additional CTU-specific information to the encoder::
-
-    /* s265_encoder_ctu_info:
-     *    Copy CTU information such as ctu address and ctu partition structure of all
-     *    CTUs in each frame. The function is invoked only if "--ctu-info" is enabled and
-     *    the encoder will wait for this copy to complete if enabled.*/
-    int s265_encoder_ctu_info(s265_encoder *encoder, int poc, s265_ctu_info_t** ctu);
-
 Pictures
 ========
 

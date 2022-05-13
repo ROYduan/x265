@@ -136,9 +136,6 @@ protected:
     uint8_t                 m_evaluateInter;
     int32_t                 m_refineLevel;
 
-    uint8_t*                m_additionalCtuInfo;
-    int*                    m_prevCtuInfoChange;
-
     struct TrainingData
     {
         uint32_t cuVariance;
@@ -218,7 +215,6 @@ protected:
         else
             md.bestMode = &mode;
     }
-    int findSameContentRefCount(const CUData& parentCTU, const CUGeom& cuGeom);
 };
 
 struct ThreadLocalData
