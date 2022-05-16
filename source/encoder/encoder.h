@@ -183,15 +183,16 @@ public:
     int                m_lastBPSEI;
     uint32_t           m_numDelayedPic;
 
-    ThreadPool*        m_threadPool;
-    FrameEncoder*      m_frameEncoder[S265_MAX_FRAME_THREADS];
+
+    ThreadPool*        m_threadPool;//编码器中创建的线程池，供需要工作线程的任务使用
+    FrameEncoder*      m_frameEncoder[S265_MAX_FRAME_THREADS];//编码器创建几个帧并行编码单元，每个有自己独立的后台线程，等待编码分配过来的帧
     DPB*               m_dpb;
     Frame*             m_exportedPic;
     FILE*              m_naluFile;
     s265_param*        m_param;
     s265_param*        m_latestParam;     // Holds latest param during a reconfigure
     RateControl*       m_rateControl;
-    Lookahead*         m_lookahead;
+    Lookahead*         m_lookahead;//任务成员，创建后不带线程，Encoder 通过其接口addPicture来驱动它唤醒工作线程来处理帧队列，生成待编码器由调用者通过getDecidedPicture取出
 
     bool               m_externalFlush;
     /* Collect statistics globally */

@@ -121,8 +121,9 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_bAllRowsStop = S265_MALLOC(bool, m_param->maxSlices);
     m_vbvResetTriggerRow = S265_MALLOC(int, m_param->maxSlices);
     ok &= !!m_sliceBaseRow;
+    // 多slice 编码时，均分cut row 行
     m_sliceGroupSize = (uint16_t)(m_numRows + m_param->maxSlices - 1) / m_param->maxSlices;
-    uint32_t sliceGroupSizeAccu = (m_numRows << 8) / m_param->maxSlices;    
+    uint32_t sliceGroupSizeAccu = (m_numRows << 8) / m_param->maxSlices;// 为了提高精度，放大256倍
     uint32_t rowSum = sliceGroupSizeAccu;
     uint32_t sidx = 0;
     for (uint32_t i = 0; i < m_numRows; i++)
@@ -131,7 +132,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
         if ((i >= rowRange) & (sidx != m_param->maxSlices - 1))
         {
             rowSum += sliceGroupSizeAccu;
-            m_sliceBaseRow[++sidx] = i;
+            m_sliceBaseRow[++sidx] = i;// 目的是为了求第slice_idx个slice 的起始ctu_row index
         }
     }
     S265_CHECK(sidx < m_param->maxSlices, "sliceID check failed!");
@@ -140,6 +141,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
 
     m_sliceMaxBlockRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);
     ok &= !!m_sliceMaxBlockRow;
+    // 多slice 编码时，均分block row 行
     uint32_t maxBlockRows = (m_param->sourceHeight + (16 - 1)) / 16;
     sliceGroupSizeAccu = (maxBlockRows << 8) / m_param->maxSlices;
     rowSum = sliceGroupSizeAccu;
@@ -150,7 +152,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
         if ((i >= rowRange) & (sidx != m_param->maxSlices - 1))
         {
             rowSum += sliceGroupSizeAccu;
-            m_sliceMaxBlockRow[++sidx] = i;
+            m_sliceMaxBlockRow[++sidx] = i;// 目的是为了求第slice_idx个slice 的起始block_row index
         }
     }
     m_sliceMaxBlockRow[0] = 0;
@@ -158,9 +160,9 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
 
     /* determine full motion search range */
     /*计算依赖参考帧的搜索范围*/
-    int range  = m_param->searchRange;       /* fpel search */
-    range += !!(m_param->searchMethod < 2);  /* diamond/hex range check lag */
-    range += NTAPS_LUMA / 2;                 /* subpel filter half-length */
+    int range  = m_param->searchRange;       /* fpel search 有参数设定的参考范围*/
+    range += !!(m_param->searchMethod < 2);  /* diamond/hex range check lag  由dia/hex 算法决定的需要额外多一个整像素范围*/
+    range += NTAPS_LUMA / 2;                 /* subpel filter half-length 亚像素搜素需要的差值决定需要额外多4个整像素范围 */
     range += 2 + (MotionEstimate::hpelIterationCount(m_param->subpelRefine) + 1) / 2; /* subpel refine steps */
     m_refLagRows = /*(m_param->maxSlices > 1 ? 1 : 0) +*/ 1 + ((range + m_param->maxCUSize - 1) / m_param->maxCUSize);
     //m_refLagRows 一般是3个ctu行
@@ -286,9 +288,10 @@ bool FrameEncoder::startCompressFrame(Frame* curFrame)
         if (!initializeGeoms())
             return false;
     }
-    m_enable.trigger();// 仅仅一个启动的动作,触发 compressFrame 进入新一轮的循环
+    m_enable.trigger();// 仅仅一个启动的动作,触发 compressFrame 线程 进入新一轮的循环
     return true;
 }
+// 线程函数
 // 子类FrameEncoder 的 threadMain 覆盖基类thread 的threadMain
 void FrameEncoder::threadMain()
 {
@@ -521,11 +524,11 @@ void FrameEncoder::compressFrame()
         ScopedElapsedTime time(m_cuStats.weightAnalyzeTime);
 #endif
         WeightAnalysis wa(*this);
-        if (m_pool && wa.tryBondPeers(*this, 1))
+        if (m_pool && wa.tryBondPeers(*this, 1))//唤醒线程池里面的1个线程去执行processTask 从而执行 weightAnalyse
             /* use an idle worker for weight analysis */
-            wa.waitForExit();
+            wa.waitForExit();// 等待线程执行完, ??? 这里只有一个任务 为啥需要让别的线程去做？自己在这里等？？？
         else
-            weightAnalyse(*slice, *m_frame, *m_param);
+            weightAnalyse(*slice, *m_frame, *m_param);// 本线程直接调用
     }
     else
         slice->disableWeights();
@@ -823,13 +826,15 @@ void FrameEncoder::compressFrame()
                 }
                 // 清除外部参考依赖bit
                 enableRowEncoder(m_row_to_idx[row]); /* clear external dependency for this row */
-                if (!rowInSlice)//对于每个slice 的首个ctu 行
+                if (!rowInSlice)//对于每个slice 的首行CTU,
                 {
                     m_row0WaitTime = s265_mdate();
                     // 清除内部依赖bit
                     enqueueRowEncoder(m_row_to_idx[row]); /* clear internal dependency, start wavefront */
                 }
-                tryWakeOne(); // 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的encode 任务)
+                // framencoder 通过继承 wavefronts 又进一步继承了 jobprovider 
+                // wpp下 入口1:
+                tryWakeOne(); //-->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 encode 任务)
             } // end of loop rowInSlice
         } // end of loop sliceId
 
@@ -867,11 +872,13 @@ void FrameEncoder::compressFrame()
                     m_row0WaitTime = s265_mdate();
                 else if (i == m_numRows - 1)
                     m_allRowsAvailableTime = s265_mdate();
+                // 非wpp下,由线程自己直接调用执行一行编码任务
                 processRowEncoder(i, m_tld[m_localTldIdx]);
             }
 
             // filter
             if (i >= m_filterRowDelay)
+                // 同样，非wpp下,由线程自己直接调用执行一个ctu行的filter任务
                 m_frameFilter.processRow(i - m_filterRowDelay);
         }
     }
@@ -1268,6 +1275,7 @@ void FrameEncoder::encodeSlice(uint32_t sliceAddr)
         m_entropyCoder.finishSlice();
 }
 // row 更应该使用 id 表示
+// 这里只有在wpp下才能走进来
 void FrameEncoder::processRow(int row, int threadId)
 {
     int64_t startTime = s265_mdate();
@@ -1281,13 +1289,13 @@ void FrameEncoder::processRow(int row, int threadId)
 
     if (!typeNum)//0 表示:编码任务
         processRowEncoder(realRow, m_tld[threadId]);
-    else//否则 表示:filter 任务
+    else//否则 表示:filter任务
     {
         m_frameFilter.processRow(realRow);// deblock +sao
 
         // NOTE: Active next row
-        if (realRow != m_sliceBaseRow[m_rows[realRow].sliceId + 1] - 1)
-            enqueueRowFilter(m_row_to_idx[realRow + 1]);//加1 表示启动的是filter任务
+        if (realRow != m_sliceBaseRow[m_rows[realRow].sliceId + 1] - 1)// 非slice的最后一天行ctu 做完了filter时
+            enqueueRowFilter(m_row_to_idx[realRow + 1]);//提交下一行的ctu filter 任务
     }
         // 先减1，再返回更新后的值
     if (ATOMIC_DEC(&m_activeWorkerCount) == 0)
@@ -1732,8 +1740,9 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 m_rows[row + 1].completed + 2 <= curRow.completed)
             {
                 m_rows[row + 1].active = true;
-                // 变下一行所需的内部依赖解决了
+                // 编码下一行所需的内部依赖解决了,清除内部依赖
                 enqueueRowEncoder(m_row_to_idx[row + 1]);
+                //wpp下 入口2://-->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 encode 任务)
                 tryWakeOne(); /* wake up a sleeping thread or set the help wanted flag */
             }
         }
@@ -1747,7 +1756,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             ATOMIC_INC(&m_countRowBlocks);
             return;
         }
-    }
+    }// 完成一行ctu的编码了
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
@@ -1840,25 +1849,25 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             enableRowFilter(m_row_to_idx[row - m_filterRowDelay]);
 
             /* NOTE: Activate filter if first row (row 0) */
-            if (rowInSlice == m_filterRowDelay)
+            if (rowInSlice == m_filterRowDelay)// 第一次由 此处提交任务，后面的任务提交由work完成一次filter 任务提交下一行的filter 任务
                 enqueueRowFilter(m_row_to_idx[row - m_filterRowDelay]);
-            tryWakeOne();
+            tryWakeOne();// -->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 filter 任务)
         }
 
         if (bLastRowInSlice)
-        {
+        { // slice的最后一行时, 最后几行的的外部依赖关系 自然已经满足了
             for (uint32_t i = endRowInSlicePlus1 - m_filterRowDelay; i < endRowInSlicePlus1; i++)
             {
                 enableRowFilter(m_row_to_idx[i]);
             }
-            tryWakeOne();
+            tryWakeOne();// -->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 filter 任务)
         }
 
-        // handle specially case - single row slice
+        // handle specially case - single row slice 单slice单ctu row的情况
         if  (bFirstRowInSlice & bLastRowInSlice)
         {
             enqueueRowFilter(m_row_to_idx[row]);
-            tryWakeOne();
+            tryWakeOne();// --> WaveFront::findJob
         }
     }
 
@@ -2117,7 +2126,7 @@ void FrameEncoder::vmafFrameLevelScore()
 // 当然可能该编码线程已经编码完成了
 Frame *FrameEncoder::getEncodedPicture(NALList& output)
 {
-    if (m_frame)
+    if (m_frame) // m_frame 不为空则表示该帧级编码器有帧在编码，需要等待其编码完成
     {
         /* block here until worker thread completes */
         m_done.wait();// 等待 compressFrame(); 完后后的 m_done.trigger()

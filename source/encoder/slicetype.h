@@ -124,7 +124,7 @@ public:
     Lock          m_inputLock;
     Lock          m_outputLock;
     Event         m_outputSignal;
-    LookaheadTLD* m_tld;
+    LookaheadTLD* m_tld;// m_tld的维数为线程池中线程数+1，多出来的1个位置供调用线程使用
     s265_param*   m_param;
     Lowres*       m_lastNonB;
     int*          m_scratch;         // temp buffer for cutree propagate
@@ -234,7 +234,7 @@ public:
     Lookahead& m_lookahead;
 
     PreLookaheadGroup(Lookahead& l) : m_lookahead(l) {}
-
+    //重写基类BondedTaskGroup的纯虚函数
     void processTasks(int workerThreadID);
 
 protected:
@@ -285,7 +285,7 @@ public:
 protected:
 
     static const int s_merange = 16;
-
+    //重写基类虚函数 重写基类虚函数
     void    processTasks(int workerThreadID);
 
     int64_t estimateFrameCost(LookaheadTLD& tld, int p0, int p1, int b, bool intraPenalty);

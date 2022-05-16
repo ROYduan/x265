@@ -35,6 +35,13 @@ namespace S265_NS {
 // queue (higher CU rows have priority over lower rows)
 //
 // Derived classes must implement ProcessRow().
+
+/**
+  WaveFront 本身的工作是处理row的进出内外两个队列的关系，实际的任务处理每一
+  行processRow是在findJob中通过工作线程来执行，每处理一行后都会先退出，再
+  通过m_helpWanted表示还需要再处理又再进入。这样处理的理由是可以在处理两行
+  之间转去处理更高优先级的任务
+**/
 class WaveFront : public JobProvider
 {
 private:
@@ -50,7 +57,7 @@ private:
     // number of words in the bitmap
     int m_numWords;
 
-    int m_numRows;
+    int m_numRows;//被初始化为2倍CTU行数，理由是 2 times of numRows because both Encoder and Filter in same queue，其中编码用偶数行，滤波用奇数行
 
 protected:
     uint32_t *m_row_to_idx;

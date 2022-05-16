@@ -345,7 +345,7 @@ public:
         } m_jobs;
 
         PME(Search& s, Mode& m, const CUGeom& g, const PredictionUnit& u, int p) : master(s), mode(m), cuGeom(g), pu(u), puIdx(p) {}
-
+        //重写基类 BondedTaskGroup 的纯虚函数
         void processTasks(int workerThreadId);
 
     protected:

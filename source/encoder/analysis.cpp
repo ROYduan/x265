@@ -855,10 +855,11 @@ uint32_t Analysis::compressInterCU_dist(const CUData& parentCTU, const CUGeom& c
 
         m_splitRefIdx[0] = splitRefs[0]; m_splitRefIdx[1] = splitRefs[1]; m_splitRefIdx[2] = splitRefs[2]; m_splitRefIdx[3] = splitRefs[3];
 
+        //唤醒线程池里面的多个线程并发执行processTask 从而执行 processPmode
         pmode.tryBondPeers(*m_frame->m_encData->m_jobProvider, pmode.m_jobTotal);
 
         /* participate in processing jobs, until all are distributed */
-        processPmode(pmode, *this);
+        processPmode(pmode, *this);//本线程直接调用,里面会等待所有任务全部完成
 
         /* the master worker thread (this one) does merge analysis. By doing
          * merge after all the other jobs are at least started, we usually avoid
@@ -957,13 +958,13 @@ uint32_t Analysis::compressInterCU_dist(const CUData& parentCTU, const CUGeom& c
             if (m_slice->m_sliceType == B_SLICE && md.pred[PRED_BIDIR].sa8dCost < MAX_INT64)
                 checkBestMode(md.pred[PRED_BIDIR], depth);
 
-            if (m_param->bEnableRectInter)
+            if (m_param->bEnableRectInter)//矩形分割允许
             {
                 checkBestMode(md.pred[PRED_Nx2N], depth);
                 checkBestMode(md.pred[PRED_2NxN], depth);
             }
 
-            if (bTryAmp)
+            if (bTryAmp)// 非对称分割 允许
             {
                 checkBestMode(md.pred[PRED_2NxnU], depth);
                 checkBestMode(md.pred[PRED_2NxnD], depth);

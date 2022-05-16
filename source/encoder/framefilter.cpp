@@ -570,7 +570,7 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
         m_lastDeblocked.set(numCols);
     }
 }
-
+// called by worker thread（滤波任务）
 void FrameFilter::processRow(int row)
 {
     ProfileScopeEvent(filterCTURow);

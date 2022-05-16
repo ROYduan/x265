@@ -27,9 +27,9 @@
 #include "wavefront.h"
 #include "common.h"
 
-namespace S265_NS {
-// s265 private namespace
-
+namespace X265_NS {
+// x265 private namespace
+// 这里的参数 numRows 为两倍的 ctu 行数
 bool WaveFront::init(int numRows)
 {
     m_numRows = numRows;
@@ -92,7 +92,7 @@ void WaveFront::findJob(int threadId)
     unsigned long id;
 
     /* Loop over each word until all available rows are finished */
-    //总共有 32bit*m_numWords 个bit，每个bit 对应一个processrow（一个独立的任务）
+    //总共有 32bit*m_numWords 个bit，每个bit 对应一个processrow（一个独立的任务 该任务可能是编码 也可能是filter）
     //遍历每一个32bit bitmap
     for (int w = 0; w < m_numWords; w++)
     {
@@ -109,7 +109,7 @@ void WaveFront::findJob(int threadId)
             {
                 /* we cleared the bit, we get to process the row */
                 // 其中 w*32 +id 为编码row对应的任务id
-                processRow(w * 32 + id, threadId);// 通过wavefront的纯虚函数接口调用 FrameEncoder 的processRow
+                processRow(w * 32 + id, threadId);// 通过wavefront的纯虚函数接口调用 FrameEncoder 的processRow 去执行 编码 或者 filter
                 m_helpWanted = true;
                 return; /* check for a higher priority task */
             }

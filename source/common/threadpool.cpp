@@ -101,7 +101,7 @@ private:
 
 public:
 
-    JobProvider*     m_curJobProvider;//每个work线程都有自己的当前’领导‘给起分配任务
+    JobProvider*     m_curJobProvider;//每个work线程都有自己的当前’领导‘给其分配任务
     BondedTaskGroup* m_bondMaster;
 
     WorkerThread(ThreadPool& pool, int id) : m_pool(pool), m_id(id) {}
@@ -111,6 +111,7 @@ public:
     void awaken()           { m_wakeEvent.trigger(); } // 调用 pthread_cond_signal(&m_cond); 唤醒一个被阻塞的线程
 };
 
+// 线程函数
 void WorkerThread::threadMain()
 {
     THREAD_NAME("Worker", m_id);
@@ -131,18 +132,20 @@ void WorkerThread::threadMain()
     SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);// 将该线程加入其所属pool里面的sleepBitmap 管理
     m_wakeEvent.wait();// 阻塞 等待m_wakeEvent.trigger信号触发继续
 
-    while (m_pool.m_isActive)// 该线程池中的线程是否已经都起来了 每个worker 共用其所在的pool 的m_isActive
+    while (m_pool.m_isActive)//该线程池中的线程是否已经都起来了 每个worker 共用其所在的pool 的m_isActive
     {
-        if (m_bondMaster)
+        if (m_bondMaster)//当前work线程是否已经绑定了需要执行的任务
         {
-            m_bondMaster->processTasks(m_id);
-            m_bondMaster->m_exitedPeerCount.incr();
-            m_bondMaster = NULL;
+            // 注意 processTasks 在完成一个任务后，发现如果还有job没有做完，会接着再领一个任务做
+            m_bondMaster->processTasks(m_id);// 通过基类的虚函数接口调用派生类自己rewrite的processTasks
+            m_bondMaster->m_exitedPeerCount.incr();//该线程需要做的任务都完成了可以退出了，exitedPeerCount + 1
+            m_bondMaster = NULL;//完成任务后，本线程剥离 m_bondMaster
         }
 
         do
         {
             /* do pending work for current job provider */
+            // 多态 调用派生类的方法 一类是 lookahead  一类是 wavefront
             m_curJobProvider->findJob(m_id);
 
             /* if the current job provider still wants help, only switch to a
@@ -186,13 +189,14 @@ void WorkerThread::threadMain()
     SLEEPBITMAP_OR(&m_pool.m_sleepBitmap, idBit);// 如果线程池已经被标记停止工作，则该线程需要重新归入sleep状态
 }
 
+// 从线程池中唤醒一个sleep状态的线程继续执行
 void JobProvider::tryWakeOne()
 {
     //优先从’领导‘ 自己管理的线程m_ownerBitmap 中找到一个sleep 状态的线程
     int id = m_pool->tryAcquireSleepingThread(m_ownerBitmap, ALL_POOL_THREADS);
     if (id < 0)//如果没有找到可用的线程，则标记自己需要帮助，然后返回
     {
-        m_helpWanted = true;
+        m_helpWanted = true; //‘领导’有个任务 没有找到可用线程派发出去，所以标记为需要帮助
         return;
     }
 
@@ -249,13 +253,13 @@ int ThreadPool::tryBondPeers(int maxPeers, sleepbitmap_t peerBitmap, BondedTaskG
     int bondCount = 0;
     do
     {
-        // 
+        // 找到一个sleep 状态的线程
         int id = tryAcquireSleepingThread(peerBitmap, 0);
         if (id < 0)
             return bondCount;
 
-        m_workers[id].m_bondMaster = &master;
-        m_workers[id].awaken();
+        m_workers[id].m_bondMaster = &master;//奖此线程bond to 任务提供者
+        m_workers[id].awaken();// 唤醒线程执行master->processTasks 多态形式，BondedTaskGroup 是一个基类，这里通过虚函数调用不同派生类自己实现的 processTasks
         bondCount++;
     }
     while (bondCount < maxPeers);

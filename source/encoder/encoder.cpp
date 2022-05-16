@@ -255,7 +255,9 @@ void Encoder::create()
         m_frameEncoder[i] = new FrameEncoder;
         m_frameEncoder[i]->m_nalList.m_annexB = !!m_param->bAnnexB;
     }
-
+    /*
+    一个m_frameEncoder 类似一个领导，一定会归属到某一个线程池, 一个线程池可能挂多个领导
+    */
     if (m_numPools)
     {   // 注意 线程池的个数 一定是小于framenumthreads的个数
         // 任务分配
@@ -1357,7 +1359,8 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
     else
         m_lookahead->flush();
     
-    FrameEncoder *curEncoder = m_frameEncoder[m_curEncoder];
+    // 循环启用帧级编码器
+    FrameEncoder *curEncoder = m_frameEncoder[m_curEncoder]; // get     当前的帧级编码器
     m_curEncoder = (m_curEncoder + 1) % m_param->frameNumThreads;// 记录用于编码下一帧的encoder对象在数组中的位置
 
     int ret = 0;
@@ -1375,7 +1378,7 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
          * encoding the frame.  This is how back-pressure through the API is
          * accomplished when the encoder is full */
         if (!m_bZeroLatency || pass)// 在输入下一帧前,先取走一个output
-            outFrame = curEncoder->getEncodedPicture(m_nalList);// 这里面会block
+            outFrame = curEncoder->getEncodedPicture(m_nalList);// 如果先前有帧编码，则需要等待其编码完成, 这里面会block 或者说等待
         if (outFrame)
         {//如果成功取到输出
             Slice *slice = outFrame->m_encData->m_slice;
@@ -1678,7 +1681,7 @@ int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
                  calcRefreshInterval(frameEnc);// intraRefresh 列刷新位置计算
 
             /* Allow FrameEncoder::compressFrame() to start in the frame encoder thread */
-            //启动编码器编码,触发 一个线程 发起compressFrame 任务
+            //启动编码器编码,触发 一个帧级编码线程 发起compressFrame 任务
             if (!curEncoder->startCompressFrame(frameEnc))
                 m_aborted = true;
         }

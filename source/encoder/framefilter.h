@@ -90,7 +90,7 @@ public:
 
         ~ParallelFilter()
         { }
-
+        // 普通成员函数
         void processTasks(int workerThreadId);
 
         // Apply SAO on a CU in current row

@@ -95,7 +95,7 @@ public:
         int           modes[MAX_PRED_TYPES];
 
         PMODE(Analysis& m, const CUGeom& g) : master(m), cuGeom(g) {}
-
+        // 重写基类的纯虚函数接口
         void processTasks(int workerThreadId);
 
     protected:

@@ -1190,7 +1190,7 @@ void Lookahead::checkLookaheadQueue(int &frameCnt)
    // 而 显然 该m_inputLock已经被当前PassEncoder线程 占有
    // 故而Lookahead::findJob会继续阻塞
     if (m_pool && m_inputQueue.size() >= m_fullQueueSize)
-        tryWakeOne();
+        tryWakeOne();//--> Lookahead::findJob
     m_inputLock.release();
 }
 
@@ -1526,10 +1526,13 @@ void Lookahead::slicetypeDecide()
     /* perform pre-analysis on frames which need it, using a bonded task group */
     if (pre.m_jobTotal)
     {
+        /* 如果有线程池，这里唤醒可用的线程去执行m_jobTotal个任务，在可用的线程
+           小于m_jobTotal时，会有一写首先完成分配给他的任务的线程再次取得任务进一步执行
+        */
         if (m_pool)
-            pre.tryBondPeers(*m_pool, pre.m_jobTotal);
-        pre.processTasks(-1);//     启动pre-analysis 含有 lowres_init 和aq and intra_cost_estimate
-        pre.waitForExit();
+            pre.tryBondPeers(*m_pool, pre.m_jobTotal);//唤醒最多不超过m_jobTotal 个sleep 线程执行processTasks() 启动pre-analysis 含有 lowres_init 和aq and intra_cost_estimate
+        pre.processTasks(-1);// 有线程池时, 可以不需要这里再调用processTasks了（当然调用了也没有问题，如果任务已经被全部领走了，这里会直接返回）
+        pre.waitForExit();// 等待所有的线程完成各自的processTasks
     }
 
     if(m_param->bEnableFades)
@@ -4441,12 +4444,14 @@ void CostEstimateGroup::add(int p0, int p1, int b)
 void CostEstimateGroup::finishBatch()
 {
     if (m_lookahead.m_pool)
-        tryBondPeers(*m_lookahead.m_pool, m_jobTotal);
-    processTasks(-1);
-    waitForExit();
+        tryBondPeers(*m_lookahead.m_pool, m_jobTotal);//唤醒m_jobTotal 个sleep 线程执行processTasks();
+    processTasks(-1);//有线程池时,应该不需要这里再调用processTasks了
+    waitForExit();//等待所有的线程完成各自的processTasks
     m_jobTotal = m_jobAcquired = 0;
 }
 
+//有可能是通过唤醒线程池里面的线程来执行processTasks
+// 也有可能是线程自己来执行 workerThreadID < 0 是
 void CostEstimateGroup::processTasks(int workerThreadID)
 {
     ThreadPool* pool = m_lookahead.m_pool;
@@ -4563,12 +4568,13 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
             m_jobAcquired = 0;
             m_lock.release();
 
-            tryBondPeers(*m_lookahead.m_pool, m_jobTotal);
+            // 唤醒线程池里面的线程通过
+            tryBondPeers(*m_lookahead.m_pool, m_jobTotal);// 唤醒线程池里面的线程去执行processtasks
 
-            processTasks(-1);
+            processTasks(-1);//子类线程 直接调用 有线程池时,应该不需要这里再调用processTasks了
 
-            waitForExit();
-
+            waitForExit();// 等待所有任务都完成
+            // 任务汇总
             for (int i = 0; i < m_lookahead.m_numCoopSlices; i++)
             {
                 fenc->costEst[b - p0][p1 - b] += m_slice[i].costEst;

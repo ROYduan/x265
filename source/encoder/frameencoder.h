@@ -213,7 +213,7 @@ public:
         FrameEncoder& master;
 
         WeightAnalysis(FrameEncoder& fe) : master(fe) {}
-
+        // 重写基类BondedTaskGroup 的纯虚函数
         void processTasks(int workerThreadId);
 
     protected:
