@@ -2177,11 +2177,11 @@ static void temporal_filter_row( const int32_t height, const int32_t width, cons
     const int     step_x = 8;
     for( int32_t by = 1; by < block_size_y + num_filter_taps; by++ )
     {
-        const int32_t  y_offset = X265_MAX(0, X265_MIN(height - 1, y + by + y_int - centre_tap_offset));
+        const int32_t  y_offset = S265_MAX(0, S265_MIN(height - 1, y + by + y_int - centre_tap_offset));
         const pixel *source_row = src_image + y_offset * stride;
         for( int32_t bx = 0; bx < block_size_x; bx += step_x )
         {
-            int32_t        base = X265_MAX(-1, X265_MIN(width - 7, x + bx + x_int - centre_tap_offset));
+            int32_t        base = S265_MAX(-1, S265_MIN(width - 7, x + bx + x_int - centre_tap_offset));
             const pixel *row_start = (source_row + base);
             // AVX2
             __m256i accum_a = _mm256_setzero_si256();
@@ -2202,7 +2202,7 @@ static void temporal_filter_row( const int32_t height, const int32_t width, cons
             // padding left
             if( base < 0 )
             {
-                int32_t pad_num = X265_MIN( step_x, abs(x + bx + x_int - centre_tap_offset + 1) );
+                int32_t pad_num = S265_MIN( step_x, abs(x + bx + x_int - centre_tap_offset + 1) );
                 __m256i table = _mm256_lddqu_si256( (__m256i *)permute_left_table + pad_num );
                 accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
             }
@@ -2210,7 +2210,7 @@ static void temporal_filter_row( const int32_t height, const int32_t width, cons
             // padding right
             if( width - 7 < (x + bx + x_int - centre_tap_offset + 8) )
             {
-                int     pad_num = X265_MIN( step_x, x + bx + x_int - centre_tap_offset + 8 - (width - 7) );
+                int     pad_num = S265_MIN( step_x, x + bx + x_int - centre_tap_offset + 8 - (width - 7) );
                 __m256i table = _mm256_lddqu_si256( (__m256i *)permute_right_table + pad_num - 1) ;
                 accum_a = _mm256_permutevar8x32_epi32( accum_a, table );
             }
@@ -2403,7 +2403,7 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
 
                 int32_t temp_array[23][16];// 16+7
 #ifdef USE_TEMPORAL_FILTER_AVX
-                if (m_param->cpuid & X265_CPU_AVX)
+                if (m_param->cpuid & S265_CPU_AVX)
                     temporal_filter_row_c(height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter);
                 else
                     temporal_filter_row(height, width, y, x, stride, block_size_x, block_size_y, y_int, x_int, src_image, temp_array, x_filter);
@@ -2412,7 +2412,7 @@ void Lookahead::apply_motion( MV *lowres_mv, Frame *refFrame, Frame *curFrame, p
 #endif
                 pixel *dst_row = dst_image + y * stride;
 #ifdef USE_TEMPORAL_FILTER_AVX
-                if (m_param->cpuid & X265_CPU_AVX)
+                if (m_param->cpuid & S265_CPU_AVX)
                     temporal_filter_col(x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter);
                 else
                     temporal_filter_col_c(x, stride, block_size_x, block_size_y, dst_row, temp_array, y_filter);
@@ -2448,7 +2448,7 @@ static void bilateral_filter_core( const int32_t c, const int32_t height, const 
             for( int32_t i = 0; i < num_refs; i++ )
             {
                 const pixel *corrected_pel_ptr = corrected_pics[i][c] + (y * src_stride + x);
-                const int32_t  index = X265_MIN(1, abs(offset_index[i]) - 1);
+                const int32_t  index = S265_MIN(1, abs(offset_index[i]) - 1);
                 __m256i        ref_val_avx2 = _mm256_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)(corrected_pel_ptr)));
                 __m256i        diff_avx2 = _mm256_abs_epi32(_mm256_sub_epi32(ref_val_avx2, org_val_avx2));
                 __m256i        weight_avx2 = _mm256_i32gather_epi32(exp_value[index], diff_avx2, 4);
@@ -2650,7 +2650,7 @@ void Lookahead::bilateral_filter( pixel *corrected_pics[10][3], Frame *curFrame,
         }
 #ifdef USE_TEMPORAL_FILTER_AVX
         //simd method not support mctf.method 1
-        if ((m_param->cpuid & X265_CPU_AVX) && !m_param->mctf.method)
+        if ((m_param->cpuid & S265_CPU_AVX) && !m_param->mctf.method)
         {
             const pixel max_sample_value = 255;
             const int32_t bit_depth_diff_weighting = 4;
