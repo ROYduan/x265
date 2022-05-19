@@ -2237,9 +2237,9 @@ void Search::predInterSearch(Mode& interMode, const CUGeom& cuGeom, bool bChroma
             }
 
             if (pme.m_jobTotal > 2)
-            {
+            {   // 收集的job数量大于 2个 则启用多线程去执行任务
                 pme.tryBondPeers(*m_frame->m_encData->m_jobProvider, pme.m_jobTotal - 1);
-
+                
                 processPME(pme, *this);
 
                 int ref = pme.m_jobs.refCnt[0] ? pme.m_jobs.ref[0][0] : pme.m_jobs.ref[1][0];

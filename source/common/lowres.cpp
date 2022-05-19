@@ -64,7 +64,9 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
     maxBlocksInCol = (lines + S265_LOWRES_CU_SIZE - 1) >> S265_LOWRES_CU_BITS;
     maxBlocksInRowFullRes = maxBlocksInRow * 2;
     maxBlocksInColFullRes = maxBlocksInCol * 2;
-    int cuCount = maxBlocksInRow * maxBlocksInCol;//lowres_cu count 
+    int cuCount = maxBlocksInRow * maxBlocksInCol;//lowres_cu 8x8 count 
+    // 原分辨率上 如果qgroup为8 则一个低分辨率上的8x8 对应4个原分辨率上的8x8，否则
+    // ggroup> 8,则一个低分辨率上的8x8 对应1个原分辨率上的16x16。
     int cuCountFullRes = (qgSize > 8) ? cuCount : cuCount << 2;
     isHMELowres = param->bEnableHME ? 1 : 0;
 

@@ -1527,7 +1527,7 @@ void Lookahead::slicetypeDecide()
     if (pre.m_jobTotal)
     {
         /* 如果有线程池，这里唤醒可用的线程去执行m_jobTotal个任务，在可用的线程
-           小于m_jobTotal时，会有一写首先完成分配给他的任务的线程再次取得任务进一步执行
+           小于m_jobTotal时，会有一些首先完成分配给他的任务的线程再次取得任务进一步执行
         */
         if (m_pool)
             pre.tryBondPeers(*m_pool, pre.m_jobTotal);//唤醒最多不超过m_jobTotal 个sleep 线程执行processTasks() 启动pre-analysis 含有 lowres_init 和aq and intra_cost_estimate
@@ -4343,7 +4343,8 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
  * re-running lookahead. */
 int64_t Lookahead::frameCostRecalculate(Lowres** frames, int p0, int p1, int b)
 {
-    if (frames[b]->sliceType == S265_TYPE_B)
+
+    if (frames[b]->sliceType == S265_TYPE_B)//非参考帧不受cutree 影响
         return frames[b]->costEstAq[b - p0][p1 - b];
 
     int64_t score = 0;
@@ -4398,12 +4399,14 @@ int64_t Lookahead::frameCostRecalculate(Lowres** frames, int p0, int p1, int b)
                 int cuxy = cux + cuy * m_8x8Width;
                 int cuCost = frames[b]->lowresCosts[b - p0][p1 - b][cuxy] & LOWRES_COST_MASK;
                 double qp_adj;
+                // 如果 qgroupsize 为8 , 则 在lowres上 一个 8x8 对应有 4个原始分辨率上的8x8
                 if (m_param->rc.qgSize == 8)
                     qp_adj = (qp_offset[cux * 2 + cuy * m_8x8Width * 4] +
                     qp_offset[cux * 2 + cuy * m_8x8Width * 4 + 1] +
                     qp_offset[cux * 2 + cuy * m_8x8Width * 4 + frames[b]->maxBlocksInRowFullRes] +
                     qp_offset[cux * 2 + cuy * m_8x8Width * 4 + frames[b]->maxBlocksInRowFullRes + 1]) / 4;
-                else 
+                else
+                // 否则 qgroupsize 为 16x16 以上, 则在lowres上 一个8x8对应有1个原始分辨率上的16x16
                     qp_adj = qp_offset[cuxy];
                 cuCost = (cuCost * s265_exp2fix8(qp_adj) + 128) >> 8;
                 rowSatd[cuy] += cuCost;
@@ -4467,7 +4470,7 @@ void CostEstimateGroup::processTasks(int workerThreadID)
         m_lock.release();
 
         if (m_batchMode)
-        {
+        {/*这种模式下，estimateFrameCost不会采用帧内多slice 并行计算，一个任务不能继续分割*/
             ProfileLookaheadTime(tld.batchElapsedTime, tld.countBatches);
             ProfileScopeEvent(estCostSingle);
 
@@ -4552,6 +4555,7 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
 
         if (!m_batchMode && m_lookahead.m_numCoopSlices > 1 && ((p1 > b) || bDoSearch[0] || bDoSearch[1]))
         {
+            /*这里是说在计算一帧的cost 时，如果采用的帧内多slice并行机制，则*/
             /* Use cooperative mode if a thread pool is available and the cost estimate is
              * going to need motion searches or bidir measurements */
 
@@ -4590,12 +4594,12 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
             }
         }
         else
-        {
+        {// 如果是 batchmode 或者 不实用帧内多slice 并行机制，则一整帧一整帧计算
             /* Calculate MVs for 1/16th resolution*/
             bool lastRow;
             if (param->bEnableHME)
             {
-                lastRow = true;
+                lastRow = true;// 在1/4 * 1/4 小小图上逆序计算4x4 cost
                 for (int cuY = m_lookahead.m_4x4Height - 1; cuY >= 0; cuY--)
                 {
                     for (int cuX = m_lookahead.m_4x4Width - 1; cuX >= 0; cuX--)
@@ -4603,7 +4607,7 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
                     lastRow = false;
                 }
             }
-            lastRow = true;
+            lastRow = true;// 在1/2 * 1/2 小图上 逆序计算8x8 cost
             for (int cuY = m_lookahead.m_8x8Height - 1; cuY >= 0; cuY--)
             {
                 fenc->rowSatds[b - p0][p1 - b][cuY] = 0;
@@ -4618,12 +4622,12 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
         score = fenc->costEst[b - p0][p1 - b];
 
         if (b != p1)
-            score = score * 100 / (130 + param->bFrameBias);
+            score = score * 100 / (130 + param->bFrameBias);//b frame cost 做一个偏置
 
         fenc->costEst[b - p0][p1 - b] = score;
     }
 
-    if (bIntraPenalty)
+    if (bIntraPenalty)//因为intra的准确性没有那么高所以需要添加惩罚
         // arbitrary penalty for I-blocks after B-frames
         score += score * fenc->intraMbs[b - p0] / (tld.ncu * 8);
 
@@ -4650,6 +4654,7 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
     const int cuSize = S265_LOWRES_CU_SIZE;
     const intptr_t pelOffset = cuSize * cuX + cuSize * cuY * (hme ? fenc->lumaStride/2 : fenc->lumaStride);
 
+    // copy src y pixle from fenc->lowresPlane[0]/fenc->lowerResPlane[0] to fencPUYuv.m_buf[0]
     if ((bBidir || bDoSearch[0] || bDoSearch[1]) && hme)
         tld.me.setSourcePU(fenc->lowerResPlane[0], fenc->lumaStride / 2, pelOffset, cuSize, cuSize, S265_HEX_SEARCH, m_lookahead.m_param->hmeSearchMethod[0], m_lookahead.m_param->hmeSearchMethod[1], 1);
     else if((bBidir || bDoSearch[0] || bDoSearch[1]) && !hme)
@@ -4690,22 +4695,22 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
         /* Reverse-order MV prediction */
 #define MVC(mv) mvc[numc++] = mv;
         if (cuX < widthInCU - 1)
-            MVC(fencMV[1]);
+            MVC(fencMV[1]);//右侧mv加入candidate
         if (!lastRow)
         {
-            MVC(fencMV[widthInCU]);
+            MVC(fencMV[widthInCU]);//下侧mv加入candidate
             if (cuX > 0)
-                MVC(fencMV[widthInCU - 1]);
+                MVC(fencMV[widthInCU - 1]);//左下侧mv 加入candidate
             if (cuX < widthInCU - 1)
-                MVC(fencMV[widthInCU + 1]);
+                MVC(fencMV[widthInCU + 1]);//右下侧mv 加入candidate
         }
         if (fenc->lowerResMvs[0][0] && !hme && fenc->lowerResMvCosts[i][listDist[i]][cuXY_4x4] > 0)
         {
-            MVC((fenc->lowerResMvs[i][listDist[i]][cuXY_4x4]) * 2);
+            MVC((fenc->lowerResMvs[i][listDist[i]][cuXY_4x4]) * 2);//将 1/4*1/4小小图对应的4x4位置的mv扩大2倍后加入 candidate
         }
 #undef MVC
 
-        if (!numc)
+        if (!numc) //如果上述mv 的candidate 一个也没有 设置mvp为 0
             mvp = 0;
         else
         {
@@ -4715,23 +4720,28 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             /* measure SATD cost of each neighbor MV (estimating merge analysis)
              * and use the lowest cost MV as MVP (estimating AMVP). Since all
              * mvc[] candidates are measured here, none are passed to motionEstimate */
-            for (int idx = 0; idx < numc; idx++)
+            for (int idx = 0; idx < numc; idx++)// iterate candidate mv find the best one
             {
                 intptr_t stride = S265_LOWRES_CU_SIZE;
+                /*注意 src 返回后又可能是subpelbuf 地址（需要1/4差值时 ） 
+                也有可能是ref帧的小图or 小小图 对应的plane便宜后的地址
+                （无需1/4分像素差值，stride 会被更改为 对应小/小小图的plane 的 Ystride） */ 
                 pixel *src = fref->lowresMC(pelOffset, mvc[idx], subpelbuf, stride, hme);
+                // 计算 fencPUYuv.m_buf[0]与参考数据（src指向的data) 之间的 satd
                 int cost = tld.me.bufSATD(src, stride);
-                COPY2_IF_LT(mvpcost, cost, mvp, mvc[idx]);
+                COPY2_IF_LT(mvpcost, cost, mvp, mvc[idx]);// 保存最小的cost为 mvpcost 保存对应的mv candidate 为 mvp
                 /* Except for mv0 case, everyting else is likely to have enough residual to not trigger the skip. */
+
                 //if (!mvp.notZero() && bBidir)
-                if (!mvp.notZero() && (bBidir || tld.usePskip))
+                if (!mvp.notZero() && (bBidir || tld.usePskip))// 如果在bBidir 的条件下，这个过程中mvp有为0的情况 则记录cost 为skipcost
                     skipCost = cost;
             }
         }
-
+        // 在非hme下 search 范围固定为16
         int searchRange = m_lookahead.m_param->bEnableHME ? (hme ? m_lookahead.m_param->hmeRange[0] : m_lookahead.m_param->hmeRange[1]) : s_merange;
         /* ME will never return a cost larger than the cost @MVP, so we do not
          * have to check that ME cost is more than the estimated merge cost */
-        if(!hme)
+        if(!hme) //以mvp 为起点在search范围内 搜索最佳匹配点并记录fencMV 和fencCost
             fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices);
         else
             fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices, fref->lowerResPlane[0]);
@@ -4758,14 +4768,17 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
         pixel *src1 = fref1->lowresMC(pelOffset, fenc->lowresMvs[1][listDist[1]][cuXY], subpelbuf1, stride1, 0);
         ALIGN_VAR_32(pixel, ref[S265_LOWRES_CU_SIZE * S265_LOWRES_CU_SIZE]);
         primitives.pu[LUMA_8x8].pixelavg_pp[NONALIGNED](ref, S265_LOWRES_CU_SIZE, src0, stride0, src1, stride1, 32);
+        // 计算 fencPUYuv.m_buf[0]与参考数据（ref指向的data) 之间的 satd
         int bicost = tld.me.bufSATD(ref, S265_LOWRES_CU_SIZE);
         COPY2_IF_LT(bcost, bicost, listused, 3);
         /* coloc candidate */
+        // 如果这里要计算的话应该是 fenc->lowresMvs[0/1][listDist[0/]][cuXY] 不同时为0,否则重复计算了
         src0 = fref0->lowresPlane[0] + pelOffset;
         src1 = fref1->lowresPlane[0] + pelOffset;
         primitives.pu[LUMA_8x8].pixelavg_pp[NONALIGNED](ref, S265_LOWRES_CU_SIZE, src0, fref0->lumaStride, src1, fref1->lumaStride, 32);
         bicost = tld.me.bufSATD(ref, S265_LOWRES_CU_SIZE);
         COPY2_IF_LT(bcost, bicost, listused, 3);
+
         bcost += lowresPenalty;
     }
     else /* P, also consider intra */
@@ -4790,14 +4803,14 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
 
     if (bFrameScoreCU)
     {
-        if (slice < 0)
+        if (slice < 0)//当前frame的cost 计算是按照一帧一帧计算的
         {
             fenc->costEst[b - p0][p1 - b] += bcost;
             fenc->costEstAq[b - p0][p1 - b] += bcostAq;
             if (!listused && !bBidir)
                 fenc->intraMbs[b - p0]++;
         }
-        else
+        else // 当前frame的cost的计算是分了多slice并行计算的 
         {
             m_slice[slice].costEst += bcost;
             m_slice[slice].costEstAq += bcostAq;

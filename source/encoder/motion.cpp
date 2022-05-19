@@ -794,7 +794,7 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
             bmv.y = S265_MAX(S265_MIN(0, mvmax.y), mvmin.y);
         }
     }
-
+    // 如果是lookahdead下的搜索，candidate 在外面就已经比较过了
     S265_CHECK(!(ref->isLowres && numCandidates), "lowres motion candidates not allowed\n")
     // measure SAD cost at each QPEL motion vector candidate
     for (int i = 0; i < numCandidates; i++)

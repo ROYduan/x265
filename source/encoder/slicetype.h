@@ -135,7 +135,7 @@ public:
     int           m_lastKeyframe;
     int           m_8x8Width;
     int           m_8x8Height;
-    int           m_8x8Blocks;
+    int           m_8x8Blocks;// 1/2 *1/2 图片不计算外边一圈8x8 block在内的8x8的block数量
     int           m_cuCount;
     int           m_numCoopSlices;
     int           m_numRowsPerSlice;

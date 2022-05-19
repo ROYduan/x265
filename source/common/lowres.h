@@ -68,11 +68,11 @@ struct ReferencePlanes
     {
         intptr_t YStride = hme ? lumaStride / 2 : lumaStride;
         pixel *plane[4];
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)// 设置数据指针为 1/2*1/2 小图的4个plane (0 h v hv ) 还是 1/4*1/4 小小图的4个plane 
         {
             plane[i] = hme ? lowerResPlane[i] : lowresPlane[i];
         }
-        if ((qmv.x | qmv.y) & 1)
+        if ((qmv.x | qmv.y) & 1)//有1/4分像素 需要差值
         {
             int hpelA = (qmv.y & 2) | ((qmv.x & 2) >> 1);
             pixel *frefA = plane[hpelA] + blockOffset + (qmv.x >> 2) + (qmv.y >> 2) * YStride;
@@ -81,13 +81,13 @@ struct ReferencePlanes
             int hpelB = (qmvy & 2) | ((qmvx & 2) >> 1);
             pixel *frefB = plane[hpelB] + blockOffset + (qmvx >> 2) + (qmvy >> 2) * YStride;
             primitives.pu[LUMA_8x8].pixelavg_pp[(outstride % 64 == 0) && (YStride % 64 == 0)](buf, outstride, frefA, YStride, frefB, YStride, 32);
-            return buf;
+            return buf;//返回传进来的buf空间的地址
         }
-        else
+        else //只有 整像素 或者已经差值好的 1/2 像素 时
         {
             outstride = YStride;
-            int hpel = (qmv.y & 2) | ((qmv.x & 2) >> 1);
-            return plane[hpel] + blockOffset + (qmv.x >> 2) + (qmv.y >> 2) * YStride;
+            int hpel = (qmv.y & 2) | ((qmv.x & 2) >> 1);//找到对应的 0 h v hv的plane
+            return plane[hpel] + blockOffset + (qmv.x >> 2) + (qmv.y >> 2) * YStride;// 返回对应plane的偏移后的地址
         }
     }
 
