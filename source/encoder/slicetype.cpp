@@ -2329,7 +2329,7 @@ void Lookahead::applyMotion( MV *lowresMv, Frame *refFrame, Frame *curFrame, pix
 
     //static const int32_t lumaBlockSize = 16;
 
-    for( int32_t c = 0; c < 1/*3*/; c++ )
+    for( int32_t c = 0; c < 3; c++ )
     {
         const int32_t csx = c > 0 ? 1 : 0;
         const int32_t csy = csx;
@@ -2606,12 +2606,7 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
 void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, double overallStrength,  int32_t numRefs,
     const int32_t sRange, int32_t mQp, int32_t offsetIndex[10], bool replace )
 {
-    pixel *src[3] ={0};
-    src[0] = curFrame->m_originalPic->m_picOrg[0];
-    pixel *dst[3] ={0};
-    dst[0] = replace ? curFrame->m_fencPic->m_picOrg[0] : curFrame->m_filteredPic->m_picOrg[0];
-    int32_t stride[3]={0};
-    stride[0] = curFrame->m_fencPic->m_stride;
+    PicYuv* dst_pic = replace ? curFrame->m_fencPic : curFrame->m_filteredPic;
     int32_t sourceHeight = curFrame->m_fencPic->m_picHeight;
     int32_t sourceWidth = curFrame->m_fencPic->m_picWidth;
     int32_t refStrengthRow = 2;
@@ -2629,15 +2624,15 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
     double        filteringDouble[2];
     int32_t       expValue[2][1024];
 
-    for( int32_t c = 0; c < 1/*3*/; c++ )
+    for( int32_t c = 0; c < 3; c++ )
     {
         int32_t           shift = c ? 1 : 0;
         const int32_t     height = sourceHeight >> shift;
         const int32_t     width = sourceWidth >> shift;
-        const pixel       *srcPelRow = src[c];
-        const int32_t     srcStride = stride[c];
-        pixel             *dstPelRow = dst[c];
-        const int32_t     dstStride = stride[c];
+        const pixel       *srcPelRow = curFrame->m_originalPic->m_picOrg[c];
+        const int32_t     srcStride = c ? curFrame->m_fencPic->m_strideC : curFrame->m_fencPic->m_stride;
+        pixel             *dstPelRow = dst_pic->m_picOrg[c];
+        const int32_t     dstStride = c ? dst_pic->m_strideC : dst_pic->m_stride;
         const int32_t     sigmaSq = c ? chromaSigmaSq : lumaSigmaSq;
         const double      weightScaling = overallStrength * (c ? s_chroma_factor : 0.4);
         for( int m = 0; m < 2; m++ )
@@ -2721,8 +2716,10 @@ int Lookahead::temporalFilter( Frame **frames, Lowres **lowresFrames, int32_t b,
         int *interCost = lowresFrames[b]->lowresMvCosts[dir][dist];
         int32_t *intra_cost = lowresFrames[b]->intraCost;
 
-        temp[numRef][0] = (pixel*)s265_malloc( (frames[b]->m_fencPic->m_picHeight+frames[b]->m_fencPic->m_lumaMarginX) * frames[b]->m_fencPic->m_stride);
-        if(!temp[numRef][0]) continue;
+        temp[numRef][0] = (pixel*)s265_malloc( (frames[b]->m_fencPic->m_picHeight + 2*frames[b]->m_fencPic->m_lumaMarginY) * frames[b]->m_fencPic->m_stride);
+        temp[numRef][1] = (pixel*)s265_malloc( ((frames[b]->m_fencPic->m_picHeight >> 1) + 2*frames[b]->m_fencPic->m_chromaMarginY) * frames[b]->m_fencPic->m_strideC);
+        temp[numRef][2] = (pixel*)s265_malloc( ((frames[b]->m_fencPic->m_picHeight >> 1) + 2*frames[b]->m_fencPic->m_chromaMarginY) * frames[b]->m_fencPic->m_strideC);
+        if(!temp[numRef][0] || !temp[numRef][1] || !temp[numRef][2]) continue;
         origOffsetIndex[numRef] = origOffset;
         //printf("Tempoal filter deal frame poc: %d, frame_type:%d, ref poc %d\n", frames[b]->m_poc, lowresFrames[b]->sliceType, frames[idx]->m_poc);
         applyMotion( lowresMv, frames[idx], frames[b], temp[numRef], interCost, intra_cost );
@@ -2744,6 +2741,10 @@ int Lookahead::temporalFilter( Frame **frames, Lowres **lowresFrames, int32_t b,
     {
         if( temp[i][0] )
             s265_free(temp[i][0]);
+        if( temp[i][1] )
+            s265_free(temp[i][1]);
+        if( temp[i][2] )
+            s265_free(temp[i][2]);
     }
 
     return 1;
