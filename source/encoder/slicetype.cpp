@@ -2604,12 +2604,12 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
 }
 
 void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, double overallStrength,  int32_t numRefs,
-    const int32_t sRange, int32_t mQp, int32_t offsetIndex[10] )
+    const int32_t sRange, int32_t mQp, int32_t offsetIndex[10], bool replace )
 {
     pixel *src[3] ={0};
     src[0] = curFrame->m_originalPic->m_picOrg[0];
     pixel *dst[3] ={0};
-    dst[0] = curFrame->m_fencPic->m_picOrg[0];
+    dst[0] = replace ? curFrame->m_fencPic->m_picOrg[0] : curFrame->m_filteredPic->m_picOrg[0];
     int32_t stride[3]={0};
     stride[0] = curFrame->m_fencPic->m_stride;
     int32_t sourceHeight = curFrame->m_fencPic->m_picHeight;
@@ -2668,27 +2668,10 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
 #else
         bilateralFilterCoreC( c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, offsetIndex, weightScaling, sigmaSq );
 #endif
-        pixel *tmpSrc = curFrame->m_originalPic->m_picOrg[0];
-        pixel *tmpDst = curFrame->m_fencPic->m_picOrg[0];
-        double result = 0;
-        int  max = 0;
-        for(uint32_t y = 0; y < curFrame->m_originalPic->m_picHeight; y++)
-        {
-            for(uint32_t x = 0; x < curFrame->m_originalPic->m_picWidth; x++)
-            {
-                result += abs(tmpSrc[x] - tmpDst[x]);
-                if(max<abs(tmpSrc[x] - tmpDst[x]))
-                    max = abs(tmpSrc[x] - tmpDst[x]);
-            }
-            tmpSrc += curFrame->m_originalPic->m_stride;
-            tmpDst += curFrame->m_originalPic->m_stride;
-        }
-        //printf("Frame diff is %f, max diff is %d\n", result, max);
-        result++;
     }
 }
 
-int Lookahead::temporalFilter( Frame **frames, Lowres **lowresFrames, int32_t b, const int32_t sRange, int32_t qp)
+int Lookahead::temporalFilter( Frame **frames, Lowres **lowresFrames, int32_t b, const int32_t sRange, int32_t qp, bool replace)
 {
     int32_t firstFrame = b - sRange;
     int32_t lastFrame = b + sRange;
@@ -2755,7 +2738,7 @@ int Lookahead::temporalFilter( Frame **frames, Lowres **lowresFrames, int32_t b,
         return 0;
     }
 
-    bilateralFilter(temp, frames[b], overallStrength, numRef, sRange, qp, origOffsetIndex);
+    bilateralFilter(temp, frames[b], overallStrength, numRef, sRange, qp, origOffsetIndex, replace);
 
     for( int32_t i = 0; i < numRef; i++ )
     {
@@ -2781,8 +2764,30 @@ void Lookahead::filterInput( Frame **frames, Lowres **lowresFrames, int32_t b,fl
     }
     int qp = s265_clip3( 17,40, (int)( estQp + 0.5 ) );
 
-    //ZY TODO: now mctf always replace org, so use an org copy to calculat psnr, this will be fix later 
-    temporalFilter( frames, lowresFrames, b, filterRange, qp);
+    if (m_param->bEnablePsnr || m_param->bEnableSsim) {
+        if (temporalFilter( frames, lowresFrames, b, filterRange, qp, false)) {
+            //filter pixl writed into m_filteredPic, so swap pointers
+            pixel *temp = frames[b]->m_filteredPic->m_picOrg[0];
+            frames[b]->m_filteredPic->m_picOrg[0] =  frames[b]->m_fencPic->m_picOrg[0];
+            frames[b]->m_fencPic->m_picOrg[0] = temp;
+
+            temp = frames[b]->m_filteredPic->m_picOrg[1];
+            frames[b]->m_filteredPic->m_picOrg[1] =  frames[b]->m_fencPic->m_picOrg[1];
+            frames[b]->m_fencPic->m_picOrg[1] = temp;
+
+            temp = frames[b]->m_filteredPic->m_picOrg[2];
+            frames[b]->m_filteredPic->m_picOrg[2] =  frames[b]->m_fencPic->m_picOrg[2];
+            frames[b]->m_fencPic->m_picOrg[2] = temp;
+
+            //PicYuv* temp = frames[b]->m_filteredPic;
+            //frames[b]->m_filteredPic = frames[b]->m_fencPic;
+            //frames[b]->m_fencPic = temp;
+        }
+    }
+    else
+    {  //directly write filtered pixl into m_fencPic
+        temporalFilter( frames, lowresFrames, b, filterRange, qp, true);
+    }
 }
 
 void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)

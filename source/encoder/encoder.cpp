@@ -1773,14 +1773,10 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                 {
                     inFrame->m_fencPic->m_cuOffsetY = m_sps.cuOffsetY;
                     inFrame->m_fencPic->m_buOffsetY = m_sps.buOffsetY;
-                    inFrame->m_originalPic->m_cuOffsetY = m_sps.cuOffsetY;
-                    inFrame->m_originalPic->m_buOffsetY = m_sps.buOffsetY;
                     if (m_param->internalCsp != S265_CSP_I400)
                     {
                         inFrame->m_fencPic->m_cuOffsetC = m_sps.cuOffsetC;
                         inFrame->m_fencPic->m_buOffsetC = m_sps.buOffsetC;
-                        inFrame->m_originalPic->m_cuOffsetC = m_sps.cuOffsetC;
-                        inFrame->m_originalPic->m_buOffsetC = m_sps.buOffsetC;
                     }
                 }
                 else
@@ -1803,26 +1799,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                             m_sps.cuOffsetY = inFrame->m_fencPic->m_cuOffsetY;
                             m_sps.buOffsetC = inFrame->m_fencPic->m_buOffsetC;
                             m_sps.buOffsetY = inFrame->m_fencPic->m_buOffsetY;
-                        }
-                    }
-                    if (!inFrame->m_originalPic->createOffsets(m_sps))
-                    {
-                        m_aborted = true;
-                        s265_log(m_param, S265_LOG_ERROR, "memory allocation failure, aborting encode\n");
-                        inFrame->destroy();
-                        delete inFrame;
-                        return -1;
-                    }
-                    else
-                    {
-                        m_sps.cuOffsetY = inFrame->m_originalPic->m_cuOffsetY;
-                        m_sps.buOffsetY = inFrame->m_originalPic->m_buOffsetY;
-                        if (m_param->internalCsp != S265_CSP_I400)
-                        {
-                            m_sps.cuOffsetC = inFrame->m_originalPic->m_cuOffsetC;
-                            m_sps.cuOffsetY = inFrame->m_originalPic->m_cuOffsetY;
-                            m_sps.buOffsetC = inFrame->m_originalPic->m_buOffsetC;
-                            m_sps.buOffsetY = inFrame->m_originalPic->m_buOffsetY;
                         }
                     }
                 }
@@ -1856,8 +1832,10 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
         /* Copy input picture into a Frame and PicYuv, send to lookahead */
         inFrame->m_fencPic->copyFromPicture(*inputPic, *m_param, m_sps.conformanceWindow.rightOffset, m_sps.conformanceWindow.bottomOffset);
-        inFrame->m_originalPic->copyFromPicture(*inputPic, *m_param, m_sps.conformanceWindow.rightOffset, m_sps.conformanceWindow.bottomOffset);
-
+        if (m_param->bEnablePsnr || m_param->bEnableSsim)
+        {
+            inFrame->m_filteredPic->copyFromPicture(*inputPic, *m_param, m_sps.conformanceWindow.rightOffset, m_sps.conformanceWindow.bottomOffset);
+        }
         inFrame->m_poc       = ++m_pocLast;
         inFrame->m_userData  = inputPic->userData;
         inFrame->m_pts       = inputPic->pts;
