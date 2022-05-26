@@ -27,7 +27,6 @@
 
 #include "s265.h"
 #include "s265cli.h"
-#include "abrEncApp.h"
 
 #if HAVE_VLD
 /* Visual Leak Detector */
@@ -86,166 +85,6 @@ static int get_argv_utf8(int *argc_ptr, char ***argv_ptr)
 }
 #endif
 
-/* Checks for abr-ladder config file in the command line.
- * Returns true if abr-config file is present. Returns 
- * false otherwise */
-
-static bool checkAbrLadder(int argc, char **argv, FILE **abrConfig)
-{
-    for (optind = 0;;)
-    {
-        int long_options_index = -1;
-        int c = getopt_long(argc, argv, short_options, long_options, &long_options_index);
-        if (c == -1)
-            break;
-        if (long_options_index < 0 && c > 0)
-        {
-            for (size_t i = 0; i < sizeof(long_options) / sizeof(long_options[0]); i++)
-            {
-                if (long_options[i].val == c)
-                {
-                    long_options_index = (int)i;
-                    break;
-                }
-            }
-
-            if (long_options_index < 0)
-            {
-                /* getopt_long might have already printed an error message */
-                if (c != 63)
-                    s265_log(NULL, S265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
-                return false;
-            }
-        }
-        if (long_options_index < 0)
-        {
-            s265_log(NULL, S265_LOG_WARNING, "short option '%c' unrecognized\n", c);
-            return false;
-        }
-        if (!strcmp(long_options[long_options_index].name, "abr-ladder"))
-        {
-            *abrConfig = s265_fopen(optarg, "rb");
-            if (!abrConfig)
-                s265_log_file(NULL, S265_LOG_ERROR, "%s abr-ladder config file not found or error in opening zone file\n", optarg);
-            return true;
-        }
-    }
-    return false;
-}
-
-static uint8_t getNumAbrEncodes(FILE* abrConfig)
-{
-    char line[1024];
-    uint8_t numEncodes = 0;
-
-    while (fgets(line, sizeof(line), abrConfig))
-    {
-        if (strcmp(line, "\n") == 0)
-            continue;
-        else if (!(*line == '#'))
-            numEncodes++;
-    }
-    rewind(abrConfig);
-    return numEncodes;
-}
-
-static bool parseAbrConfig(FILE* abrConfig, CLIOptions cliopt[], uint8_t numEncodes)
-{
-    char line[1024];
-    char* argLine;
-
-    for (uint32_t i = 0; i < numEncodes; i++)
-    {
-        fgets(line, sizeof(line), abrConfig);
-        if (*line == '#' || (strcmp(line, "\r\n") == 0))
-            continue;
-        int index = (int)strcspn(line, "\r\n");
-        line[index] = '\0';
-        argLine = line;
-        char* start = strchr(argLine, ' ');
-        while (isspace((unsigned char)*start)) start++;
-        int argc = 0;
-        char **argv = (char**)malloc(256 * sizeof(char *));
-        // Adding a dummy string to avoid file parsing error
-        argv[argc++] = (char *)"s265";
-
-        /* Parse CLI header to identify the ID of the load encode and the reuse level */
-        char *header = strtok(argLine, "[]");
-        uint32_t idCount = 0;
-        char *id = strtok(header, ":");
-        char *head[S265_HEAD_ENTRIES];
-        cliopt[i].encId = i;
-        cliopt[i].isAbrLadderConfig = true;
-
-        while (id && (idCount <= S265_HEAD_ENTRIES))
-        {
-            head[idCount] = id;
-            id = strtok(NULL, ":");
-            idCount++;
-        }
-        if (idCount != S265_HEAD_ENTRIES)
-        {
-            s265_log(NULL, S265_LOG_ERROR, "Incorrect number of arguments in ABR CLI header at line %d\n", i);
-            return false;
-        }
-        else
-        {
-            cliopt[i].encName = strdup(head[0]);
-            cliopt[i].loadLevel = atoi(head[1]);
-            cliopt[i].reuseName = strdup(head[2]);
-        }
-
-        char* token = strtok(start, " ");
-        while (token)
-        {
-            argv[argc++] = strdup(token);
-            token = strtok(NULL, " ");
-        }
-        argv[argc] = NULL;
-        if (cliopt[i].parse(argc++, argv))
-        {
-            cliopt[i].destroy();
-            if (cliopt[i].api)
-                cliopt[i].api->param_free(cliopt[i].param);
-            exit(1);
-        }
-    }
-    return true;
-}
-
-static bool setRefContext(CLIOptions cliopt[], uint32_t numEncodes)
-{
-    bool hasRef = false;
-    bool isRefFound = false;
-
-    /* Identify reference encode IDs and set save/load reuse levels */
-    for (uint32_t curEnc = 0; curEnc < numEncodes; curEnc++)
-    {
-        isRefFound = false;
-        hasRef = !strcmp(cliopt[curEnc].reuseName, "nil") ? false : true;
-        if (hasRef)
-        {
-            for (uint32_t refEnc = 0; refEnc < numEncodes; refEnc++)
-            {
-                if (!strcmp(cliopt[curEnc].reuseName, cliopt[refEnc].encName))
-                {
-                    cliopt[curEnc].refId = refEnc;
-                    cliopt[refEnc].numRefs++;
-                    cliopt[refEnc].saveLevel = S265_MAX(cliopt[refEnc].saveLevel, cliopt[curEnc].loadLevel);
-                    isRefFound = true;
-                    break;
-                }
-            }
-            if (!isRefFound)
-            {
-                s265_log(NULL, S265_LOG_ERROR, "Reference encode (%s) not found for %s\n", cliopt[curEnc].reuseName,
-                    cliopt[curEnc].encName);
-                return false;
-            }
-        }
-    }
-    return true;
-}
 /* CLI return codes:
  *
  * 0 - encode successful
@@ -253,6 +92,13 @@ static bool setRefContext(CLIOptions cliopt[], uint32_t numEncodes)
  * 2 - unable to open encoder
  * 3 - unable to generate stream headers
  * 4 - encoder abort */
+
+/* Ctrl-C handler */
+static volatile sig_atomic_t b_ctrl_c /* = 0 */;
+static void sigint_handler(int)
+{
+    b_ctrl_c = 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -270,57 +116,182 @@ int main(int argc, char **argv)
     get_argv_utf8(&argc, &argv);
 #endif
 
-    uint8_t numEncodes = 1;
-    FILE *abrConfig = NULL;
-    bool isAbrLadder = checkAbrLadder(argc, argv, &abrConfig);
+    int ret = 0;
 
-    if (isAbrLadder)
-        numEncodes = getNumAbrEncodes(abrConfig);
+    CLIOptions* cliopt = new CLIOptions;
+    s265_encoder* encoder = NULL;
 
-    CLIOptions* cliopt = new CLIOptions[numEncodes];
-
-    if (isAbrLadder)
+    if (cliopt->parse(argc, argv))
     {
-        if (!parseAbrConfig(abrConfig, cliopt, numEncodes))
-            exit(1);
-        if (!setRefContext(cliopt, numEncodes))
-            exit(1);
-    }
-    else if (cliopt[0].parse(argc, argv))
-    {
-        cliopt[0].destroy();
-        if (cliopt[0].api)
-            cliopt[0].api->param_free(cliopt[0].param);
+        cliopt->destroy();
+        if (cliopt->api)
+            cliopt->api->param_free(cliopt->param);
         exit(1);
     }
 
-    int ret = 0;
-
-    AbrEncoder* abrEnc = new AbrEncoder(cliopt, numEncodes, ret);
-    int threadsActive = abrEnc->m_numActiveEncodes.get();
-    while (threadsActive)
+    s265_param*  param = cliopt->param;
+    const s265_api* api = cliopt->api;
+    if (param)
+         encoder = api->encoder_open(param);
+    if (!encoder)
     {
-        threadsActive = abrEnc->m_numActiveEncodes.waitForChange(threadsActive);
-        for (uint8_t idx = 0; idx < numEncodes; idx++)
-        {
-            if (abrEnc->m_passEnc[idx]->m_ret)
-            {
-                if (isAbrLadder)
-                    s265_log(NULL, S265_LOG_INFO, "Error generating ABR-ladder \n");
-                ret = abrEnc->m_passEnc[idx]->m_ret;
-                threadsActive = 0;
-                break;
-            }
-        }
+        api->encoder_close(encoder);
+        s265_log(NULL, S265_LOG_ERROR, "s265_encoder_open() failed for Enc, \n");
+        api->param_free(param);
+        cliopt->destroy();
+        delete cliopt;
+        exit(2);
     }
 
-    abrEnc->destroy();
-    delete abrEnc;
+    char* profileName = cliopt->encName ? cliopt->encName : (char *)"s265";
+    /* get the encoder parameters post-initialization */
+    api->encoder_parameters(encoder, cliopt->param);
 
-    for (uint8_t idx = 0; idx < numEncodes; idx++)
-        cliopt[idx].destroy();
+    /* This allows muxers to modify bitstream format */
+    cliopt->output->setParam(cliopt->param);
+    if (signal(SIGINT, sigint_handler) == SIG_ERR)
+        s265_log(param, S265_LOG_ERROR, "Unable to register CTRL+C handler: %s in %s\n",
+            strerror(errno), profileName);
 
-    delete[] cliopt;
+    s265_picture pic_orig, pic_out;
+    s265_picture *pic_in = &pic_orig;
+    /* Allocate recon picture if analysis save/load is enabled */
+    std::priority_queue<int64_t>* pts_queue = cliopt->output->needPTS() ? new std::priority_queue<int64_t>() : NULL;
+    s265_picture *pic_recon = (cliopt->recon || param->analysisSave || param->analysisLoad || pts_queue || param->csvLogLevel) ? &pic_out : NULL;
+    uint32_t inFrameCount = 0;
+    uint32_t outFrameCount = 0;
+    s265_nal *p_nal;
+    s265_stats stats;
+    uint32_t nal;
+
+    if (!param->bRepeatHeaders && !param->bEnableSvtHevc)
+    {
+        if (api->encoder_headers(encoder, &p_nal, &nal) < 0)
+        {
+            s265_log(param, S265_LOG_ERROR, "Failure generating stream headers in %s\n", profileName);
+            ret = 3;
+            goto fail;
+        }
+        else
+            cliopt->totalbytes += cliopt->output->writeHeaders(p_nal, nal);
+    }
+
+    api->picture_init(param, &pic_orig);
+
+    // main encoder loop
+    while (pic_in && !b_ctrl_c)
+    {
+        pic_orig.poc = inFrameCount;
+        if (cliopt->qpfile)
+        {
+            if (!cliopt->parseQPFile(pic_orig))
+            {
+                s265_log(NULL, S265_LOG_ERROR, "can't parse qpfile for frame %d in %s\n",
+                    pic_in->poc, profileName);
+                fclose(cliopt->qpfile);
+                cliopt->qpfile = NULL;
+            }
+        }
+
+        if (cliopt->framesToBeEncoded && inFrameCount >= cliopt->framesToBeEncoded)
+            pic_in = NULL;
+        else if (cliopt->input->readPicture(*pic_in))
+        {
+            inFrameCount++;
+        }
+        else
+            pic_in = NULL;
+
+        if (pic_in)
+        {
+            /* Overwrite PTS */
+            pic_in->pts = pic_in->poc;
+        }
+        s265_picture *picInput = pic_in;
+        int numEncoded = api->encoder_encode(encoder, &p_nal, &nal, picInput, pic_recon);
+
+        if (numEncoded < 0)
+        {
+            b_ctrl_c = 1;
+            ret = 4;
+            break;
+        }
+        outFrameCount += numEncoded;
+        if (nal)
+        {
+            cliopt->totalbytes += cliopt->output->writeFrame(p_nal, nal, pic_out);
+            if (pts_queue)
+            {
+                pts_queue->push(-pic_out.pts);
+                if (pts_queue->size() > 2)
+                    pts_queue->pop();
+            }
+        }
+        cliopt->printStatus(outFrameCount);
+    }
+
+    /* Flush the encoder */
+    while (!b_ctrl_c)
+    {
+        int numEncoded = api->encoder_encode(encoder, &p_nal, &nal, NULL, pic_recon);
+        if (numEncoded < 0)
+        {
+            ret = 4;
+            break;
+        }
+
+        outFrameCount += numEncoded;
+        if (nal)
+        {
+            cliopt->totalbytes += cliopt->output->writeFrame(p_nal, nal, pic_out);
+            if (pts_queue)
+            {
+                pts_queue->push(-pic_out.pts);
+                if (pts_queue->size() > 2)
+                    pts_queue->pop();
+            }
+        }
+
+        cliopt->printStatus(outFrameCount);
+
+        if (!numEncoded)
+            break;
+    }
+
+    /* clear progress report */
+    if (cliopt->bProgress)
+        fprintf(stderr, "%*s\r", 80, " ");
+
+fail:
+    api->encoder_get_stats(encoder, &stats, sizeof(stats));
+    if (param->csvfn && !b_ctrl_c)
+#if ENABLE_LIBVMAF
+        api->vmaf_encoder_log(m_encoder, m_cliopt.argCnt, m_cliopt.argString, m_cliopt.param, vmafdata);
+#else
+        api->encoder_log(encoder, cliopt->argCnt, cliopt->argString);
+#endif
+    api->encoder_close(encoder);
+
+    int64_t second_largest_pts = 0;
+    int64_t largest_pts = 0;
+    if (pts_queue && pts_queue->size() >= 2)
+    {
+        second_largest_pts = -pts_queue->top();
+        pts_queue->pop();
+        largest_pts = -pts_queue->top();
+        pts_queue->pop();
+        delete pts_queue;
+        pts_queue = NULL;
+    }
+    cliopt->output->closeFile(largest_pts, second_largest_pts);
+
+    if (b_ctrl_c)
+        general_log(param, NULL, S265_LOG_INFO, "aborted at input frame %d, output frame %d in %s\n",
+            cliopt->seek + inFrameCount, stats.encodedPictureCount, profileName);
+
+    api->param_free(param);
+    cliopt->destroy();
+    delete cliopt;
 
     SetConsoleTitle(orgConsoleTitle);
     SetThreadExecutionState(ES_CONTINUOUS);
@@ -336,6 +307,7 @@ int main(int argc, char **argv)
 #if HAVE_VLD
     assert(VLDReportLeaks() == 0);
 #endif
+
 
     return ret;
 }
