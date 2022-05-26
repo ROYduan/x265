@@ -66,7 +66,7 @@ void FrameEncoder::destroy()
 {
     if (m_pool)
     {
-        if (!m_jpId)
+        if (!m_jpId)// 首个jobprovider 负责new/delete threadlocaldata
         {
             int numTLD = m_pool->m_numWorkers;
             if (!m_param->bEnableWavefront)
@@ -301,10 +301,10 @@ void FrameEncoder::threadMain()
     {
         m_pool->setCurrentThreadAffinity();
 
-        /* the first FE on each NUMA node is responsible for allocating thread
+        /* the first FE（frame_encoder） on each NUMA node is responsible for allocating thread
          * local data for all worker threads in that pool. If WPP is disabled, then
-         * each FE also needs a TLD instance */
-        if (!m_jpId)
+         * each FE(frame_encoder) also needs a TLD instance */
+        if (!m_jpId)// 首个jobprovider 负责 new/delete threadlocaldata
         {
             int numTLD = m_pool->m_numWorkers;
             if (!m_param->bEnableWavefront)
