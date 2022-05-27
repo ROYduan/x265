@@ -225,6 +225,7 @@ s265_encoder *s265_encoder_open(s265_param *p)
 
     encoder->m_latestParam = latestParam;
     s265_copy_params(latestParam, param);
+    PARAM_NS::s265_param_free(zoneParam);
     if (encoder->m_aborted)
         goto fail;
 
