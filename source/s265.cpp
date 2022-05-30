@@ -117,7 +117,9 @@ int main(int argc, char **argv)
 #endif
 
     int ret = 0;
-
+    int enc_times = 1;
+    while(enc_times--)
+    {
     CLIOptions* cliopt = new CLIOptions;
     s265_encoder* encoder = NULL;
 
@@ -163,6 +165,12 @@ int main(int argc, char **argv)
     s265_nal *p_nal;
     s265_stats stats;
     uint32_t nal;
+
+    char *opts = s265_param2string(param,0,0);
+    if(opts){
+        printf("%s\n",opts);
+        s265_free(opts);
+    }
 
     if (!param->bRepeatHeaders && !param->bEnableSvtHevc)
     {
@@ -292,7 +300,9 @@ fail:
     api->param_free(param);
     cliopt->destroy();
     delete cliopt;
-
+    printf("--closed------------------\n");
+    sleep(5);
+    }
     SetConsoleTitle(orgConsoleTitle);
     SetThreadExecutionState(ES_CONTINUOUS);
 
