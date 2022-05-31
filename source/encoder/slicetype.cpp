@@ -1852,16 +1852,24 @@ void Lookahead::slicetypeDecide()
         
         for( int b = 0; b <= bframes ; b++ )
         {
+            int range = 2;
+            if (m_param->mctf.method)
+                range = 4;
             //TODO：全P帧情况之后再讨论
-            if( ((bframes + 1 >= m_param->mctf.gopsize) && newframes[b]->sliceType != S265_TYPE_B)&&newframes[b]->i_temporal_id < 1  ) 
+            //if (((bframes + 1 >= m_param->mctf.gopsize) && newframes[b]->sliceType != S265_TYPE_B) && newframes[b]->i_temporal_id < 1)
+            if (((bframes + 1 >= m_param->mctf.gopsize) && newframes[b]->sliceType != S265_TYPE_B) && newframes[b]->i_temporal_id < 1)
             {
-                if(b+2 > maxSearch)
+                if(newframes[b]->sliceType == S265_TYPE_BREF && bframes<=range*2)
                     continue;
-                //TODO: 根据参数设置
-                //printf("bframes num %d\n", bframes);
+                if(newframes[b]->sliceType == S265_TYPE_P && bframes<range)
+                    continue;
+                if (b + range > maxSearch)
+                    continue;
+                // TODO: 根据参数设置
+                // printf("bframes num %d\n", bframes);
                 float estQp = m_param->mctf.qp;
-                //float est_qp = 17;
-                filterInput( list, newframes, b, estQp, bframes );
+                // float est_qp = 17;
+                filterInput(list, newframes, b, estQp, bframes);
             }
         }
     }
@@ -2399,7 +2407,7 @@ void Lookahead::applyMotion( MV *lowresMv, Frame *refFrame, Frame *curFrame, pix
 
                 int32_t tempArray[23][16];// 16+7
 #ifdef USE_TEMPORAL_FILTER_AVX
-                if (m_param->cpuid & S265_CPU_AVX)
+                if ((m_param->cpuid & S265_CPU_AVX) && (m_param->cpuid & S265_CPU_AVX2))
                     temporalFilterRowAvx(height, width, y, x, stride, blockSizeX, blockSizeY, yInt, xInt, srcImage, tempArray, xFilter);
                 else
                     temporalFilterRowC(height, width, y, x, stride, blockSizeX, blockSizeY, yInt, xInt, srcImage, tempArray, xFilter);
@@ -2408,7 +2416,7 @@ void Lookahead::applyMotion( MV *lowresMv, Frame *refFrame, Frame *curFrame, pix
 #endif
                 pixel *dstRow = dstImage + y * stride;
 #ifdef USE_TEMPORAL_FILTER_AVX
-                if (m_param->cpuid & S265_CPU_AVX)
+                if ((m_param->cpuid & S265_CPU_AVX) && (m_param->cpuid & S265_CPU_AVX2))
                     temporalFilterColAvx(x, stride, blockSizeX, blockSizeY, dstRow, tempArray, yFilter);
                 else
                     temporalFilterColC(x, stride, blockSizeX, blockSizeY, dstRow, tempArray, yFilter);
@@ -2467,15 +2475,14 @@ static void bilateralFilterCoreAvx( const int32_t c, const int32_t height, const
 }
 #endif
 
-//ZY TODO: 代码风格统一
 void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, const int32_t width, const int32_t numRefs, pixel *correctedPics[10][3], const pixel *srcPelRow, const int32_t srcStride,
-    pixel *dstPelRow, const int32_t dstStride, const int32_t offsetIndex[10], double weightScaling, double sigmaSq )
+    pixel *dstPelRow, const int32_t dstStride, const double expValue[4][4][1024], const int32_t offsetIndex[10], double weightScaling, double sigmaSq, int s_range )
 {
     const pixel maxSampleValue = 255;
     const int32_t stepX = 1; //ZY TODO:先逐个进行 调好后考虑汇编
 
     int refStrengthRow = 2;
-    int s_range = 2;
+    //int s_range = 2;
     if (numRefs == s_range * 2)
     {
         refStrengthRow = 0;
@@ -2565,6 +2572,7 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
                 int refVal = (int) *pCorrectedPelPtr;
                 
                 double diff = (double)(refVal - orgVal);
+                int diffInt = abs(refVal - orgVal);
                 diff *= 4;
                 double diffSq = diff * diff;
                 double weight;
@@ -2576,16 +2584,20 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
                     const int index = S265_MIN(3, abs(offsetIndex[i]) - 1);
                     double ww = 1, sw = 1;
                     ww *= (noise < 25) ? 1 : 1.2;
-                    sw *= (noise < 25) ? 1.3 : 0.8;
+                    //sw *= (noise < 25) ? 1.3 : 0.8;
                     ww *= (error < 50) ? 1.2 : ((error > 100) ? 0.8 : 1);
-                    sw *= (error < 50) ? 1.3 : 1;
+                    //sw *= (error < 50) ? 1.3 : 1;
                     ww *= ((minError + 1) / (error + 1));
-                    weight = weightScaling * s_ref_strengths2[refStrengthRow][index] * ww * exp(-diffSq / (2 * sw * sigmaSq));
+                    // weight = weightScaling * s_ref_strengths2[refStrengthRow][index] * ww * exp(-diffSq / (2 * sw * sigmaSq));
+                    int sw_index = (noise < 25) ? 1 : 0;
+                    sw_index = (sw_index << 1) + ((error < 50) ? 1 : 0);
+                    weight = expValue[sw_index][index][diffInt] * ww;
                 }
                 else
                 {
                     const int32_t index = S265_MIN(1, abs(offsetIndex[i]) - 1);
-                    weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
+                    //weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
+                    weight = expValue[0][index][diffInt];
                 }
                 newVal += weight * refVal;
                 temporalWeightSum += weight;
@@ -2621,8 +2633,9 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
 
     const int32_t lumaSigmaSq = (mQp - s_sigma_zero_point) * (mQp - s_sigma_zero_point) * s_sigma_multiplier;
     const int32_t chromaSigmaSq = 30 * 30;
-    double        filteringDouble[2];
+    double        filteringDouble[4];
     int32_t       expValue[2][1024];
+    double        expValueFloat[4][4][1024];
 
     for( int32_t c = 0; c < 3; c++ )
     {
@@ -2641,7 +2654,7 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
         }
 #ifdef USE_TEMPORAL_FILTER_AVX
         //simd method not support mctf.method 1
-        if ((m_param->cpuid & S265_CPU_AVX) && !m_param->mctf.method)
+        if ((m_param->cpuid & S265_CPU_AVX) && (m_param->cpuid & S265_CPU_AVX2) && (!m_param->mctf.method))
         {
             const pixel maxSampleValue = 255;
             const int32_t bitDepthDiffWeighting = 4;
@@ -2658,11 +2671,43 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
             bilateralFilterCoreAvx(c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, expValue, offsetIndex);
         }
         else
-            bilateralFilterCoreC(c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, offsetIndex, weightScaling, sigmaSq);
-
-#else
-        bilateralFilterCoreC( c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, offsetIndex, weightScaling, sigmaSq );
 #endif
+        {
+            const pixel maxSampleValue = 255;
+            const int32_t bitDepthDiffWeighting = 4;
+            //sw *= (noise < 25) ? 1.3 : 0.8;
+            //sw *= (error < 50) ? 1.3 : 1;
+            double sw_list[4]={0.8, 1.04, 1.3, 1.69};
+            if (c < 2)
+            { // table calulate only for Y and U, V just reuse from U
+                if (m_param->mctf.method)
+                {
+                    for (int m = 0; m < 4; m++)
+                    {
+                        filteringDouble[m] = weightScaling * s_ref_strengths2[refStrengthRow][m];
+                    }
+                    for (int i = 0; i <= maxSampleValue; i++)
+                    {
+                        for (int sw = 0; sw < 4; sw++)
+                        {
+                            for (int m = 0; m < 4; m++)
+                                expValueFloat[sw][m][i] = filteringDouble[m] * exp(-i * i * bitDepthDiffWeighting * bitDepthDiffWeighting / (2 * sw_list[sw] * sigmaSq * 1.0));
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i <= maxSampleValue; i++)
+                    {
+                        for (int m = 0; m < 2; m++)
+                            expValueFloat[0][m][i] = exp(-i * i * bitDepthDiffWeighting * bitDepthDiffWeighting / (2 * sigmaSq * 1.0)) * filteringDouble[m];
+                    }
+                }
+            }
+            //weight = weightScaling * s_ref_strengths2[refStrengthRow][index] * ww * exp(-diffSq / (2 * sw * sigmaSq));
+            //weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
+            bilateralFilterCoreC(c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, expValueFloat, offsetIndex, weightScaling, sigmaSq, sRange);
+        }
     }
 }
 
@@ -2768,21 +2813,23 @@ void Lookahead::filterInput( Frame **frames, Lowres **lowresFrames, int32_t b,fl
     if (m_param->bEnablePsnr || m_param->bEnableSsim) {
         if (temporalFilter( frames, lowresFrames, b, filterRange, qp, false)) {
             //filter pixl writed into m_filteredPic, so swap pointers
-            pixel *temp = frames[b]->m_filteredPic->m_picOrg[0];
-            frames[b]->m_filteredPic->m_picOrg[0] =  frames[b]->m_fencPic->m_picOrg[0];
-            frames[b]->m_fencPic->m_picOrg[0] = temp;
+            frames[b]->m_filteredPic->copyParam(frames[b]->m_fencPic);
+            // pixel *temp = frames[b]->m_filteredPic->m_picOrg[0];
+            // frames[b]->m_filteredPic->m_picOrg[0] =  frames[b]->m_fencPic->m_picOrg[0];
+            // frames[b]->m_fencPic->m_picOrg[0] = temp;
 
-            temp = frames[b]->m_filteredPic->m_picOrg[1];
-            frames[b]->m_filteredPic->m_picOrg[1] =  frames[b]->m_fencPic->m_picOrg[1];
-            frames[b]->m_fencPic->m_picOrg[1] = temp;
+            // temp = frames[b]->m_filteredPic->m_picOrg[1];
+            // frames[b]->m_filteredPic->m_picOrg[1] =  frames[b]->m_fencPic->m_picOrg[1];
+            // frames[b]->m_fencPic->m_picOrg[1] = temp;
 
-            temp = frames[b]->m_filteredPic->m_picOrg[2];
-            frames[b]->m_filteredPic->m_picOrg[2] =  frames[b]->m_fencPic->m_picOrg[2];
-            frames[b]->m_fencPic->m_picOrg[2] = temp;
+            // temp = frames[b]->m_filteredPic->m_picOrg[2];
+            // frames[b]->m_filteredPic->m_picOrg[2] =  frames[b]->m_fencPic->m_picOrg[2];
+            // frames[b]->m_fencPic->m_picOrg[2] = temp;
+            // frames[b]->m_originalPic = frames[b]->m_filteredPic;
 
-            //PicYuv* temp = frames[b]->m_filteredPic;
-            //frames[b]->m_filteredPic = frames[b]->m_fencPic;
-            //frames[b]->m_fencPic = temp;
+            PicYuv* temp = frames[b]->m_filteredPic;
+            frames[b]->m_filteredPic = frames[b]->m_fencPic;
+            frames[b]->m_fencPic = temp;
         }
     }
     else

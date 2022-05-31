@@ -145,14 +145,16 @@ bool Frame::create(s265_param *param, float* quantOffsets)
                                                         m_lowres.maxBlocksInRow * m_lowres.maxBlocksInCol;
             m_quantOffsets = new float[cuCount];
         }
-        if (m_param->bEnablePsnr || m_param->bEnableSsim)
+        if ((m_param->bEnablePsnr || m_param->bEnableSsim) && m_param->mctf.enable)
         {
             m_filteredPic = new PicYuv;
             if (!m_filteredPic->create(param, !!m_param->bCopyPicToFrame))
             {
                 return false;
             }
-        } else {
+        }
+        else
+        {
             m_filteredPic = nullptr;
         }
         return true;
@@ -199,6 +201,8 @@ void Frame::reinit(const SPS& sps)
     m_bChromaExtended = false;
     m_reconPic = m_encData->m_reconPic;
     m_encData->reinit(sps);
+    //m_originalPic is set to m_fencPic at the begining, so temporal_filter can switch fiteredPic and fencPic
+    m_originalPic = m_fencPic;
 }
 
 void Frame::destroy()
