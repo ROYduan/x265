@@ -202,13 +202,12 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
         m_reuseDepth = &m_reuseInterDataCTU->depth[ctu.m_cuAddr * ctu.m_numPartitions];
     }
     
-    int reuseLevel = S265_MAX(m_param->analysisSaveReuseLevel, m_param->analysisLoadReuseLevel);
-    if ((m_param->analysisSave || m_param->analysisLoad) && m_slice->m_sliceType != I_SLICE && reuseLevel > 1 && reuseLevel < 10)
+    int reuseLevel = S265_MAX(0, m_param->analysisLoadReuseLevel);
+    if ((m_param->analysisLoad) && m_slice->m_sliceType != I_SLICE && reuseLevel > 1 && reuseLevel < 10)
     {
         int numPredDir = m_slice->isInterP() ? 1 : 2;
         m_reuseInterDataCTU = m_frame->m_analysisData.interData;
-        if (((m_param->analysisSaveReuseLevel > 1) && (m_param->analysisSaveReuseLevel < 7)) ||
-            ((m_param->analysisLoadReuseLevel > 1) && (m_param->analysisLoadReuseLevel < 7)))
+        if (((m_param->analysisLoadReuseLevel > 1) && (m_param->analysisLoadReuseLevel < 7)))
             m_reuseRef = &m_reuseInterDataCTU->ref[ctu.m_cuAddr * S265_MAX_PRED_MODE_PER_CTU * numPredDir];
         m_reuseDepth = &m_reuseInterDataCTU->depth[ctu.m_cuAddr * ctu.m_numPartitions];
         m_reuseModes = &m_reuseInterDataCTU->modes[ctu.m_cuAddr * ctu.m_numPartitions];
@@ -217,9 +216,6 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
             m_reusePartSize = &m_reuseInterDataCTU->partSize[ctu.m_cuAddr * ctu.m_numPartitions];
             m_reuseMergeFlag = &m_reuseInterDataCTU->mergeFlag[ctu.m_cuAddr * ctu.m_numPartitions];
         }
-        if (m_param->analysisSave && !m_param->analysisLoad)
-            for (int i = 0; i < S265_MAX_PRED_MODE_PER_CTU * numPredDir; i++)
-                m_reuseRef[i] = -1;
     }
     ProfileCUScope(ctu, totalCTUTime, totalCTUs);
 
@@ -3069,20 +3065,6 @@ void Analysis::checkInter_rd0_4(Mode& interMode, const CUGeom& cuGeom, PartSize 
         interMode.distortion += primitives.chroma[m_csp].cu[part].sa8d(fencYuv.m_buf[2], fencYuv.m_csize, predYuv.m_buf[2], predYuv.m_csize);
     }
     interMode.sa8dCost = m_rdCost.calcRdSADCost((uint32_t)interMode.distortion, interMode.sa8dBits);
-
-    if (m_param->analysisSaveReuseLevel > 1 && m_reuseInterDataCTU)
-    {
-        int refOffset = cuGeom.geomRecurId * 16 * numPredDir + partSize * numPredDir * 2;
-        int index = 0;
-
-        uint32_t numPU = interMode.cu.getNumPartInter(0);
-        for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
-        {
-            MotionData* bestME = interMode.bestME[puIdx];
-            for (int32_t i = 0; i < numPredDir; i++)
-                m_reuseRef[refOffset + index++] = bestME[i].ref;
-        }
-    }
 }
 
 void Analysis::checkInter_rd5_6(Mode& interMode, const CUGeom& cuGeom, PartSize partSize, uint32_t refMask[2])
@@ -3126,20 +3108,6 @@ void Analysis::checkInter_rd5_6(Mode& interMode, const CUGeom& cuGeom, PartSize 
 
     /* predInterSearch sets interMode.sa8dBits, but this is ignored */
     encodeResAndCalcRdInterCU(interMode, cuGeom);
-
-    if (m_param->analysisSaveReuseLevel > 1 && m_reuseInterDataCTU)
-    {
-        int refOffset = cuGeom.geomRecurId * 16 * numPredDir + partSize * numPredDir * 2;
-        int index = 0;
-
-        uint32_t numPU = interMode.cu.getNumPartInter(0);
-        for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
-        {
-            MotionData* bestME = interMode.bestME[puIdx];
-            for (int32_t i = 0; i < numPredDir; i++)
-                m_reuseRef[refOffset + index++] = bestME[i].ref;
-        }
-    }
 }
 
 void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom& cuGeom)

@@ -231,7 +231,6 @@ typedef struct s265_analysis_data
     uint64_t                          frameBits;
     int                               list0POC[MAX_NUM_REF];
     int                               list1POC[MAX_NUM_REF];
-    double                            totalIntraPercent;
 } s265_analysis_data;
 
 /* cu statistics */
@@ -438,17 +437,14 @@ typedef struct s265_picture
      * to allow the encoder to determine base QP */
     int     forceqp;
 
-    /* If param.analysisLoad and param.analysisSave are disabled, this field is
+    /* If param.analysisLoad are disabled, this field is
      * ignored on input and output. Else the user must call s265_alloc_analysis_data()
      * to allocate analysis buffers for every picture passed to the encoder.
      *
      * On input when param.analysisLoad is enabled and analysisData
      * member pointers are valid, the encoder will use the data stored here to
      * reduce encoder work.
-     *
-     * On output when param.analysisSave is enabled and analysisData
-     * member pointers are valid, the encoder will write output analysis into
-     * this data structure */
+     */
     s265_analysis_data analysisData;
 
     /* An array of quantizer offsets to be applied to this image during encoding.
@@ -1806,9 +1802,6 @@ typedef struct s265_param
     * otherwise the GOP will be terminated as set by keyint*/
     int       gopLookahead;
 
-    /*Write per-frame analysis information into analysis buffers. Default disabled. */
-    const char* analysisSave;
-
     /* Read analysis information into analysis buffer and use this analysis information
      * to reduce the amount of work the encoder must perform. Default disabled. */
     const char* analysisLoad;
@@ -1938,11 +1931,6 @@ typedef struct s265_param
     * Auto-enabled when max-cll, max-fall, or mastering display info is specified.
     * Default is disabled */
     int       bEmitHDR10SEI;
-
-    /* A value between 1 and 10 (both inclusive) determines the level of
-    * analysis information stored in analysis-save. Higher the refine level higher
-    * the information stored. Default is 5 */
-    int       analysisSaveReuseLevel;
 
     /* A value between 1 and 10 (both inclusive) determines the level of
     * analysis information reused in analysis-load. Higher the refine level higher

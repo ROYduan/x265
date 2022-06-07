@@ -248,7 +248,6 @@ void s265_param_default(s265_param* param)
     param->analysisMultiPassRefine = 0;
     param->analysisMultiPassDistortion = 0;
     param->analysisReuseFileName = NULL;
-    param->analysisSave = NULL;
     param->analysisLoad = NULL;
     param->bIntraInBFrames = 1;
     param->bLossless = 0;
@@ -361,7 +360,6 @@ void s265_param_default(s265_param* param)
     param->bHDROpt = 0; /*DEPRECATED*/
     param->bHDR10Opt = 0;
     param->analysisReuseLevel = 0;  /*DEPRECATED*/
-    param->analysisSaveReuseLevel = 0;
     param->analysisLoadReuseLevel = 0;
     param->toneMapFile = NULL;
     param->bDhdr10opt = 0;
@@ -1299,10 +1297,8 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("analysis-reuse-level")
         {
             p->analysisReuseLevel = atoi(value);
-            p->analysisSaveReuseLevel = atoi(value);
             p->analysisLoadReuseLevel = atoi(value);
         }
-        OPT("analysis-save-reuse-level") p->analysisSaveReuseLevel = atoi(value);
         OPT("analysis-load-reuse-level") p->analysisLoadReuseLevel = atoi(value);
         OPT("ssim-rd")
         {
@@ -1354,7 +1350,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
             }
         }
         OPT("gop-lookahead") p->gopLookahead = atoi(value);
-        OPT("analysis-save") p->analysisSave = strdup(value);
         OPT("analysis-load") p->analysisLoad = strdup(value);
         OPT("radl") p->radl = atoi(value);
         OPT("max-ausize-factor") p->maxAUSizeFactor = atof(value);
@@ -1868,8 +1863,6 @@ int s265_check_params(s265_param* param)
           "Constant QP is incompatible with 2pass");
     CHECK(param->rc.bStrictCbr && (param->rc.bitrate <= 0 || param->rc.vbvBufferSize <=0),
           "Strict-cbr cannot be applied without specifying target bitrate or vbv bufsize");
-    CHECK(param->analysisSave && (param->analysisSaveReuseLevel < 0 || param->analysisSaveReuseLevel > 10),
-        "Invalid analysis save refine level. Value must be between 1 and 10 (inclusive)");
     CHECK(param->analysisLoad && (param->analysisLoadReuseLevel < 0 || param->analysisLoadReuseLevel > 10),
         "Invalid analysis load refine level. Value must be between 1 and 10 (inclusive)");
     CHECK(param->analysisLoad && (param->mvRefine < 1 || param->mvRefine > 3),
@@ -2377,12 +2370,9 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bHDR10Opt, "hdr10-opt");
     BOOL(p->bDhdr10opt, "dhdr10-opt");
     BOOL(p->bEmitIDRRecoverySEI, "idr-recovery-sei");
-    if (p->analysisSave)
-        s += sprintf(s, " analysis-save");
     if (p->analysisLoad)
         s += sprintf(s, " analysis-load");
     s += sprintf(s, " analysis-reuse-level=%d", p->analysisReuseLevel);
-    s += sprintf(s, " analysis-save-reuse-level=%d", p->analysisSaveReuseLevel);
     s += sprintf(s, " analysis-load-reuse-level=%d", p->analysisLoadReuseLevel);
     s += sprintf(s, " scale-factor=%d", p->scaleFactor);
     s += sprintf(s, " refine-intra=%d", p->intraRefine);
@@ -2734,7 +2724,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bHDROpt = src->bHDROpt; /*DEPRECATED*/
     dst->bHDR10Opt = src->bHDR10Opt;
     dst->analysisReuseLevel = src->analysisReuseLevel;
-    dst->analysisSaveReuseLevel = src->analysisSaveReuseLevel;
     dst->analysisLoadReuseLevel = src->analysisLoadReuseLevel;
     dst->bLimitSAO = src->bLimitSAO;
     if (src->toneMapFile) dst->toneMapFile = strdup(src->toneMapFile);
@@ -2760,8 +2749,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->vbvEndFrameAdjust = src->vbvEndFrameAdjust;
     dst->bAnalysisType = src->bAnalysisType;
     dst->bCopyPicToFrame = src->bCopyPicToFrame;
-    if (src->analysisSave) dst->analysisSave=strdup(src->analysisSave);
-    else dst->analysisSave = NULL;
     if (src->analysisLoad) dst->analysisLoad=strdup(src->analysisLoad);
     else dst->analysisLoad = NULL;
     dst->gopLookahead = src->gopLookahead;

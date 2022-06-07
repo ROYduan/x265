@@ -355,8 +355,6 @@ public:
 
     int getPuShape(puOrientation* puOrient, int partSize, int numCTU);
 
-    void writeAnalysisFile(s265_analysis_data* analysis, FrameData &curEncData);
-
     void writeAnalysisFileRefine(s265_analysis_data* analysis, FrameData &curEncData);
 
     void copyDistortionData(s265_analysis_data* analysis, FrameData &curEncData);

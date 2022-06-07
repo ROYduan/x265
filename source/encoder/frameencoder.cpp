@@ -337,7 +337,7 @@ void FrameEncoder::threadMain()
             while (!m_frame->m_ctuInfo)
                 m_frame->m_copied.wait();
         }
-        if ((m_param->bAnalysisType == AVC_INFO) && !m_param->analysisSave && !m_param->analysisLoad && !(IS_S265_TYPE_I(m_frame->m_lowres.sliceType)))
+        if ((m_param->bAnalysisType == AVC_INFO) && !m_param->analysisLoad && !(IS_S265_TYPE_I(m_frame->m_lowres.sliceType)))
         {
             while (((m_frame->m_analysisData.interData == NULL && m_frame->m_analysisData.intraData == NULL) || (uint32_t)m_frame->m_poc != m_frame->m_analysisData.poc))
                 m_frame->m_copyMVType.wait();
@@ -546,8 +546,6 @@ void FrameEncoder::compressFrame()
     else
         slice->disableWeights();
 
-    if (m_param->analysisSave && (bUseWeightP || bUseWeightB))
-        reuseWP = (WeightParam*)m_frame->m_analysisData.wt;
     // Generate motion references
     int numPredDir = slice->isInterP() ? 1 : slice->isInterB() ? 2 : 0;
     for (int l = 0; l < numPredDir; l++)
@@ -560,12 +558,6 @@ void FrameEncoder::compressFrame()
             slice->m_refReconPicList[l][ref] = slice->m_refFrameList[l][ref]->m_reconPic;
             m_mref[l][ref].init(slice->m_refReconPicList[l][ref], w, *m_param);
         }
-        if (m_param->analysisSave && (bUseWeightP || bUseWeightB))
-        {
-            for (int i = 0; i < (m_param->internalCsp != S265_CSP_I400 ? 3 : 1); i++)
-                *(reuseWP++) = slice->m_weightPredTable[l][0][i];
-        }
-
     }
 
     int numTLD;

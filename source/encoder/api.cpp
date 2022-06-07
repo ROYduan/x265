@@ -782,9 +782,8 @@ void s265_alloc_analysis_data(s265_param *param, s265_analysis_data* analysis)
     int numDir = 2; //irrespective of P or B slices set direction as 2
     uint32_t numPlanes = param->internalCsp == S265_CSP_I400 ? 1 : 3;
 
-    int maxReuseLevel = S265_MAX(param->analysisSaveReuseLevel, param->analysisLoadReuseLevel);
-    int minReuseLevel = (param->analysisSaveReuseLevel && param->analysisLoadReuseLevel) ?
-                        S265_MIN(param->analysisSaveReuseLevel, param->analysisLoadReuseLevel) : maxReuseLevel;
+    int maxReuseLevel = S265_MAX(0, param->analysisLoadReuseLevel);
+    int minReuseLevel = maxReuseLevel;
 
     bool isMultiPassOpt = param->analysisMultiPassRefine || param->analysisMultiPassDistortion;
                       
@@ -885,9 +884,8 @@ fail:
 
 void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis)
 {
-    int maxReuseLevel = S265_MAX(param->analysisSaveReuseLevel, param->analysisLoadReuseLevel);
-    int minReuseLevel = (param->analysisSaveReuseLevel && param->analysisLoadReuseLevel) ?
-                        S265_MIN(param->analysisSaveReuseLevel, param->analysisLoadReuseLevel) : maxReuseLevel;
+    int maxReuseLevel = S265_MAX(0, param->analysisLoadReuseLevel);
+    int minReuseLevel = maxReuseLevel;
 
     bool isVbv = param->rc.vbvMaxBitrate > 0 && param->rc.vbvBufferSize > 0;
     bool isMultiPassOpt = param->analysisMultiPassRefine || param->analysisMultiPassDistortion;
@@ -997,7 +995,7 @@ void s265_picture_init(s265_param *param, s265_picture *pic)
     pic->rpu.payload = NULL;
     pic->picStruct = 0;
 
-    if ((param->analysisSave || param->analysisLoad) || (param->bAnalysisType == AVC_INFO))
+    if ((param->analysisLoad) || (param->bAnalysisType == AVC_INFO))
     {
         uint32_t widthInCU = (param->sourceWidth + param->maxCUSize - 1) >> param->maxLog2CUSize;
         uint32_t heightInCU = (param->sourceHeight + param->maxCUSize - 1) >> param->maxLog2CUSize;

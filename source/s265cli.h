@@ -476,7 +476,6 @@ static const struct option long_options[] =
         bool parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount);
         bool parseQPFile(s265_picture &pic_org);
         bool parseZoneFile();
-        int rpuParser(s265_picture * pic);
     };
 #ifdef __cplusplus
 }

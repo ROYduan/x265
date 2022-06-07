@@ -502,22 +502,6 @@ void Encoder::create()
         m_aborted = true;
 
     initRefIdx();
-    if (m_param->analysisSave && m_param->bUseAnalysisFile)
-    {
-        char* temp = strcatFilename(m_param->analysisSave, ".temp");
-        if (!temp)
-            m_aborted = true;
-        else
-        {
-            m_analysisFileOut = s265_fopen(temp, "wb");
-            S265_FREE(temp);
-        }
-        if (!m_analysisFileOut)
-        {
-            s265_log_file(NULL, S265_LOG_ERROR, "Analysis save: failed to open file %s.temp\n", m_param->analysisSave);
-            m_aborted = true;
-        }
-    }
 
     if (m_param->analysisMultiPassRefine || m_param->analysisMultiPassDistortion)
     {
@@ -978,7 +962,7 @@ void Encoder::destroy()
     {
         int bError = 1;
         fclose(m_analysisFileOut);
-        const char* name = m_param->analysisSave ? m_param->analysisSave : m_param->analysisReuseFileName;
+        const char* name = m_param->analysisReuseFileName;
         if (!name)
             name = defaultAnalysisFileName;
         char* temp = strcatFilename(name, ".temp");
@@ -1013,7 +997,6 @@ void Encoder::destroy()
         free((char*)m_param->numaPools);
         free((char*)m_param->masteringDisplayColorVolume);
         free((char*)m_param->toneMapFile);
-        free((char*)m_param->analysisSave);
         free((char*)m_param->analysisLoad);
         free((char*)m_param->videoSignalTypePreset);
         PARAM_NS::s265_param_free(m_param);
@@ -1636,8 +1619,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
     if (m_exportedPic)
     {
-        if (!m_param->bUseAnalysisFile && m_param->analysisSave)
-            s265_free_analysis_data(m_param, &m_exportedPic->m_analysisData);
         ATOMIC_DEC(&m_exportedPic->m_countRefEncoders);
         m_exportedPic = NULL;
         m_dpb->recycleUnreferenced();
@@ -1863,16 +1844,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                 }
             }
         }
-        if (m_param->bHistBasedSceneCut && m_param->analysisSave)
-        {
-            memcpy(inFrame->m_analysisData.edgeHist, m_curEdgeHist, EDGE_BINS * sizeof(int32_t));
-            memcpy(inFrame->m_analysisData.yuvHist[0], m_curYUVHist[0], HISTOGRAM_BINS *sizeof(int32_t));
-            if (inputPic->colorSpace != S265_CSP_I400)
-            {
-                memcpy(inFrame->m_analysisData.yuvHist[1], m_curYUVHist[1], HISTOGRAM_BINS * sizeof(int32_t));
-                memcpy(inFrame->m_analysisData.yuvHist[2], m_curYUVHist[2], HISTOGRAM_BINS * sizeof(int32_t));
-            }
-        }
         inFrame->m_forceqp   = inputPic->forceqp;
         inFrame->m_param     = (m_reconfigure || m_reconfigureRc) ? m_latestParam : m_param;
         inFrame->m_picStruct = inputPic->picStruct;
@@ -1920,7 +1891,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         /* Use the frame types from the first pass, if available */
         int sliceType = (m_param->rc.bStatRead) ? m_rateControl->rateControlSliceType(inFrame->m_poc) : inputPic->sliceType;
 
-        /* In analysisSave mode, s265_analysis_data is allocated in inputPic and inFrame points to this */
+        /* In analysisLoad mode, s265_analysis_data is allocated in inputPic and inFrame points to this */
         /* Load analysis data before lookahead->addPicture, since sliceType has been decided */
         if (m_param->analysisLoad)
         {
@@ -2046,7 +2017,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
             s265_frame_stats* frameData = NULL;
 
             /* Free up inputPic->analysisData since it has already been used */
-            if ((m_param->analysisLoad && !m_param->analysisSave) || ((m_param->bAnalysisType == AVC_INFO) && slice->m_sliceType != I_SLICE))
+            if ((m_param->analysisLoad) || ((m_param->bAnalysisType == AVC_INFO) && slice->m_sliceType != I_SLICE))
                 s265_free_analysis_data(m_param, &outFrame->m_analysisData);
 
             if (pic_out)
@@ -2070,72 +2041,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                     pic_out->stride[1] = (int)(recpic->m_strideC * sizeof(pixel));
                     pic_out->planes[2] = recpic->m_picOrg[2];
                     pic_out->stride[2] = (int)(recpic->m_strideC * sizeof(pixel));
-                }
-
-                /* Dump analysis data from pic_out to file in save mode and free */
-                if (m_param->analysisSave)
-                {
-                    pic_out->analysisData.poc = pic_out->poc;
-                    pic_out->analysisData.sliceType = pic_out->sliceType;
-                    pic_out->analysisData.bScenecut = outFrame->m_lowres.bScenecut;
-                    if (m_param->bHistBasedSceneCut)
-                    {
-                        memcpy(pic_out->analysisData.edgeHist, outFrame->m_analysisData.edgeHist, EDGE_BINS * sizeof(int32_t));
-                        memcpy(pic_out->analysisData.yuvHist[0], outFrame->m_analysisData.yuvHist[0], HISTOGRAM_BINS * sizeof(int32_t));
-                        if (pic_out->colorSpace != S265_CSP_I400)
-                        {
-                            memcpy(pic_out->analysisData.yuvHist[1], outFrame->m_analysisData.yuvHist[1], HISTOGRAM_BINS * sizeof(int32_t));
-                            memcpy(pic_out->analysisData.yuvHist[2], outFrame->m_analysisData.yuvHist[2], HISTOGRAM_BINS * sizeof(int32_t));
-                        }
-                    }
-                    pic_out->analysisData.satdCost  = outFrame->m_lowres.satdCost;
-                    pic_out->analysisData.numCUsInFrame = outFrame->m_analysisData.numCUsInFrame;
-                    pic_out->analysisData.numPartitions = outFrame->m_analysisData.numPartitions;
-                    pic_out->analysisData.wt = outFrame->m_analysisData.wt;
-                    pic_out->analysisData.interData = outFrame->m_analysisData.interData;
-                    pic_out->analysisData.intraData = outFrame->m_analysisData.intraData;
-                    pic_out->analysisData.distortionData = outFrame->m_analysisData.distortionData;
-                    pic_out->analysisData.modeFlag[0] = outFrame->m_analysisData.modeFlag[0];
-                    pic_out->analysisData.modeFlag[1] = outFrame->m_analysisData.modeFlag[1];
-                    if (m_param->bDisableLookahead)
-                    {
-                        int factor = 1;
-                        if (m_param->scaleFactor)
-                            factor = m_param->scaleFactor * 2;
-                        pic_out->analysisData.numCuInHeight = outFrame->m_analysisData.numCuInHeight;
-                        pic_out->analysisData.lookahead.dts = outFrame->m_dts;
-                        pic_out->analysisData.lookahead.reorderedPts = outFrame->m_reorderedPts;
-                        pic_out->analysisData.satdCost *= factor;
-                        pic_out->analysisData.lookahead.keyframe = outFrame->m_lowres.bKeyframe;
-                        pic_out->analysisData.lookahead.lastMiniGopBFrame = outFrame->m_lowres.bLastMiniGopBFrame;
-                        if (m_rateControl->m_isVbv)
-                        {
-                            int vbvCount = m_param->lookaheadDepth + m_param->bframes + 2;
-                            for (int index = 0; index < vbvCount; index++)
-                            {
-                                pic_out->analysisData.lookahead.plannedSatd[index] = outFrame->m_lowres.plannedSatd[index];
-                                pic_out->analysisData.lookahead.plannedType[index] = outFrame->m_lowres.plannedType[index];
-                            }
-                            for (uint32_t index = 0; index < pic_out->analysisData.numCuInHeight; index++)
-                            {
-                                outFrame->m_analysisData.lookahead.intraSatdForVbv[index] = outFrame->m_encData->m_rowStat[index].intraSatdForVbv;
-                                outFrame->m_analysisData.lookahead.satdForVbv[index] = outFrame->m_encData->m_rowStat[index].satdForVbv;
-                            }
-                            pic_out->analysisData.lookahead.intraSatdForVbv = outFrame->m_analysisData.lookahead.intraSatdForVbv;
-                            pic_out->analysisData.lookahead.satdForVbv = outFrame->m_analysisData.lookahead.satdForVbv;
-                            for (uint32_t index = 0; index < pic_out->analysisData.numCUsInFrame; index++)
-                            {
-                                outFrame->m_analysisData.lookahead.intraVbvCost[index] = outFrame->m_encData->m_cuStat[index].intraVbvCost;
-                                outFrame->m_analysisData.lookahead.vbvCost[index] = outFrame->m_encData->m_cuStat[index].vbvCost;
-                            }
-                            pic_out->analysisData.lookahead.intraVbvCost = outFrame->m_analysisData.lookahead.intraVbvCost;
-                            pic_out->analysisData.lookahead.vbvCost = outFrame->m_analysisData.lookahead.vbvCost;
-                        }
-                    }
-                    writeAnalysisFile(&pic_out->analysisData, *outFrame->m_encData);
-                    pic_out->analysisData.saveParam = pic_out->analysisData.saveParam;
-                    if (m_param->bUseAnalysisFile)
-                        s265_free_analysis_data(m_param, &pic_out->analysisData);
                 }
             }
             if (m_param->rc.bStatWrite && (m_param->analysisMultiPassRefine || m_param->analysisMultiPassDistortion))
@@ -2203,32 +2108,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
             if ((m_outputCount + 1)  >= m_param->chunkStart)
                 finishFrameStats(outFrame, curEncoder, frameData, m_pocLast);
-            if (m_param->analysisSave)
-            {
-                pic_out->analysisData.frameBits = frameData->bits;
-                if (!slice->isIntra())
-                {
-                    for (int ref = 0; ref < MAX_NUM_REF; ref++)
-                        pic_out->analysisData.list0POC[ref] = frameData->list0POC[ref];
-
-                    double totalIntraPercent = 0;
-
-                    for (uint32_t depth = 0; depth < m_param->maxCUDepth; depth++)
-                        for (uint32_t intramode = 0; intramode < 3; intramode++)
-                            totalIntraPercent += frameData->cuStats.percentIntraDistribution[depth][intramode];
-                    totalIntraPercent += frameData->cuStats.percentIntraNxN;
-
-                    for (uint32_t depth = 0; depth < m_param->maxCUDepth; depth++)
-                        totalIntraPercent += frameData->puStats.percentIntraPu[depth];
-                    pic_out->analysisData.totalIntraPercent = totalIntraPercent;
-
-                    if (!slice->isInterP())
-                    {
-                        for (int ref = 0; ref < MAX_NUM_REF; ref++)
-                            pic_out->analysisData.list1POC[ref] = frameData->list1POC[ref];
-                    }
-                }
-            }
 
             /* Write RateControl Frame level stats in multipass encodes */
             if (m_param->rc.bStatWrite)
@@ -2445,21 +2324,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                     frameEnc->m_dts = frameEnc->m_reorderedPts;
             }
 
-            /* Allocate analysis data before encode in save mode. This is allocated in frameEnc */
-            if (m_param->analysisSave && !m_param->analysisLoad)
-            {
-                s265_analysis_data* analysis = &frameEnc->m_analysisData;
-                analysis->poc = frameEnc->m_poc;
-                analysis->sliceType = frameEnc->m_lowres.sliceType;
-                uint32_t widthInCU       = (m_param->sourceWidth  + m_param->maxCUSize - 1) >> m_param->maxLog2CUSize;
-                uint32_t heightInCU      = (m_param->sourceHeight + m_param->maxCUSize - 1) >> m_param->maxLog2CUSize;
-
-                uint32_t numCUsInFrame   = widthInCU * heightInCU;
-                analysis->numCUsInFrame  = numCUsInFrame;
-                analysis->numCuInHeight = heightInCU;
-                analysis->numPartitions  = m_param->num4x4Partitions;
-                s265_alloc_analysis_data(m_param, analysis);
-            }
             /* determine references, setup RPS, etc */
             m_dpb->prepareEncode(frameEnc);
             if (!!m_param->selectiveSAO)
@@ -3861,13 +3725,6 @@ void Encoder::configure(s265_param *p)
         p->rc.rfConstantMin = 0;
     }
 
-    if (p->analysisSaveReuseLevel && !p->analysisSave)
-    {
-        s265_log(p, S265_LOG_WARNING, "analysis-save-reuse-level can be set only when analysis-save is enabled."
-            " Resetting analysis-save-reuse-level to 0.\n");
-        p->analysisSaveReuseLevel = 0;
-    }
-
     if (p->analysisLoadReuseLevel && !p->analysisLoad)
     {
         s265_log(p, S265_LOG_WARNING, "analysis-load-reuse-level can be set only when analysis-load is enabled."
@@ -3875,23 +3732,20 @@ void Encoder::configure(s265_param *p)
         p->analysisLoadReuseLevel = 0;
     }
 
-    if (p->analysisSave && !p->analysisSaveReuseLevel)
-        p->analysisSaveReuseLevel = 5;
-
     if (p->analysisLoad && !p->analysisLoadReuseLevel)
         p->analysisLoadReuseLevel = 5;
 
-    if ((p->analysisLoad || p->analysisSave) && (p->bDistributeModeAnalysis || p->bDistributeMotionEstimation))
+    if ((p->analysisLoad) && (p->bDistributeModeAnalysis || p->bDistributeMotionEstimation))
     {
         s265_log(p, S265_LOG_WARNING, "Analysis load/save options incompatible with pmode/pme, Disabling pmode/pme\n");
         p->bDistributeMotionEstimation = p->bDistributeModeAnalysis = 0;
     }
 
-    if ((p->analysisLoad || p->analysisSave) && (p->analysisMultiPassRefine || p->analysisMultiPassDistortion))
+    if ((p->analysisLoad) && (p->analysisMultiPassRefine || p->analysisMultiPassDistortion))
     {
         s265_log(p, S265_LOG_WARNING, "Cannot use Analysis load/save option and multi-pass-opt-analysis/multi-pass-opt-distortion together,"
             "Disabling Analysis load/save and multi-pass-opt-analysis/multi-pass-opt-distortion\n");
-        p->analysisSave = p->analysisLoad = NULL;
+        p->analysisLoad = NULL;
         p->analysisMultiPassRefine = p->analysisMultiPassDistortion = 0;
     }
     if (p->scaleFactor)
@@ -3900,7 +3754,7 @@ void Encoder::configure(s265_param *p)
         {
             p->scaleFactor = 0;
         }
-        else if ((p->analysisSaveReuseLevel > 6 && p->analysisSaveReuseLevel != 10) || (p->analysisLoadReuseLevel > 6 && p->analysisLoadReuseLevel != 10))
+        else if ((p->analysisLoadReuseLevel > 6 && p->analysisLoadReuseLevel != 10))
         {
             s265_log(p, S265_LOG_WARNING, "Input scaling works with analysis-save/load and analysis-save/load-reuse-level 1-6 and 10. Disabling scale-factor.\n");
             p->scaleFactor = 0;
@@ -3944,7 +3798,7 @@ void Encoder::configure(s265_param *p)
 
     if (p->ctuDistortionRefine == CTU_DISTORTION_INTERNAL)
     {
-        if (!p->analysisLoad && !p->analysisSave)
+        if (!p->analysisLoad)
         {
             s265_log(p, S265_LOG_WARNING, "refine-ctu-distortion 1 requires analysis save/load. Disabling refine-ctu-distortion\n");
             p->ctuDistortionRefine = 0;
@@ -5275,7 +5129,8 @@ int Encoder::validateAnalysisData(s265_analysis_validate* saveParam, int writeFl
     int sourceHeight, sourceWidth;
     if (writeFlag)
     {
-        S265_PARAM_VALIDATE(saveParam->analysisReuseLevel, sizeof(int), 1, &m_param->analysisSaveReuseLevel, analysis - save - reuse - level);
+        int temp = 0;
+        S265_PARAM_VALIDATE(saveParam->analysisReuseLevel, sizeof(int), 1, &temp, analysis - save - reuse - level);
         S265_PARAM_VALIDATE(saveParam->cuTree, sizeof(int), 1, &m_param->rc.cuTree, cutree-offset);
         sourceHeight = m_param->sourceHeight - m_conformanceWindow.bottomOffset;
         sourceWidth = m_param->sourceWidth - m_conformanceWindow.rightOffset;
@@ -5602,251 +5457,6 @@ void Encoder::copyDistortionData(s265_analysis_data* analysis, FrameData &curEnc
             absPartIdx += ctu->m_numPartitions >> (depth * 2);
         }
     }
-}
-
-void Encoder::writeAnalysisFile(s265_analysis_data* analysis, FrameData &curEncData)
-{
-
-#define S265_FWRITE(val, size, writeSize, fileOffset)\
-    if (fwrite(val, size, writeSize, fileOffset) < writeSize)\
-    {\
-        s265_log(NULL, S265_LOG_ERROR, "Error writing analysis data\n");\
-        s265_free_analysis_data(m_param, analysis);\
-        m_aborted = true;\
-        return;\
-    }\
-
-    uint32_t depthBytes = 0;
-    uint32_t numDir, numPlanes;
-    bool bIntraInInter = false;
-
-    if (!analysis->poc)
-    {
-        if (validateAnalysisData(&analysis->saveParam, 1) == -1)
-        {
-            m_aborted = true;
-            return;
-        }
-    }
-
-    /* calculate frameRecordSize */
-    analysis->frameRecordSize = sizeof(analysis->frameRecordSize) + sizeof(depthBytes) + sizeof(analysis->poc) + sizeof(analysis->sliceType) +
-                      sizeof(analysis->numCUsInFrame) + sizeof(analysis->numPartitions) + sizeof(analysis->bScenecut) + sizeof(analysis->satdCost);
-    if (m_param->bHistBasedSceneCut)
-    {
-        analysis->frameRecordSize += sizeof(analysis->edgeHist);
-        analysis->frameRecordSize += sizeof(int32_t) * HISTOGRAM_BINS;
-        if (m_param->internalCsp != S265_CSP_I400)
-        {
-            analysis->frameRecordSize += sizeof(int32_t) * HISTOGRAM_BINS;
-            analysis->frameRecordSize += sizeof(int32_t) * HISTOGRAM_BINS;
-        }
-    }
-
-    if (analysis->sliceType > S265_TYPE_I)
-    {
-        numDir = (analysis->sliceType == S265_TYPE_P) ? 1 : 2;
-        numPlanes = m_param->internalCsp == S265_CSP_I400 ? 1 : 3;
-        analysis->frameRecordSize += sizeof(WeightParam) * numPlanes * numDir;
-    }
-
-    if (m_param->ctuDistortionRefine == CTU_DISTORTION_INTERNAL)
-    {
-        copyDistortionData(analysis, curEncData);
-        analysis->frameRecordSize += analysis->numCUsInFrame * sizeof(sse_t);
-    }
-
-    if (m_param->analysisSaveReuseLevel > 1)
-    {
-
-        if (analysis->sliceType == S265_TYPE_IDR || analysis->sliceType == S265_TYPE_I)
-        {
-            for (uint32_t cuAddr = 0; cuAddr < analysis->numCUsInFrame; cuAddr++)
-            {
-                uint8_t depth = 0;
-                uint8_t mode = 0;
-                uint8_t partSize = 0;
-
-                CUData* ctu = curEncData.getPicCTU(cuAddr);
-                s265_analysis_intra_data* intraDataCTU = analysis->intraData;
-                int baseQP = (int)(ctu->m_encData->m_cuStat[cuAddr].baseQp + 0.5);
-
-                for (uint32_t absPartIdx = 0; absPartIdx < ctu->m_numPartitions; depthBytes++)
-                {
-                    depth = ctu->m_cuDepth[absPartIdx];
-                    intraDataCTU->depth[depthBytes] = depth;
-
-                    mode = ctu->m_chromaIntraDir[absPartIdx];
-                    intraDataCTU->chromaModes[depthBytes] = mode;
-
-                    partSize = ctu->m_partSize[absPartIdx];
-                    intraDataCTU->partSizes[depthBytes] = partSize;
-
-                    if (m_param->rc.cuTree)
-                        intraDataCTU->cuQPOff[depthBytes] = (int8_t)(ctu->m_qpAnalysis[absPartIdx] - baseQP);
-                    absPartIdx += ctu->m_numPartitions >> (depth * 2);
-                }
-                memcpy(&intraDataCTU->modes[ctu->m_cuAddr * ctu->m_numPartitions], ctu->m_lumaIntraDir, sizeof(uint8_t)* ctu->m_numPartitions);
-            }
-        }
-        else
-        {
-            bIntraInInter = (analysis->sliceType == S265_TYPE_P || m_param->bIntraInBFrames);
-            for (uint32_t cuAddr = 0; cuAddr < analysis->numCUsInFrame; cuAddr++)
-            {
-                uint8_t depth = 0;
-                uint8_t predMode = 0;
-                uint8_t partSize = 0;
-
-                CUData* ctu = curEncData.getPicCTU(cuAddr);
-                s265_analysis_inter_data* interDataCTU = analysis->interData;
-                s265_analysis_intra_data* intraDataCTU = analysis->intraData;
-                int baseQP = (int)(ctu->m_encData->m_cuStat[cuAddr].baseQp + 0.5);
-
-                for (uint32_t absPartIdx = 0; absPartIdx < ctu->m_numPartitions; depthBytes++)
-                {
-                    depth = ctu->m_cuDepth[absPartIdx];
-                    interDataCTU->depth[depthBytes] = depth;
-
-                    predMode = ctu->m_predMode[absPartIdx];
-                    if (m_param->analysisSaveReuseLevel != 10 && ctu->m_refIdx[1][absPartIdx] != -1)
-                        predMode = 4; // used as indicator if the block is coded as bidir
-
-                    interDataCTU->modes[depthBytes] = predMode;
-                    if (m_param->rc.cuTree)
-                        interDataCTU->cuQPOff[depthBytes] = (int8_t)(ctu->m_qpAnalysis[absPartIdx] - baseQP);
-
-                    if (m_param->analysisSaveReuseLevel > 4)
-                    {
-                        partSize = ctu->m_partSize[absPartIdx];
-                        interDataCTU->partSize[depthBytes] = partSize;
-
-                        /* Store per PU data */
-                        uint32_t numPU = (predMode == MODE_INTRA) ? 1 : nbPartsTable[(int)partSize];
-                        for (uint32_t puIdx = 0; puIdx < numPU; puIdx++)
-                        {
-                            uint32_t puabsPartIdx = ctu->getPUOffset(puIdx, absPartIdx) + absPartIdx;
-                            if (puIdx) depthBytes++;
-                            interDataCTU->mergeFlag[depthBytes] = ctu->m_mergeFlag[puabsPartIdx];
-
-                            if (m_param->analysisSaveReuseLevel == 10)
-                            {
-                                interDataCTU->interDir[depthBytes] = ctu->m_interDir[puabsPartIdx];
-                                for (uint32_t dir = 0; dir < numDir; dir++)
-                                {
-                                    interDataCTU->mvpIdx[dir][depthBytes] = ctu->m_mvpIdx[dir][puabsPartIdx];
-                                    interDataCTU->refIdx[dir][depthBytes] = ctu->m_refIdx[dir][puabsPartIdx];
-                                    interDataCTU->mv[dir][depthBytes].word = ctu->m_mv[dir][puabsPartIdx].word;
-                                }
-                            }
-                        }
-                        if (m_param->analysisSaveReuseLevel == 10 && bIntraInInter)
-                            intraDataCTU->chromaModes[depthBytes] = ctu->m_chromaIntraDir[absPartIdx];
-                    }
-                    absPartIdx += ctu->m_numPartitions >> (depth * 2);
-                }
-                if (m_param->analysisSaveReuseLevel == 10 && bIntraInInter)
-                    memcpy(&intraDataCTU->modes[ctu->m_cuAddr * ctu->m_numPartitions], ctu->m_lumaIntraDir, sizeof(uint8_t)* ctu->m_numPartitions);
-            }
-        }
-
-        if ((analysis->sliceType == S265_TYPE_IDR || analysis->sliceType == S265_TYPE_I) && m_param->rc.cuTree)
-            analysis->frameRecordSize += sizeof(uint8_t)* analysis->numCUsInFrame * analysis->numPartitions + depthBytes * 3 + (sizeof(int8_t) * depthBytes);
-        else if (analysis->sliceType == S265_TYPE_IDR || analysis->sliceType == S265_TYPE_I)
-            analysis->frameRecordSize += sizeof(uint8_t)* analysis->numCUsInFrame * analysis->numPartitions + depthBytes * 3;
-        else
-        {
-            /* Add sizeof depth, modes, partSize, cuQPOffset, mergeFlag */
-            analysis->frameRecordSize += depthBytes * 2;
-            if (m_param->rc.cuTree)
-            analysis->frameRecordSize += (sizeof(int8_t) * depthBytes);
-            if (m_param->analysisSaveReuseLevel > 4)
-                analysis->frameRecordSize += (depthBytes * 2);
-
-            if (m_param->analysisSaveReuseLevel == 10)
-            {
-                /* Add Size of interDir, mvpIdx, refIdx, mv, luma and chroma modes */
-                analysis->frameRecordSize += depthBytes;
-                analysis->frameRecordSize += sizeof(uint8_t)* depthBytes * numDir;
-                analysis->frameRecordSize += sizeof(int8_t)* depthBytes * numDir;
-                analysis->frameRecordSize += sizeof(MV)* depthBytes * numDir;
-                if (bIntraInInter)
-                    analysis->frameRecordSize += sizeof(uint8_t)* analysis->numCUsInFrame * analysis->numPartitions + depthBytes;
-            }
-            else
-                analysis->frameRecordSize += sizeof(int32_t)* analysis->numCUsInFrame * S265_MAX_PRED_MODE_PER_CTU * numDir;
-        }
-        analysis->depthBytes = depthBytes;
-    }
-
-    if (!m_param->bUseAnalysisFile)
-        return;
-
-    S265_FWRITE(&analysis->frameRecordSize, sizeof(uint32_t), 1, m_analysisFileOut);
-    S265_FWRITE(&depthBytes, sizeof(uint32_t), 1, m_analysisFileOut);
-    S265_FWRITE(&analysis->poc, sizeof(int), 1, m_analysisFileOut);
-    S265_FWRITE(&analysis->sliceType, sizeof(int), 1, m_analysisFileOut);
-    S265_FWRITE(&analysis->bScenecut, sizeof(int), 1, m_analysisFileOut);
-    if (m_param->bHistBasedSceneCut)
-    {
-        S265_FWRITE(&analysis->edgeHist, sizeof(int32_t), EDGE_BINS, m_analysisFileOut);
-        S265_FWRITE(&analysis->yuvHist[0], sizeof(int32_t), HISTOGRAM_BINS, m_analysisFileOut);
-        if (m_param->internalCsp != S265_CSP_I400)
-        {
-            S265_FWRITE(&analysis->yuvHist[1], sizeof(int32_t), HISTOGRAM_BINS, m_analysisFileOut);
-            S265_FWRITE(&analysis->yuvHist[2], sizeof(int32_t), HISTOGRAM_BINS, m_analysisFileOut);
-        }
-    }
-
-    S265_FWRITE(&analysis->satdCost, sizeof(int64_t), 1, m_analysisFileOut);
-    S265_FWRITE(&analysis->numCUsInFrame, sizeof(int), 1, m_analysisFileOut);
-    S265_FWRITE(&analysis->numPartitions, sizeof(int), 1, m_analysisFileOut);
-    if (m_param->ctuDistortionRefine == CTU_DISTORTION_INTERNAL)
-        S265_FWRITE((analysis->distortionData)->ctuDistortion, sizeof(sse_t), analysis->numCUsInFrame, m_analysisFileOut);
-    if (analysis->sliceType > S265_TYPE_I)
-        S265_FWRITE((WeightParam*)analysis->wt, sizeof(WeightParam), numPlanes * numDir, m_analysisFileOut);
-
-    if (m_param->analysisSaveReuseLevel < 2)
-        return;
-
-    if (analysis->sliceType == S265_TYPE_IDR || analysis->sliceType == S265_TYPE_I)
-    {
-        S265_FWRITE((analysis->intraData)->depth, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-        S265_FWRITE((analysis->intraData)->chromaModes, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-        S265_FWRITE((analysis->intraData)->partSizes, sizeof(char), depthBytes, m_analysisFileOut);
-        if (m_param->rc.cuTree)
-            S265_FWRITE((analysis->intraData)->cuQPOff, sizeof(int8_t), depthBytes, m_analysisFileOut);
-        S265_FWRITE((analysis->intraData)->modes, sizeof(uint8_t), analysis->numCUsInFrame * analysis->numPartitions, m_analysisFileOut);
-    }
-    else
-    {
-        S265_FWRITE((analysis->interData)->depth, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-        S265_FWRITE((analysis->interData)->modes, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-        if (m_param->rc.cuTree)
-            S265_FWRITE((analysis->interData)->cuQPOff, sizeof(int8_t), depthBytes, m_analysisFileOut);
-        if (m_param->analysisSaveReuseLevel > 4)
-        {
-            S265_FWRITE((analysis->interData)->partSize, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-            S265_FWRITE((analysis->interData)->mergeFlag, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-            if (m_param->analysisSaveReuseLevel == 10)
-            {
-                S265_FWRITE((analysis->interData)->interDir, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-                if (bIntraInInter) S265_FWRITE((analysis->intraData)->chromaModes, sizeof(uint8_t), depthBytes, m_analysisFileOut);
-                for (uint32_t dir = 0; dir < numDir; dir++)
-                {
-                    S265_FWRITE((analysis->interData)->mvpIdx[dir], sizeof(uint8_t), depthBytes, m_analysisFileOut);
-                    S265_FWRITE((analysis->interData)->refIdx[dir], sizeof(int8_t), depthBytes, m_analysisFileOut);
-                    S265_FWRITE((analysis->interData)->mv[dir], sizeof(MV), depthBytes, m_analysisFileOut);
-                }
-                if (bIntraInInter)
-                    S265_FWRITE((analysis->intraData)->modes, sizeof(uint8_t), analysis->numCUsInFrame * analysis->numPartitions, m_analysisFileOut);
-            }
-        }
-        if (m_param->analysisSaveReuseLevel != 10)
-            S265_FWRITE((analysis->interData)->ref, sizeof(int32_t), analysis->numCUsInFrame * S265_MAX_PRED_MODE_PER_CTU * numDir, m_analysisFileOut);
-
-    }
-#undef S265_FWRITE
 }
 
 void Encoder::writeAnalysisFileRefine(s265_analysis_data* analysis, FrameData &curEncData)

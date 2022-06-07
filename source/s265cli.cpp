@@ -233,7 +233,6 @@ namespace S265_NS {
         H0("   --analysis-load <filename>    Load analysis buffers from the file specified. Default Disabled\n");
         H0("   --analysis-reuse-file <filename>    Specify file name used for either dumping or reading analysis data. Deault s265_analysis.dat\n");
         H0("   --analysis-reuse-level <1..10>      Level of analysis reuse indicates amount of info stored/reused in save/load mode, 1:least..10:most. Now deprecated. Default %d\n", param->analysisReuseLevel);
-        H0("   --analysis-save-reuse-level <1..10> Indicates the amount of analysis info stored in save mode, 1:least..10:most. Default %d\n", param->analysisSaveReuseLevel);
         H0("   --analysis-load-reuse-level <1..10> Indicates the amount of analysis info reused in load mode, 1:least..10:most. Default %d\n", param->analysisLoadReuseLevel);
         H0("   --refine-analysis-type <string>     Reuse anlaysis information received through API call. Supported options are avc and hevc. Default disabled - %d\n", param->bAnalysisType);
         H0("   --scale-factor <int>          Specify factor by which input video is scaled down for analysis save mode. Default %d\n", param->scaleFactor);
@@ -1035,59 +1034,6 @@ namespace S265_NS {
         }
         return 1;
     }
-
-    /* Parse the RPU file and extract the RPU corresponding to the current picture
-    * and fill the rpu field of the input picture */
-    int CLIOptions::rpuParser(s265_picture * pic)
-    {
-        uint8_t byteVal;
-        uint32_t code = 0;
-        int bytesRead = 0;
-        pic->rpu.payloadSize = 0;
-
-        if (!pic->pts)
-        {
-            while (bytesRead++ < 4 && fread(&byteVal, sizeof(uint8_t), 1, dolbyVisionRpu))
-                code = (code << 8) | byteVal;
-
-            if (code != START_CODE)
-            {
-                s265_log(NULL, S265_LOG_ERROR, "Invalid Dolby Vision RPU startcode in POC %d\n", pic->pts);
-                return 1;
-            }
-        }
-
-        bytesRead = 0;
-        while (fread(&byteVal, sizeof(uint8_t), 1, dolbyVisionRpu))
-        {
-            code = (code << 8) | byteVal;
-            if (bytesRead++ < 3)
-                continue;
-            if (bytesRead >= 1024)
-            {
-                s265_log(NULL, S265_LOG_ERROR, "Invalid Dolby Vision RPU size in POC %d\n", pic->pts);
-                return 1;
-            }
-
-            if (code != START_CODE)
-                pic->rpu.payload[pic->rpu.payloadSize++] = (code >> (3 * 8)) & 0xFF;
-            else
-                return 0;
-        }
-
-        int ShiftBytes = START_CODE_BYTES - (bytesRead - pic->rpu.payloadSize);
-        int bytesLeft = bytesRead - pic->rpu.payloadSize;
-        code = (code << ShiftBytes * 8);
-        for (int i = 0; i < bytesLeft; i++)
-        {
-            pic->rpu.payload[pic->rpu.payloadSize++] = (code >> (3 * 8)) & 0xFF;
-            code = (code << 8);
-        }
-        if (!pic->rpu.payloadSize)
-            s265_log(NULL, S265_LOG_WARNING, "Dolby Vision RPU not found for POC %d\n", pic->pts);
-        return 0;
-    }
-
 #ifdef __cplusplus
 }
 #endif
