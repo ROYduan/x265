@@ -152,10 +152,8 @@ bool Frame::create(s265_param *param, float* quantOffsets)
             {
                 return false;
             }
-        }
-        else
-        {
-            m_filteredPic = nullptr;
+        } else {
+            m_filteredPic = NULL;
         }
         return true;
     }
