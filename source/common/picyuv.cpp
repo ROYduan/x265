@@ -197,6 +197,42 @@ fail:
     return false;
 }
 
+void  PicYuv::copyParam(PicYuv* srcPic)
+{
+    m_picWidth = srcPic->m_picWidth;
+    m_picHeight = srcPic->m_picHeight;
+    m_stride = srcPic->m_stride;
+    m_strideC = srcPic->m_strideC;
+
+    m_picCsp = srcPic->m_picCsp;
+    m_hChromaShift = srcPic->m_hChromaShift;
+    m_vChromaShift = srcPic->m_vChromaShift;
+
+    m_cuOffsetY = srcPic->m_cuOffsetY;  /* these four buffers are owned by the top-level encoder */
+    m_cuOffsetC = srcPic->m_cuOffsetC;
+    m_buOffsetY = srcPic->m_buOffsetY;
+    m_buOffsetC = srcPic->m_buOffsetC;
+
+    m_lumaMarginX = srcPic->m_lumaMarginX;
+    m_lumaMarginY = srcPic->m_lumaMarginY;
+    m_chromaMarginX = srcPic->m_chromaMarginX;
+    m_chromaMarginY = srcPic->m_chromaMarginY;
+
+    m_maxLumaLevel = srcPic->m_maxLumaLevel;
+    m_minLumaLevel = srcPic->m_minLumaLevel;
+    m_avgLumaLevel = srcPic->m_avgLumaLevel;
+
+    m_maxChromaULevel = srcPic->m_maxChromaULevel;
+    m_minChromaULevel = srcPic->m_minChromaULevel;
+    m_avgChromaULevel = srcPic->m_avgChromaULevel;
+
+    m_maxChromaVLevel = srcPic->m_maxChromaVLevel;
+    m_minChromaVLevel = srcPic->m_minChromaVLevel;
+    m_avgChromaVLevel = srcPic->m_avgChromaVLevel;
+    m_vmafScore = srcPic->m_vmafScore;
+    m_param = srcPic->m_param;
+}
+
 void PicYuv::destroy()
 {
     S265_FREE(m_picBuf[0]);

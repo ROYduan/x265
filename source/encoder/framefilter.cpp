@@ -666,7 +666,8 @@ void FrameFilter::processPostRow(int row)
     uint32_t cuAddr = lineStartCUAddr;
     if (m_param->bEnablePsnr)
     {
-        PicYuv* fencPic = m_frame->m_fencPic;
+        //PicYuv* fencPic = m_frame->m_fencPic;
+        PicYuv* fencPic = m_frame->m_originalPic;
 
         intptr_t stride = reconPic->m_stride;
         uint32_t width  = reconPic->m_picWidth - m_pad[0];
@@ -692,9 +693,11 @@ void FrameFilter::processPostRow(int row)
     if (m_param->bEnableSsim && m_ssimBuf)
     {
         pixel *rec = reconPic->m_picOrg[0];
-        pixel *fenc = m_frame->m_fencPic->m_picOrg[0];
+        //pixel *fenc = m_frame->m_fencPic->m_picOrg[0];
+        pixel *fenc = m_frame->m_originalPic->m_picOrg[0];
         intptr_t stride1 = reconPic->m_stride;
-        intptr_t stride2 = m_frame->m_fencPic->m_stride;
+        //intptr_t stride2 = m_frame->m_fencPic->m_stride;
+        intptr_t stride2 = m_frame->m_originalPic->m_stride;
         uint32_t bEnd = ((row) == (this->m_numRows - 1));
         uint32_t bStart = (row == 0);
         uint32_t minPixY = row * m_param->maxCUSize - 4 * !bStart;

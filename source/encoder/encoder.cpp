@@ -1832,7 +1832,10 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
         /* Copy input picture into a Frame and PicYuv, send to lookahead */
         inFrame->m_fencPic->copyFromPicture(*inputPic, *m_param, m_sps.conformanceWindow.rightOffset, m_sps.conformanceWindow.bottomOffset);
-
+        if ((m_param->bEnablePsnr || m_param->bEnableSsim) && m_param->mctf.enable)
+        {
+            inFrame->m_filteredPic->copyFromPicture(*inputPic, *m_param, m_sps.conformanceWindow.rightOffset, m_sps.conformanceWindow.bottomOffset);
+        }
         inFrame->m_poc       = ++m_pocLast;
         inFrame->m_userData  = inputPic->userData;
         inFrame->m_pts       = inputPic->pts;

@@ -84,6 +84,8 @@ public:
 
     /* Data associated with s265_picture */
     PicYuv*                m_fencPic;
+    PicYuv*                m_originalPic;             // store org pic point for psnr/ssim calculation
+    PicYuv*                m_filteredPic;             // if filter_enable m_filteredPic hold an new buffer else nulptr
     int                    m_poc;
     int                    m_encodeOrder;
     int64_t                m_pts;                // user provided presentation time stamp

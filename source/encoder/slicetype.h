@@ -215,6 +215,13 @@ protected:
     int check_gop8( Lowres **frames, int32_t gop_start );
     int check_gop16( Lowres **frames, int32_t gop_start );
 
+    /* temporal filter */
+    void filterInput(Frame **frames, Lowres **lowresFrames, int32_t b,float est_qp, int bframe);
+    int temporalFilter(Frame **frames, Lowres **lowresFrames, int32_t b, const int32_t s_range, int32_t qp, bool replace);
+    void applyMotion(MV *lowres_mv, Frame * frame, Frame *curFrame, pixel *dst[3], int *inter_cost, int32_t *intra_cost);
+    void bilateralFilter(pixel *corrected_pics[10][3], Frame *curFrame, double overall_strength,  int32_t num_refs, const int32_t s_range, int32_t m_qp, int32_t offset_index[10], bool replace);
+    void bilateralFilterCoreC(const int32_t c, const int32_t height, const int32_t width, const int32_t numRefs, pixel *correctedPics[10][3], const pixel *srcPelRow, const int32_t srcStride,
+        pixel *dstPelRow, const int32_t dstStride, const double expValue[4][4][1024], const int32_t offsetIndex[10], double weightScaling, double sigmaSq, int s_range);
     /* called by getEstimatedPictureCost() to finalize cuTree costs */
     int64_t frameCostRecalculate(Lowres **frames, int p0, int p1, int b);
 };

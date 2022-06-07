@@ -79,6 +79,7 @@ public:
 
     bool  create(s265_param* param, bool picAlloc = true, pixel *pixelbuf = NULL);
     bool  createOffsets(const SPS& sps);
+    void  copyParam(PicYuv* srcPic);
     void  destroy();
     int   getLumaBufLen(uint32_t picWidth, uint32_t picHeight, uint32_t picCsp);
 
