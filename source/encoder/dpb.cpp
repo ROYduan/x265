@@ -127,7 +127,6 @@ void DPB::prepareEncode(Frame *newFrame)
 {
     Slice* slice = newFrame->m_encData->m_slice;
     slice->m_poc = newFrame->m_poc;
-    slice->m_fieldNum = newFrame->m_fieldNum;
 
     int pocCurr = slice->m_poc;
     int type = newFrame->m_lowres.sliceType;

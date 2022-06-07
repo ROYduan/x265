@@ -96,7 +96,7 @@ void FrameEncoder::destroy()
 
     m_frameFilter.destroy();
 
-    if (m_param->bEmitHRDSEI || !!m_param->interlaceMode)
+    if (m_param->bEmitHRDSEI)
     {
         delete m_rce.picTimingSEI;
         delete m_rce.hrdTiming;
@@ -173,7 +173,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_frameFilter.init(top, this, numRows, numCols);
 
     // initialize HRD parameters of SPS
-    if (m_param->bEmitHRDSEI || !!m_param->interlaceMode)
+    if (m_param->bEmitHRDSEI)
     {
         m_rce.picTimingSEI = new SEIPictureTiming;
         m_rce.hrdTiming = new HRDTiming;
@@ -673,43 +673,12 @@ void FrameEncoder::compressFrame()
         }
     }
 
-    if ((m_param->bEmitHRDSEI || !!m_param->interlaceMode))
+    if (m_param->bEmitHRDSEI)
     {
         SEIPictureTiming *sei = m_rce.picTimingSEI;
         const VUI *vui = &slice->m_sps->vuiParameters;
         const HRDInfo *hrd = &vui->hrdParameters;
         int poc = slice->m_poc;
-
-        if (vui->frameFieldInfoPresentFlag)
-        {
-            if (m_param->interlaceMode > 0)
-            {
-                if( m_param->interlaceMode == 2 )
-                {   
-                    // m_picStruct should be set to 3 or 4 when field feature is enabled
-                    if (m_param->bField)
-                        // 3: Top field, bottom field, in that order; 4: Bottom field, top field, in that order
-                        sei->m_picStruct = (slice->m_fieldNum == 1) ? 4 : 3;
-                    else
-                        sei->m_picStruct = (poc & 1) ? 1 /* top */ : 2 /* bottom */;
-                }     
-                else if (m_param->interlaceMode == 1)
-                {
-                    if (m_param->bField)
-                        sei->m_picStruct = (slice->m_fieldNum == 1) ? 3: 4;
-                    else
-                        sei->m_picStruct = (poc & 1) ? 2 /* bottom */ : 1 /* top */;
-                }
-            }
-            else if (m_param->bEnableFrameDuplication)
-                sei->m_picStruct = m_frame->m_picStruct;
-            else
-                sei->m_picStruct = m_param->pictureStructure;
-
-            sei->m_sourceScanType = m_param->interlaceMode ? 0 : 1;
-
-            sei->m_duplicateFlag = false;
-        }
 
         if (vui->hrdParametersPresentFlag)
         {
@@ -758,7 +727,7 @@ void FrameEncoder::compressFrame()
     }
 
     bool isSei = ((m_frame->m_lowres.bKeyframe && m_param->bRepeatHeaders) || m_param->bEmitHRDSEI ||
-                 !!m_param->interlaceMode || (m_frame->m_lowres.sliceType == S265_TYPE_IDR && m_param->bEmitIDRRecoverySEI) ||
+                  (m_frame->m_lowres.sliceType == S265_TYPE_IDR && m_param->bEmitIDRRecoverySEI) ||
                    m_frame->m_userSEI.numPayloads);
 
     if (isSei && m_param->bSingleSeiNal)

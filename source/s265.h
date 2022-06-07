@@ -259,13 +259,6 @@ typedef enum
     CTU_INFO_CHANGE = 2,
 }CTUInfo;
 
-typedef enum
-{
-    DEFAULT = 0,
-    AVC_INFO = 1,
-    HEVC_INFO = 2,
-}AnalysisRefineType;
-
 /* Arbitrary User SEI
  * Payload size is in bytes and the payload pointer must be non-NULL. 
  * Payload types and syntax can be found in Annex D of the H.265 Specification.
@@ -614,7 +607,6 @@ static const char * const s265_colmatrix_names[] = { "gbr", "bt709", "unknown", 
                                                      "ycgco", "bt2020nc", "bt2020c", "smpte2085", "chroma-derived-nc", "chroma-derived-c", "ictcp", 0 };
 static const char * const s265_sar_names[] = { "unknown", "1:1", "12:11", "10:11", "16:11", "40:33", "24:11", "20:11",
                                                "32:11", "80:33", "18:11", "15:11", "64:33", "160:99", "4:3", "3:2", "2:1", 0 };
-static const char * const s265_interlace_names[] = { "prog", "tff", "bff", 0 };
 
 struct s265_zone;
 struct s265_param;
@@ -827,12 +819,6 @@ typedef struct s265_param
      * minimum requirement. All valid HEVC heights are supported */
     int       sourceHeight;
 
-    /* Interlace type of source pictures. 0 - progressive pictures (default).
-     * 1 - top field first, 2 - bottom field first. HEVC encodes interlaced
-     * content as fields, they must be provided to the encoder in the correct
-     * temporal order */
-    int       interlaceMode;
-
     /* Total Number of frames to be encoded, calculated from the user input
      * (--frames) and (--seek). In case, the input is read from a pipe, this can
      * remain as 0. It is later used in 2 pass RateControl, hence storing the
@@ -856,11 +842,6 @@ typedef struct s265_param
     /* if levelIdc is specified (non-zero) this flag will differentiate between
      * Main (0) and High (1) tier. Default is Main tier (0) */
     int       bHighTier;
-
-    /* Enable UHD Blu-ray compatibility support. If specified, the encoder will
-     * attempt to modify/set the encode specifications. If the encoder is unable 
-     * to do so, this option will be turned OFF. */
-    int       uhdBluray;
 
     /* The maximum number of L0 references a P or B slice may use. This
      * influences the size of the decoded picture buffer. The higher this
@@ -1283,12 +1264,7 @@ typedef struct s265_param
 	 * JCTVC-W1005 http://phenix.it-sudparis.eu/jct/doc_end_user/documents/23_San%20Diego/wg11/JCTVC-W1005-v4.zip
 	 * */
 	int       preferredTransferCharacteristics;
-	
-	/*
-	 * Specifies the value for the pic_struc syntax element of the picture timing SEI message (See D2.3 and D3.3)
-	 * of the HEVC spec. for a detailed explanation
-	 * */
-	int       pictureStructure;	
+
 
     struct
     {
@@ -1519,18 +1495,6 @@ typedef struct s265_param
          * the red, blue and green primaries. The default is 2 */
         int matrixCoeffs;
 
-        /* Chroma location info present flag adds chroma_sample_loc_type_top_field and
-         * chroma_sample_loc_type_bottom_field to the VUI. The default is false */
-        int bEnableChromaLocInfoPresentFlag;
-
-        /* Chroma sample location type top field holds the chroma location in
-         * the top field. The default is 0 */
-        int chromaSampleLocTypeTopField;
-
-        /* Chroma sample location type bottom field holds the chroma location in
-         * the bottom field. The default is 0 */
-        int chromaSampleLocTypeBottomField;
-
         /* Default display window flag adds def_disp_win_left_offset,
          * def_disp_win_right_offset, def_disp_win_top_offset and
          * def_disp_win_bottom_offset to the VUI. The default is false */
@@ -1675,9 +1639,6 @@ typedef struct s265_param
     /* Number of 4x4 units in maximum CU size */
     uint32_t  num4x4Partitions;
 
-    /* Specify if analysis mode uses file for data reuse */
-    int       bUseAnalysisFile;
-
     /* File pointer for csv log */
     FILE*     csvfpt;
 
@@ -1764,24 +1725,8 @@ typedef struct s265_param
        Re-init RC history at that point in ABR mode. Default is disabled. */
     int       bEnableFades;
 
-    /* Enable field coding */
-    int bField;
-
     /*Emit content light level info SEI*/
     int         bEmitCLL;
-
-    /*
-    * Signals picture structure SEI timing message for every frame
-    * picture structure 7 is signalled for frame doubling
-    * picture structure 8 is signalled for frame tripling
-    * */
-    int       bEnableFrameDuplication;
-
-    /*
-    * For adaptive frame duplication, a threshold is set above which the frames are similar.
-    * User can set a variable threshold. Default 70.
-    * */
-    int       dupThreshold;
 
     /*Input sequence bit depth. It can be either 8bit, 10bit or 12bit.*/
     int       sourceBitDepth;
@@ -1881,13 +1826,6 @@ typedef struct s265_param
 
     /* The offset by which QP is incremented for non-referenced inter-frames before a scenecut when bEnableSceneCutAwareQp is 2 or 3. */
     double    bwdNonRefQpDelta;
-
-    /* Specify combinations of color primaries, transfer characteristics, color matrix,
-    * range of luma and chroma signals, and chroma sample location. This has higher
-    * precedence than individual VUI parameters. If any individual VUI option is specified
-    * together with this, which changes the values set corresponding to the system-id
-    * or color-volume, it will be discarded. */
-    const char* videoSignalTypePreset;
 
     /* Flag indicating whether the encoder should emit an End of Bitstream
      * NAL at the end of bitstream. Default false */

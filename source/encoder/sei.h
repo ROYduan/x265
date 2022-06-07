@@ -257,7 +257,6 @@ public:
         m_payloadSize = 0;
     }
     uint32_t  m_picStruct;
-    uint32_t  m_sourceScanType;
     bool      m_duplicateFlag;
 
     uint32_t  m_auCpbRemovalDelay;
@@ -267,13 +266,6 @@ public:
     {
         const VUI *vui = &sps.vuiParameters;
         const HRDInfo *hrd = &vui->hrdParameters;
-
-        if (vui->frameFieldInfoPresentFlag)
-        {
-            WRITE_CODE(m_picStruct, 4,          "pic_struct");
-            WRITE_CODE(m_sourceScanType, 2,     "source_scan_type");
-            WRITE_FLAG(m_duplicateFlag,         "duplicate_flag");
-        }
 
         if (vui->hrdParametersPresentFlag)
         {

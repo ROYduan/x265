@@ -563,7 +563,6 @@ bool RateControl::init(const SPS& sps)
                     CMP_OPT_FIRST_PASS(" keyint", m_param->keyframeMax);
                     CMP_OPT_FIRST_PASS("scenecut", m_param->scenecutThreshold);
                     CMP_OPT_FIRST_PASS("intra-refresh", m_param->bIntraRefresh);
-                    CMP_OPT_FIRST_PASS("frame-dup", m_param->bEnableFrameDuplication);
                     if (m_param->bMultiPassOptRPS)
                     {
                         CMP_OPT_FIRST_PASS("multi-pass-opt-rps", m_param->bMultiPassOptRPS);
@@ -601,7 +600,7 @@ bool RateControl::init(const SPS& sps)
                     s265_log(m_param, S265_LOG_WARNING, "2nd pass has fewer frames than 1st pass (%d vs %d)\n",
                         m_param->totalFrames, m_numEntries);
                 }
-                if (m_param->totalFrames > m_numEntries && !m_param->bEnableFrameDuplication)
+                if (m_param->totalFrames > m_numEntries)
                 {
                     s265_log(m_param, S265_LOG_ERROR, "2nd pass has more frames than 1st pass (%d vs %d)\n",
                         m_param->totalFrames, m_numEntries);

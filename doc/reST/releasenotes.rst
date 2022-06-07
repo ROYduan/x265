@@ -50,10 +50,9 @@ Encoder enhancements
 
 Bug fixes
 ---------
-1. Multi-pass encode failures with :option:`--frame-dup`.
-2. Corrupted bitstreams with :option:`--hist-scenecut` when input depth and internal bit-depth differ.
-3. Incorrect analysis propagation in multi-level save-load architecture.
-4. Failure in detecting NUMA packages installed in non-standard directories.
+1. Corrupted bitstreams with :option:`--hist-scenecut` when input depth and internal bit-depth differ.
+2. Incorrect analysis propagation in multi-level save-load architecture.
+3. Failure in detecting NUMA packages installed in non-standard directories.
 
 Version 3.3
 ===========
@@ -62,9 +61,8 @@ Release date - 17th February, 2020.
 
 New features
 ------------
-1. **Adaptive frame duplication** to identify and skip encoding of near-identical frames and signal the duplication info to the decoder via pic_struct SEI. :option:`frame-dup` to enable frame duplication and :option:`--dup-threshold` to set the threshold for frame similarity (optional).
-2. **Boundary aware quantization** to cut off bits from frames following scene-cut. This leverages the inability of HVS to perceive fine details during scene changes and saves bits. :option:`--scenecut-aware-qp` , :option:`--scenecut-window` and :option:`--max-qp-delta` to enable boundary aware frame quantization, to set window size (optional) and to set QP offset (optional).
-3. **Improved scene-cut detection** using edge and chroma histograms. :option:`--hist-scenecut` to enable the feature and :option:`--hist-threshold` (optional) to provide threshold for determining scene cuts.
+1. **Boundary aware quantization** to cut off bits from frames following scene-cut. This leverages the inability of HVS to perceive fine details during scene changes and saves bits. :option:`--scenecut-aware-qp` , :option:`--scenecut-window` and :option:`--max-qp-delta` to enable boundary aware frame quantization, to set window size (optional) and to set QP offset (optional).
+2. **Improved scene-cut detection** using edge and chroma histograms. :option:`--hist-scenecut` to enable the feature and :option:`--hist-threshold` (optional) to provide threshold for determining scene cuts.
 
 Enhancements to existing features
 ---------------------------------
@@ -131,9 +129,8 @@ Release date - 18th June, 2019.
 New features
 ----------------
 1. s265 can invoke SVT-HEVC library for encoding through :option:`--svt`.
-2. s265 can now accept interlaced inputs directly (no need to separate fields), and sends it to the encoder with proper fps and frame-size through :option:`--field`.
-3. :option:`--fades` can detect and handle fade-in regions. This option will force I-slice and initialize RC history for the brightest frame after fade-in.
- 
+2. :option:`--fades` can detect and handle fade-in regions. This option will force I-slice and initialize RC history for the brightest frame after fade-in.
+
 API changes
 -----------
 1. A new flag to signal MasterDisplayParams and maxCll/Fall separately

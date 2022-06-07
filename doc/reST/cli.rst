@@ -505,29 +505,6 @@ frame counts) are only applicable to the CLI application.
 
 	**Range of values:** positive int or float, or num/denom
 
-.. option:: --interlace <false|tff|bff>, --no-interlace
-
-	0. progressive pictures **(default)**
-	1. top field first 
-	2. bottom field first
-
-	HEVC encodes interlaced content as fields. Fields must be provided to
-	the encoder in the correct temporal order. The source dimensions
-	must be field dimensions and the FPS must be in units of fields per
-	second. The decoder must re-combine the fields in their correct
-	orientation for display.
-
-.. option:: --frame-dup, --no-frame-dup
-
-	Enable Adaptive Frame duplication. Replaces 2-3 near-identical frames with one 
-	frame and sets pic_struct based on frame doubling / tripling. 
-	Default disabled.
-
-.. option:: --dup-threshold <integer>
-
-	Frame similarity threshold can vary between 1 and 99. This requires Adaptive
-	Frame Duplication to be enabled. Default 70.
-
 .. option:: --seek <integer>
 
 	Number of frames to skip at start of input file. Default 0
@@ -579,10 +556,6 @@ frame counts) are only applicable to the CLI application.
 	This feature can be enabled only in closed GOP structures.
 	Default 0 (disabled).
 
-.. option:: --field, --no-field
-
-	Enable or disable field coding. Default disabled.
-	
 Profile, Level, Tier
 ====================
 
@@ -2333,87 +2306,6 @@ VUI fields must be manually specified.
 	Emit the alternative transfer characteristics SEI message where the integer
 	is the preferred transfer characteristics. Required for HLG (Hybrid Log Gamma)
 	signaling. Not signaled by default.
-
-.. option:: --pic-struct <integer>
-
-	Set the picture structure and emits it in the picture timing SEI message.
-	Values in the range 0..12. See D.3.3 of the HEVC spec. for a detailed explanation.
-	Required for HLG (Hybrid Log Gamma) signaling. Not signaled by default.
-
-.. option:: --video-signal-type-preset <string>
-
-	Specify combinations of color primaries, transfer characteristics, color matrix,
-	range of luma and chroma signals, and chroma sample location.
-	String format: <system-id>[:<color-volume>]
-	
-	This has higher precedence than individual VUI parameters. If any individual VUI option
-	is specified together with this, which changes the values set corresponding to the system-id
-	or color-volume, it will be discarded.
-
-	system-id options and their corresponding values:
-	+----------------+---------------------------------------------------------------+
-	| system-id      | Value                                                         |
-	+================+===============================================================+
-	| BT601_525      | --colorprim smpte170m --transfer smpte170m                    |
-	|                | --colormatrix smpte170m --range limited --chromaloc 0         |
-	+----------------+---------------------------------------------------------------+
-	| BT601_626      | --colorprim bt470bg --transfer smpte170m --colormatrix bt470bg|
-	|                | --range limited --chromaloc 0                                 |
-	+----------------+---------------------------------------------------------------+
-	| BT709_YCC      | --colorprim bt709 --transfer bt709 --colormatrix bt709        |
-	|                | --range limited --chromaloc 0                                 |
-	+----------------+---------------------------------------------------------------+
-	| BT709_RGB      | --colorprim bt709 --transfer bt709 --colormatrix gbr          |
-	|                | --range limited                                               |
-	+----------------+---------------------------------------------------------------+
-	| BT2020_YCC_NCL | --colorprim bt2020 --transfer bt2020-10 --colormatrix bt709   |
-	|                | --range limited --chromaloc 2                                 |
-	+----------------+---------------------------------------------------------------+
-	| BT2020_RGB     | --colorprim bt2020 --transfer smpte2084 --colormatrix bt2020nc|
-	|                | --range limited                                               |
-	+----------------+---------------------------------------------------------------+
-	| BT2100_PQ_YCC  | --colorprim bt2020 --transfer smpte2084 --colormatrix bt2020nc|
-	|                | --range limited --chromaloc 2                                 |
-	+----------------+---------------------------------------------------------------+
-	| BT2100_PQ_ICTCP| --colorprim bt2020 --transfer smpte2084 --colormatrix ictcp   |
-	|                | --range limited --chromaloc 2                                 |
-	+----------------+---------------------------------------------------------------+
-	| BT2100_PQ_RGB  | --colorprim bt2020 --transfer smpte2084 --colormatrix gbr     |
-	|                | --range limited                                               |
-	+----------------+---------------------------------------------------------------+
-	| BT2100_HLG_YCC | --colorprim bt2020 --transfer arib-std-b67                    |
-	|                | --colormatrix bt2020nc --range limited --chromaloc 2          |
-	+----------------+---------------------------------------------------------------+
-	| BT2100_HLG_RGB | --colorprim bt2020 --transfer arib-std-b67 --colormatrix gbr  |
-	|                | --range limited                                               |
-	+----------------+---------------------------------------------------------------+
-	| FR709_RGB      | --colorprim bt709 --transfer bt709 --colormatrix gbr          |
-	|                | --range full                                                  |
-	+----------------+---------------------------------------------------------------+
-	| FR2020_RGB     | --colorprim bt2020 --transfer bt2020-10 --colormatrix gbr     |
-	|                | --range full                                                  |
-	+----------------+---------------------------------------------------------------+
-	| FRP3D65_YCC    | --colorprim smpte432 --transfer bt709 --colormatrix smpte170m |
-	|                | --range full --chromaloc 1                                    |
-	+----------------+---------------------------------------------------------------+
-
-	color-volume options and their corresponding values:
-	+----------------+---------------------------------------------------------------+
-	| color-volume   | Value                                                         |
-	+================+===============================================================+
-	| P3D65x1000n0005| --master-display G(13250,34500)B(7500,3000)R(34000,16000)     |
-	|                |                  WP(15635,16450)L(10000000,5)                 |
-	+----------------+---------------------------------------------------------------+
-	| P3D65x4000n005 | --master-display G(13250,34500)B(7500,3000)R(34000,16000)     |
-	|                |                  WP(15635,16450)L(40000000,50)                |
-	+----------------+---------------------------------------------------------------+
-	| BT2100x108n0005| --master-display G(8500,39850)B(6550,2300)R(34000,146000)     |
-	|                |                  WP(15635,16450)L(10000000,1)                 |
-	+----------------+---------------------------------------------------------------+
-
-	Note: The color-volume options can be used only with the system-id options BT2100_PQ_YCC,
-	       BT2100_PQ_ICTCP, and BT2100_PQ_RGB. It is incompatible with other options.
-
 
 Bitstream options
 =================

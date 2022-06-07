@@ -75,37 +75,6 @@ DolbyVisionProfileSpec dovi[] =
     { 1, 1, 1, 1, 1, 5, 0,  1, 1, 1, 82 }
 };
 
-typedef struct
-{
-    int bEnableVideoSignalTypePresentFlag;
-    int bEnableColorDescriptionPresentFlag;
-    int bEnableChromaLocInfoPresentFlag;
-    int colorPrimaries;
-    int transferCharacteristics;
-    int matrixCoeffs;
-    int bEnableVideoFullRangeFlag;
-    int chromaSampleLocTypeTopField;
-    int chromaSampleLocTypeBottomField;
-    const char* systemId;
-}VideoSignalTypePresets;
-
-VideoSignalTypePresets vstPresets[] =
-{
-    {1, 1, 1, 6, 6, 6, 0, 0, 0, "BT601_525"},
-    {1, 1, 1, 5, 6, 5, 0, 0, 0, "BT601_626"},
-    {1, 1, 1, 1, 1, 1, 0, 0, 0, "BT709_YCC"},
-    {1, 1, 0, 1, 1, 0, 0, 0, 0, "BT709_RGB"},
-    {1, 1, 1, 9, 14, 1, 0, 2, 2, "BT2020_YCC_NCL"},
-    {1, 1, 0, 9, 16, 9, 0, 0, 0, "BT2020_RGB"},
-    {1, 1, 1, 9, 16, 9, 0, 2, 2, "BT2100_PQ_YCC"},
-    {1, 1, 1, 9, 16, 14, 0, 2, 2, "BT2100_PQ_ICTCP"},
-    {1, 1, 0, 9, 16, 0, 0, 0, 0, "BT2100_PQ_RGB"},
-    {1, 1, 1, 9, 18, 9, 0, 2, 2, "BT2100_HLG_YCC"},
-    {1, 1, 0, 9, 18, 0, 0, 0, 0, "BT2100_HLG_RGB"},
-    {1, 1, 0, 1, 1, 0, 1, 0, 0, "FR709_RGB"},
-    {1, 1, 0, 9, 14, 0, 1, 0, 0, "FR2020_RGB"},
-    {1, 1, 1, 12, 1, 6, 1, 1, 1, "FRP3D65_YCC"}
-};
 }
 
 /* Threshold for motion vection, based on expermental result.
@@ -145,8 +114,6 @@ Encoder::Encoder()
     m_cR = 1.0;
     for (int i = 0; i < S265_MAX_FRAME_THREADS; i++)
         m_frameEncoder[i] = NULL;
-    for (uint32_t i = 0; i < DUP_BUFFER; i++)
-        m_dupBuffer[i] = NULL;
     MotionEstimate::initScales();
 
 #if ENABLE_HDR10_PLUS
@@ -195,53 +162,6 @@ void Encoder::create()
 
     int rows = (p->sourceHeight + p->maxCUSize - 1) >> g_log2Size[p->maxCUSize];
     int cols = (p->sourceWidth  + p->maxCUSize - 1) >> g_log2Size[p->maxCUSize];
-
-    if (m_param->bEnableFrameDuplication)
-    {
-        size_t framesize = 0;
-        int pixelbytes = p->sourceBitDepth > 8 ? 2 : 1;
-        for (int i = 0; i < s265_cli_csps[p->internalCsp].planes; i++)
-        {
-            int stride = (p->sourceWidth >> s265_cli_csps[p->internalCsp].width[i]) * pixelbytes;
-            framesize += (stride * (p->sourceHeight >> s265_cli_csps[p->internalCsp].height[i]));
-        }
-
-        //Sets the picture structure and emits it in the picture timing SEI message
-        m_param->pictureStructure = 0; 
-
-        for (uint32_t i = 0; i < DUP_BUFFER; i++)
-        {
-            m_dupBuffer[i] = (AdaptiveFrameDuplication*)s265_malloc(sizeof(AdaptiveFrameDuplication));
-            m_dupBuffer[i]->dupPic = NULL;
-            m_dupBuffer[i]->dupPic = s265_picture_alloc();
-            s265_picture_init(p, m_dupBuffer[i]->dupPic);
-            m_dupBuffer[i]->dupPlane = NULL;
-            m_dupBuffer[i]->dupPlane = S265_MALLOC(char, framesize);
-            m_dupBuffer[i]->dupPic->planes[0] = m_dupBuffer[i]->dupPlane;
-            m_dupBuffer[i]->bOccupied = false;
-            m_dupBuffer[i]->bDup = false;
-        }
-
-        if (!(p->sourceBitDepth == 8 && p->internalBitDepth == 8))
-        {
-            int size = p->sourceWidth * p->sourceHeight;
-            int hshift = CHROMA_H_SHIFT(p->internalCsp);
-            int vshift = CHROMA_V_SHIFT(p->internalCsp);
-            int widthC = p->sourceWidth >> hshift;
-            int heightC = p->sourceHeight >> vshift;
-
-            m_dupPicOne[0] = S265_MALLOC(pixel, size);
-            m_dupPicTwo[0] = S265_MALLOC(pixel, size);
-            if (p->internalCsp != S265_CSP_I400)
-            {
-                for (int k = 1; k < 3; k++)
-                {
-                    m_dupPicOne[k] = S265_MALLOC(pixel, widthC * heightC);
-                    m_dupPicTwo[k] = S265_MALLOC(pixel, widthC * heightC);
-                }
-            }
-        }
-    }
 
     if (m_param->bHistBasedSceneCut)
     {
@@ -644,33 +564,6 @@ void Encoder::destroy()
         m_exportedPic = NULL;
     }
 
-    if (m_param->bEnableFrameDuplication)
-    {
-        for (uint32_t i = 0; i < DUP_BUFFER; i++)
-        {
-            S265_FREE(m_dupBuffer[i]->dupPlane);
-            s265_picture_free(m_dupBuffer[i]->dupPic);
-            S265_FREE(m_dupBuffer[i]);
-        }
-
-        if (!(m_param->sourceBitDepth == 8 && m_param->internalBitDepth == 8))
-        {
-            for (int k = 0; k < 3; k++)
-            {
-                if (k == 0)
-                {
-                    S265_FREE(m_dupPicOne[k]);
-                    S265_FREE(m_dupPicTwo[k]);
-                }
-                else if(k >= 1 && m_param->internalCsp != S265_CSP_I400)
-                {
-                    S265_FREE(m_dupPicOne[k]);
-                    S265_FREE(m_dupPicTwo[k]);
-                }
-            }
-        }
-    }
-
     if (m_param->bHistBasedSceneCut)
     {
         if (m_edgePic != NULL)
@@ -750,7 +643,6 @@ void Encoder::destroy()
         free((char*)m_param->numaPools);
         free((char*)m_param->masteringDisplayColorVolume);
         free((char*)m_param->toneMapFile);
-        free((char*)m_param->videoSignalTypePreset);
         PARAM_NS::s265_param_free(m_param);
     }
 }
@@ -884,29 +776,26 @@ void Encoder::copyUserSEIMessages(Frame *frame, const s265_picture* pic_in)
 }
 
 //Find Sum of Squared Difference (SSD) between two pictures
-uint64_t Encoder::computeSSD(pixel *fenc, pixel *rec, intptr_t stride, uint32_t width, uint32_t height, s265_param *param)
+uint64_t Encoder::computeSSD(pixel *fenc, pixel *rec, intptr_t stride, uint32_t width, uint32_t height)
 {
     uint64_t ssd = 0;
 
-    if (!param->bEnableFrameDuplication || (width & 3))
+    if ((width | height) & 3)
     {
-        if ((width | height) & 3)
+        /* Slow Path */
+        for (uint32_t y = 0; y < height; y++)
         {
-            /* Slow Path */
-            for (uint32_t y = 0; y < height; y++)
+            for (uint32_t x = 0; x < width; x++)
             {
-                for (uint32_t x = 0; x < width; x++)
-                {
-                    int diff = (int)(fenc[x] - rec[x]);
-                    ssd += diff * diff;
-                }
-
-                fenc += stride;
-                rec += stride;
+                int diff = (int)(fenc[x] - rec[x]);
+                ssd += diff * diff;
             }
 
-            return ssd;
+            fenc += stride;
+            rec += stride;
         }
+
+        return ssd;
     }
 
     uint32_t y = 0;
@@ -948,162 +837,7 @@ uint64_t Encoder::computeSSD(pixel *fenc, pixel *rec, intptr_t stride, uint32_t 
             rec += stride * rowHeight;
         }
     }
-
-    /* Handle last few rows of frames for videos 
-    with height not divisble by 4 */
-    uint32_t h = height % y;
-    if (param->bEnableFrameDuplication && h)
-    {
-        for (uint32_t i = 0; i < h; i++)
-        {
-            for (uint32_t j = 0; j < width; j++)
-            {
-                int diff = (int)(fenc[j] - rec[j]);
-                ssd += diff * diff;
-            }
-
-            fenc += stride;
-            rec += stride;
-        }
-    }
-
     return ssd;
-}
-
-//Compute the PSNR weightage between two pictures
-double Encoder::ComputePSNR(s265_picture *firstPic, s265_picture *secPic, s265_param *param)
-{
-    uint64_t ssdY = 0, ssdU = 0, ssdV = 0;
-    intptr_t strideL, strideC;
-    uint32_t widthL, heightL, widthC, heightC;
-    double psnrY = 0, psnrU = 0, psnrV = 0, psnrWeight = 0;
-    int width = firstPic->width;
-    int height = firstPic->height;
-    int hshift = CHROMA_H_SHIFT(firstPic->colorSpace);
-    int vshift = CHROMA_V_SHIFT(firstPic->colorSpace);
-    pixel *yFirstPic = NULL, *ySecPic = NULL;
-    pixel *uFirstPic = NULL, *uSecPic = NULL;
-    pixel *vFirstPic = NULL, *vSecPic = NULL;
-
-    strideL = widthL = width;
-    heightL = height;
-
-    strideC = widthC = widthL >> hshift;
-    heightC = heightL >> vshift;
-
-    int size = width * height;
-    int maxvalY = 255 << (S265_DEPTH - 8);
-    int maxvalC = 255 << (S265_DEPTH - 8);
-    double refValueY = (double)maxvalY * maxvalY * size;
-    double refValueC = (double)maxvalC * maxvalC * size / 4.0;
-
-    if (firstPic->bitDepth == 8 && S265_DEPTH == 8)
-    {
-        yFirstPic = (pixel*)firstPic->planes[0];
-        ySecPic = (pixel*)secPic->planes[0];
-        if (param->internalCsp != S265_CSP_I400)
-        {
-            uFirstPic = (pixel*)firstPic->planes[1];
-            uSecPic = (pixel*)secPic->planes[1];
-            vFirstPic = (pixel*)firstPic->planes[2];
-            vSecPic = (pixel*)secPic->planes[2];
-        }
-    }
-    else if (firstPic->bitDepth == 8 && S265_DEPTH > 8)
-    {
-        int shift = (S265_DEPTH - 8);
-        uint8_t *yChar1, *yChar2, *uChar1, *uChar2, *vChar1, *vChar2;
-
-        yChar1 = (uint8_t*)firstPic->planes[0];
-        yChar2 = (uint8_t*)secPic->planes[0];
-
-        primitives.planecopy_cp(yChar1, firstPic->stride[0] / sizeof(*yChar1), m_dupPicOne[0], firstPic->stride[0] / sizeof(*yChar1), width, height, shift);
-        primitives.planecopy_cp(yChar2, secPic->stride[0] / sizeof(*yChar2), m_dupPicTwo[0], secPic->stride[0] / sizeof(*yChar2), width, height, shift);
-
-        if (param->internalCsp != S265_CSP_I400)
-        {
-            uChar1 = (uint8_t*)firstPic->planes[1];
-            uChar2 = (uint8_t*)secPic->planes[1];
-            vChar1 = (uint8_t*)firstPic->planes[2];
-            vChar2 = (uint8_t*)secPic->planes[2];
-
-            primitives.planecopy_cp(uChar1, firstPic->stride[1] / sizeof(*uChar1), m_dupPicOne[1], firstPic->stride[1] / sizeof(*uChar1), widthC, heightC, shift);
-            primitives.planecopy_cp(uChar2, secPic->stride[1] / sizeof(*uChar2), m_dupPicTwo[1], secPic->stride[1] / sizeof(*uChar2), widthC, heightC, shift);
-
-            primitives.planecopy_cp(vChar1, firstPic->stride[2] / sizeof(*vChar1), m_dupPicOne[2], firstPic->stride[2] / sizeof(*vChar1), widthC, heightC, shift);
-            primitives.planecopy_cp(vChar2, secPic->stride[2] / sizeof(*vChar2), m_dupPicTwo[2], secPic->stride[2] / sizeof(*vChar2), widthC, heightC, shift);
-        }
-    }
-    else
-    {
-        uint16_t *yShort1, *yShort2, *uShort1, *uShort2, *vShort1, *vShort2;
-        /* defensive programming, mask off bits that are supposed to be zero */
-        uint16_t mask = (1 << S265_DEPTH) - 1;
-        int shift = abs(firstPic->bitDepth - S265_DEPTH);
-
-        yShort1 = (uint16_t*)firstPic->planes[0];
-        yShort2 = (uint16_t*)secPic->planes[0];
-
-        if (firstPic->bitDepth > S265_DEPTH)
-        {
-            /* shift right and mask pixels to final size */
-            primitives.planecopy_sp(yShort1, firstPic->stride[0] / sizeof(*yShort1), m_dupPicOne[0], firstPic->stride[0] / sizeof(*yShort1), width, height, shift, mask);
-            primitives.planecopy_sp(yShort2, secPic->stride[0] / sizeof(*yShort2), m_dupPicTwo[0], secPic->stride[0] / sizeof(*yShort2), width, height, shift, mask);
-        }
-        else /* Case for (pic.bitDepth <= S265_DEPTH) */
-        {
-            /* shift left and mask pixels to final size */
-            primitives.planecopy_sp_shl(yShort1, firstPic->stride[0] / sizeof(*yShort1), m_dupPicOne[0], firstPic->stride[0] / sizeof(*yShort1), width, height, shift, mask);
-            primitives.planecopy_sp_shl(yShort2, secPic->stride[0] / sizeof(*yShort2), m_dupPicTwo[0], secPic->stride[0] / sizeof(*yShort2), width, height, shift, mask);
-        }
-
-        if (param->internalCsp != S265_CSP_I400)
-        {
-            uShort1 = (uint16_t*)firstPic->planes[1];
-            uShort2 = (uint16_t*)secPic->planes[1];
-            vShort1 = (uint16_t*)firstPic->planes[2];
-            vShort2 = (uint16_t*)secPic->planes[2];
-
-            if (firstPic->bitDepth > S265_DEPTH)
-            {
-                primitives.planecopy_sp(uShort1, firstPic->stride[1] / sizeof(*uShort1), m_dupPicOne[1], firstPic->stride[1] / sizeof(*uShort1), widthC, heightC, shift, mask);
-                primitives.planecopy_sp(uShort2, secPic->stride[1] / sizeof(*uShort2), m_dupPicTwo[1], secPic->stride[1] / sizeof(*uShort2), widthC, heightC, shift, mask);
-
-                primitives.planecopy_sp(vShort1, firstPic->stride[2] / sizeof(*vShort1), m_dupPicOne[2], firstPic->stride[2] / sizeof(*vShort1), widthC, heightC, shift, mask);
-                primitives.planecopy_sp(vShort2, secPic->stride[2] / sizeof(*vShort2), m_dupPicTwo[2], secPic->stride[2] / sizeof(*vShort2), widthC, heightC, shift, mask);
-            }
-            else /* Case for (pic.bitDepth <= S265_DEPTH) */
-            {
-                primitives.planecopy_sp_shl(uShort1, firstPic->stride[1] / sizeof(*uShort1), m_dupPicOne[1], firstPic->stride[1] / sizeof(*uShort1), widthC, heightC, shift, mask);
-                primitives.planecopy_sp_shl(uShort2, secPic->stride[1] / sizeof(*uShort2), m_dupPicTwo[1], secPic->stride[1] / sizeof(*uShort2), widthC, heightC, shift, mask);
-
-                primitives.planecopy_sp_shl(vShort1, firstPic->stride[2] / sizeof(*vShort1), m_dupPicOne[2], firstPic->stride[2] / sizeof(*vShort1), widthC, heightC, shift, mask);
-                primitives.planecopy_sp_shl(vShort2, secPic->stride[2] / sizeof(*vShort2), m_dupPicTwo[2], secPic->stride[2] / sizeof(*vShort2), widthC, heightC, shift, mask);
-            }
-        }
-    }
-
-    if (!(firstPic->bitDepth == 8 && S265_DEPTH == 8))
-    {
-        yFirstPic = m_dupPicOne[0]; ySecPic = m_dupPicTwo[0];
-        uFirstPic = m_dupPicOne[1]; uSecPic = m_dupPicTwo[1];
-        vFirstPic = m_dupPicOne[2]; vSecPic = m_dupPicTwo[2];
-    }
-
-    //Compute SSD
-    ssdY = computeSSD(yFirstPic, ySecPic, strideL, widthL, heightL, param);
-    psnrY = (ssdY ? 10.0 * log10(refValueY / (double)ssdY) : 99.99);
-
-    if (param->internalCsp != S265_CSP_I400)
-    {
-        ssdU = computeSSD(uFirstPic, uSecPic, strideC, widthC, heightC, param);
-        ssdV = computeSSD(vFirstPic, vSecPic, strideC, widthC, heightC, param);
-        psnrU = (ssdU ? 10.0 * log10(refValueC / (double)ssdU) : 99.99);
-        psnrV = (ssdV ? 10.0 * log10(refValueC / (double)ssdV) : 99.99);
-    }
-
-    //Compute PSNR(picN,pic(N+1))
-    return psnrWeight = (psnrY * 6 + psnrU + psnrV) / 8;
 }
 
 void Encoder::copyPicture(s265_picture *dest, const s265_picture *src)
@@ -1362,10 +1096,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         return -1;
 
     const s265_picture* inputPic = NULL;
-    static int written = 0, read = 0;
-    bool dontRead = false;
     bool bdropFrame = false;
-    bool dropflag = false;
     bool isMaxThres = false;
     bool isHardSC = false;
 
@@ -1375,7 +1106,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         m_exportedPic = NULL;
         m_dpb->recycleUnreferenced();
     }
-    if ((pic_in && (!m_param->chunkEnd || (m_encodedFrameNum < m_param->chunkEnd))) || (m_param->bEnableFrameDuplication && !pic_in && (read < written)))
+    if ((pic_in && (!m_param->chunkEnd || (m_encodedFrameNum < m_param->chunkEnd))))
     {
         if (m_param->bHistBasedSceneCut && pic_in)
         {
@@ -1396,100 +1127,25 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
             }
         }
 
-        if ((m_param->bEnableFrameDuplication && !pic_in && (read < written)))
-            dontRead = true;
-        else
+        if (m_latestParam->forceFlush == 1)
         {
-            if (m_latestParam->forceFlush == 1)
-            {
-                m_lookahead->setLookaheadQueue();
-                m_latestParam->forceFlush = 0;
-            }
-            if (m_latestParam->forceFlush == 2)
-            {
-                m_lookahead->m_filled = false;
-                m_latestParam->forceFlush = 0;
-            }
-
-            if (pic_in->bitDepth < 8 || pic_in->bitDepth > 16)
-            {
-                s265_log(m_param, S265_LOG_ERROR, "Input bit depth (%d) must be between 8 and 16\n",
-                         pic_in->bitDepth);
-                return -1;
-            }
+            m_lookahead->setLookaheadQueue();
+            m_latestParam->forceFlush = 0;
+        }
+        if (m_latestParam->forceFlush == 2)
+        {
+            m_lookahead->m_filled = false;
+            m_latestParam->forceFlush = 0;
         }
 
-        if (m_param->bEnableFrameDuplication)
+        if (pic_in->bitDepth < 8 || pic_in->bitDepth > 16)
         {
-            double psnrWeight = 0;
-
-            if (!dontRead)
-            {
-                if (!m_dupBuffer[0]->bOccupied)
-                {
-                    copyPicture(m_dupBuffer[0]->dupPic, pic_in);
-                    m_dupBuffer[0]->bOccupied = true;
-                    written++;
-                    return 0;
-                }
-                else if (!m_dupBuffer[1]->bOccupied)
-                {
-                    copyPicture(m_dupBuffer[1]->dupPic, pic_in);
-                    m_dupBuffer[1]->bOccupied = true;
-                    written++;
-                }
-
-                if (m_param->bEnableFrameDuplication && m_param->bHistBasedSceneCut)
-                {
-                    if (!bdropFrame && m_dupBuffer[1]->dupPic->frameData.bScenecut == false)
-                    {
-                        psnrWeight = ComputePSNR(m_dupBuffer[0]->dupPic, m_dupBuffer[1]->dupPic, m_param);
-                        if (psnrWeight >= m_param->dupThreshold)
-                            dropflag = true;
-                    }
-                    else
-                    {
-                        dropflag = true;
-                    }
-                }
-                else if (m_param->bEnableFrameDuplication)
-                {
-                    psnrWeight = ComputePSNR(m_dupBuffer[0]->dupPic, m_dupBuffer[1]->dupPic, m_param);
-                    if (psnrWeight >= m_param->dupThreshold)
-                        dropflag = true;
-                }
-
-                if (dropflag)
-                {
-                    if (m_dupBuffer[0]->bDup)
-                    {
-                        m_dupBuffer[0]->dupPic->picStruct = tripling;
-                        m_dupBuffer[0]->bDup = false;
-                        read++;
-                    }
-                    else
-                    {
-                        m_dupBuffer[0]->dupPic->picStruct = doubling;
-                        m_dupBuffer[0]->bDup = true;
-                        m_dupBuffer[1]->bOccupied = false;
-                        read++;
-                        return 0;
-                    }
-                }
-                else if (m_dupBuffer[0]->bDup)
-                    m_dupBuffer[0]->bDup = false;
-                else
-                    m_dupBuffer[0]->dupPic->picStruct = 0;
-            }
-
-            if (read < written)
-            {
-                inputPic = m_dupBuffer[0]->dupPic;
-                read++;
-            }
+            s265_log(m_param, S265_LOG_ERROR, "Input bit depth (%d) must be between 8 and 16\n",
+                        pic_in->bitDepth);
+            return -1;
         }
-        else
-            inputPic = pic_in;
+
+        inputPic = pic_in;
 
         Frame *inFrame;
         s265_param *p = (m_reconfigure || m_reconfigureRc) ? m_latestParam : m_param;
@@ -1599,8 +1255,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         inFrame->m_forceqp   = inputPic->forceqp;
         inFrame->m_param     = (m_reconfigure || m_reconfigureRc) ? m_latestParam : m_param;
         inFrame->m_picStruct = inputPic->picStruct;
-        if (m_param->bField && m_param->interlaceMode)
-            inFrame->m_fieldNum = inputPic->fieldNum;
 
         copyUserSEIMessages(inFrame, inputPic);
 
@@ -1668,17 +1322,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
                 }
             }
             m_param->bUseRcStats = 0;
-        }
-
-        if (m_param->bEnableFrameDuplication && ((read < written) || (m_dupBuffer[0]->dupPic->picStruct == tripling && (read <= written))))
-        {
-            if (m_dupBuffer[0]->dupPic->picStruct == tripling)
-                m_dupBuffer[0]->bOccupied = m_dupBuffer[1]->bOccupied = false;
-            else
-            {
-                copyPicture(m_dupBuffer[0]->dupPic, m_dupBuffer[1]->dupPic);
-                m_dupBuffer[1]->bOccupied = false;
-            }
         }
 
         if (m_reconfigureRc)
@@ -2890,7 +2533,7 @@ void Encoder::getStreamHeaders(NALList& list, Entropy& sbacCoder, Bitstream& bs)
         }
     }
 
-    if ((m_param->bEmitHRDSEI || !!m_param->interlaceMode))
+    if (m_param->bEmitHRDSEI)
     {
         /* Picture Timing and Buffering Period SEI require the SPS to be "activated" */
         SEIActiveParameterSets sei;
@@ -2916,10 +2559,9 @@ void Encoder::getEndNalUnits(NALList& list, Bitstream& bs)
 void Encoder::initVPS(VPS *vps)
 {
     /* Note that much of the VPS is initialized by determineLevel() */
-    vps->ptl.progressiveSourceFlag = !m_param->interlaceMode;
-    vps->ptl.interlacedSourceFlag = !!m_param->interlaceMode;
+    vps->ptl.progressiveSourceFlag = true;
     vps->ptl.nonPackedConstraintFlag = false;
-    vps->ptl.frameOnlyConstraintFlag = !m_param->interlaceMode;
+    vps->ptl.frameOnlyConstraintFlag = true;
 }
 
 void Encoder::initSPS(SPS *sps)
@@ -2982,18 +2624,11 @@ void Encoder::initSPS(SPS *sps)
     vui.transferCharacteristics = m_param->vui.transferCharacteristics;
     vui.matrixCoefficients = m_param->vui.matrixCoeffs;
 
-    vui.chromaLocInfoPresentFlag = m_param->vui.bEnableChromaLocInfoPresentFlag;
-    vui.chromaSampleLocTypeTopField = m_param->vui.chromaSampleLocTypeTopField;
-    vui.chromaSampleLocTypeBottomField = m_param->vui.chromaSampleLocTypeBottomField;
-
     vui.defaultDisplayWindow.bEnabled = m_param->vui.bEnableDefaultDisplayWindowFlag;
     vui.defaultDisplayWindow.rightOffset = m_param->vui.defDispWinRightOffset;
     vui.defaultDisplayWindow.topOffset = m_param->vui.defDispWinTopOffset;
     vui.defaultDisplayWindow.bottomOffset = m_param->vui.defDispWinBottomOffset;
     vui.defaultDisplayWindow.leftOffset = m_param->vui.defDispWinLeftOffset;
-
-    vui.frameFieldInfoPresentFlag = !!m_param->interlaceMode || (m_param->pictureStructure >= 0);
-    vui.fieldSeqFlag = !!m_param->interlaceMode;
 
     vui.hrdParametersPresentFlag = m_param->bEmitHRDSEI;
 
@@ -3112,65 +2747,6 @@ void Encoder::configureDolbyVisionParams(s265_param* p)
 
     if (dovi[doviProfile].doviProfileId == 50)
         p->crQpOffset = 3;
-}
-
-void Encoder::configureVideoSignalTypePreset(s265_param* p)
-{
-    char systemId[20] = {};
-    char colorVolume[20] = {};
-    sscanf(p->videoSignalTypePreset, "%[^:]:%s", systemId, colorVolume);
-    uint32_t sysId = 0;
-    while (strcmp(vstPresets[sysId].systemId, systemId))
-    {
-        if (sysId + 1 == sizeof(vstPresets) / sizeof(vstPresets[0]))
-        {
-            s265_log(NULL, S265_LOG_ERROR, "Incorrect system-id, aborting\n");
-            m_aborted = true;
-            break;
-        }
-        sysId++;
-    }
-
-    p->vui.bEnableVideoSignalTypePresentFlag = vstPresets[sysId].bEnableVideoSignalTypePresentFlag;
-    p->vui.bEnableColorDescriptionPresentFlag = vstPresets[sysId].bEnableColorDescriptionPresentFlag;
-    p->vui.bEnableChromaLocInfoPresentFlag = vstPresets[sysId].bEnableChromaLocInfoPresentFlag;
-    p->vui.colorPrimaries = vstPresets[sysId].colorPrimaries;
-    p->vui.transferCharacteristics = vstPresets[sysId].transferCharacteristics;
-    p->vui.matrixCoeffs = vstPresets[sysId].matrixCoeffs;
-    p->vui.bEnableVideoFullRangeFlag = vstPresets[sysId].bEnableVideoFullRangeFlag;
-    p->vui.chromaSampleLocTypeTopField = vstPresets[sysId].chromaSampleLocTypeTopField;
-    p->vui.chromaSampleLocTypeBottomField = vstPresets[sysId].chromaSampleLocTypeBottomField;
-
-    if (colorVolume[0] != '\0')
-    {
-        if (!strcmp(systemId, "BT2100_PQ_YCC") || !strcmp(systemId, "BT2100_PQ_ICTCP") || !strcmp(systemId, "BT2100_PQ_RGB"))
-        {
-            p->bEmitHDR10SEI = 1;
-            if (!strcmp(colorVolume, "P3D65x1000n0005"))
-            {
-                p->masteringDisplayColorVolume = strdup("G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,5)");
-            }
-            else if (!strcmp(colorVolume, "P3D65x4000n005"))
-            {
-                p->masteringDisplayColorVolume = strdup("G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(40000000,50)");
-            }
-            else if (!strcmp(colorVolume, "BT2100x108n0005"))
-            {
-                p->masteringDisplayColorVolume = strdup("G(8500,39850)B(6550,2300)R(34000,146000)WP(15635,16450)L(10000000,1)");
-            }
-            else
-            {
-                s265_log(NULL, S265_LOG_ERROR, "Incorrect color-volume, aborting\n");
-                m_aborted = true;
-            }
-        }
-        else
-        {
-            s265_log(NULL, S265_LOG_ERROR, "Color-volume is not supported with the given system-id, aborting\n");
-            m_aborted = true;
-        }
-    }
-
 }
 
 void Encoder::configure(s265_param *p)
@@ -3345,9 +2921,6 @@ void Encoder::configure(s265_param *p)
     if (!p->selectiveSAO && p->bEnableSAO)
         p->selectiveSAO = 4;
 
-    if (p->interlaceMode)
-        s265_log(p, S265_LOG_WARNING, "Support for interlaced video is experimental\n");
-
     if (p->rc.rfConstantMin > p->rc.rfConstant)
     {
         s265_log(m_param, S265_LOG_WARNING, "CRF min must be less than CRF\n");
@@ -3518,29 +3091,6 @@ void Encoder::configure(s265_param *p)
         s265_log(p, S265_LOG_WARNING, "Dynamic-rd disabled, requires RD <= 4, VBV and aq-mode enabled\n");
     }
 
-    if (!p->bEnableFrameDuplication && p->dupThreshold && p->dupThreshold != 70)
-    {
-        s265_log(p, S265_LOG_WARNING, "Frame-duplication threshold works only with frame-duplication enabled. Enabling frame-duplication.\n");
-        p->bEnableFrameDuplication = 1;
-    }
-
-    if (p->bEnableFrameDuplication && p->interlaceMode)
-    {
-        s265_log(p, S265_LOG_WARNING, "Frame-duplication does not support interlace mode. Disabling Frame Duplication.\n");
-        p->bEnableFrameDuplication = 0;
-    }
-
-    if (p->bEnableFrameDuplication && p->pictureStructure != 0 && p->pictureStructure != -1)
-    {
-        s265_log(p, S265_LOG_WARNING, "Frame-duplication works only with pic_struct = 0. Setting pic-struct = 0.\n");
-        p->pictureStructure = 0;
-    }
-
-    if (m_param->bEnableFrameDuplication && (!bIsVbv || !m_param->bEmitHRDSEI))
-    {
-        s265_log(m_param, S265_LOG_WARNING, "Frame-duplication require NAL HRD and VBV parameters. Disabling frame duplication\n");
-        m_param->bEnableFrameDuplication = 0;
-    }
 #ifdef ENABLE_HDR10_PLUS
     if (m_param->bDhdr10opt && m_param->toneMapFile == NULL)
     {
@@ -3575,102 +3125,6 @@ void Encoder::configure(s265_param *p)
         m_param->bDhdr10opt = 0;
     }
 #endif
-
-    if (p->uhdBluray)
-    {
-        p->bEnableAccessUnitDelimiters = 1;
-        p->vui.aspectRatioIdc = 1;
-        p->bEmitHRDSEI = 1;
-        int disableUhdBd = 0;
-
-        if (p->levelIdc && p->levelIdc != 51)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: Wrong level specified, UHD Bluray mandates Level 5.1\n");
-        }
-        p->levelIdc = 51;
-
-        if (!p->bHighTier)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: Turning on high tier\n");
-            p->bHighTier = 1;
-        }
-
-        if (!p->bRepeatHeaders)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: Turning on repeat-headers\n");
-            p->bRepeatHeaders = 1;
-        }
-
-        if (p->bOpenGOP)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: Turning off open GOP\n");
-            p->bOpenGOP = false;
-        }
-
-        if (p->bIntraRefresh)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: turning off intra-refresh\n");
-            p->bIntraRefresh = 0;
-        }
-
-        if (p->keyframeMin != 1)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: keyframeMin is always 1\n");
-            p->keyframeMin = 1;
-        }
-
-        int fps = (p->fpsNum + p->fpsDenom - 1) / p->fpsDenom;
-        if (p->keyframeMax > fps)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: reducing keyframeMax to %d\n", fps);
-            p->keyframeMax = fps;
-        }
-
-        if (p->maxNumReferences > 6)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: reducing references to 6\n");
-            p->maxNumReferences = 6;
-        }
-
-        if (p->bEnableTemporalSubLayers)
-        {
-            s265_log(p, S265_LOG_WARNING, "uhd-bd: Turning off temporal layering\n");
-            p->bEnableTemporalSubLayers = 0;
-        }
-
-        if (p->vui.colorPrimaries != 1 && p->vui.colorPrimaries != 9)
-        {
-            s265_log(p, S265_LOG_ERROR, "uhd-bd: colour primaries should be either BT.709 or BT.2020\n");
-            disableUhdBd = 1;
-        }
-        else if (p->vui.colorPrimaries == 9)
-        {
-            p->vui.bEnableChromaLocInfoPresentFlag = 1;
-            p->vui.chromaSampleLocTypeTopField = 2;
-            p->vui.chromaSampleLocTypeBottomField = 2;
-        }
-
-        if (p->vui.transferCharacteristics != 1 && p->vui.transferCharacteristics != 14 && p->vui.transferCharacteristics != 16)
-        {
-            s265_log(p, S265_LOG_ERROR, "uhd-bd: transfer characteristics supported are BT.709, BT.2020-10 or SMPTE ST.2084\n");
-            disableUhdBd = 1;
-        }
-        if (p->vui.matrixCoeffs != 1 && p->vui.matrixCoeffs != 9)
-        {
-            s265_log(p, S265_LOG_ERROR, "uhd-bd: matrix coeffs supported are either BT.709 or BT.2020\n");
-            disableUhdBd = 1;
-        }
-        if ((p->sourceWidth != 1920 && p->sourceWidth != 3840) || (p->sourceHeight != 1080 && p->sourceHeight != 2160))
-        {
-            s265_log(p, S265_LOG_ERROR, "uhd-bd: Supported resolutions are 1920x1080 and 3840x2160\n");
-            disableUhdBd = 1;
-        }
-        if (disableUhdBd)
-        {
-            p->uhdBluray = 0;
-            s265_log(p, S265_LOG_ERROR, "uhd-bd: Disabled\n");
-        }
-    }
     /* set pad size if height is not multiple of the minimum CU size */
     if (p->confWinBottomOffset)
     {
@@ -3730,9 +3184,6 @@ void Encoder::configure(s265_param *p)
             p->bHDR10Opt = 0;
         }
     }
-
-    if (p->videoSignalTypePreset)     // Default disabled.
-        configureVideoSignalTypePreset(p);
 
     if (m_param->toneMapFile || p->bHDR10Opt || p->bEmitHDR10SEI)
     {

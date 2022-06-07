@@ -679,7 +679,7 @@ void FrameFilter::processPostRow(int row)
         uint32_t width  = reconPic->m_picWidth - m_pad[0];
         uint32_t height = m_parallelFilter[row].getCUHeight();
 
-        uint64_t ssdY = m_frameEncoder->m_top->computeSSD(fencPic->getLumaAddr(cuAddr), reconPic->getLumaAddr(cuAddr), stride, width, height, m_param);
+        uint64_t ssdY = m_frameEncoder->m_top->computeSSD(fencPic->getLumaAddr(cuAddr), reconPic->getLumaAddr(cuAddr), stride, width, height);
         m_frameEncoder->m_SSDY += ssdY;
 
         if (m_param->internalCsp != S265_CSP_I400)
@@ -688,8 +688,8 @@ void FrameFilter::processPostRow(int row)
             width >>= m_hChromaShift;
             stride = reconPic->m_strideC;
 
-            uint64_t ssdU = m_frameEncoder->m_top->computeSSD(fencPic->getCbAddr(cuAddr), reconPic->getCbAddr(cuAddr), stride, width, height, m_param);
-            uint64_t ssdV = m_frameEncoder->m_top->computeSSD(fencPic->getCrAddr(cuAddr), reconPic->getCrAddr(cuAddr), stride, width, height, m_param);
+            uint64_t ssdU = m_frameEncoder->m_top->computeSSD(fencPic->getCbAddr(cuAddr), reconPic->getCbAddr(cuAddr), stride, width, height);
+            uint64_t ssdV = m_frameEncoder->m_top->computeSSD(fencPic->getCrAddr(cuAddr), reconPic->getCrAddr(cuAddr), stride, width, height);
 
             m_frameEncoder->m_SSDU += ssdU;
             m_frameEncoder->m_SSDV += ssdV;
@@ -753,12 +753,9 @@ void FrameFilter::computeMEIntegral(int row)
         int maxHeight = numCuInHeight * m_param->maxCUSize;
         int startRow = 0;
 
-        if (m_param->interlaceMode)
-            startRow = (row * m_param->maxCUSize >> 1);
-        else
-            startRow = row * m_param->maxCUSize;
+        startRow = row * m_param->maxCUSize;
 
-        int height = lastRow ? (maxHeight + m_param->maxCUSize * m_param->interlaceMode) : (((row + m_param->interlaceMode) * m_param->maxCUSize) + m_param->maxCUSize);
+        int height = lastRow ? maxHeight : ((row * m_param->maxCUSize) + m_param->maxCUSize);
 
         if (!row)
         {

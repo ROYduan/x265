@@ -132,14 +132,6 @@ void determineLevel(const s265_param &param, VPS& vps)
         vps.ptl.levelIdc = Level::LEVEL8_5;
         vps.ptl.tierFlag = Level::MAIN;
     }
-    else if (param.uhdBluray)
-    {
-        i = 8;
-        vps.ptl.levelIdc = levels[i].levelEnum;
-        vps.ptl.tierFlag = Level::HIGH;
-        vps.ptl.minCrForLevel = levels[i].minCompressionRatio;
-        vps.ptl.maxLumaSrForLevel = levels[i].maxLumaSamplesPerSecond;
-    }
     else for (i = 0; i < NumLevels; i++)
     {
         if (lumaSamples > levels[i].maxLumaSamples)
@@ -401,15 +393,12 @@ bool enforceLevel(s265_param& param, VPS& vps)
     /* The value of sps_max_dec_pic_buffering_minus1[ HighestTid ] + 1 shall be less than or equal to MaxDpbSize */
     const uint32_t MaxDpbPicBuf = 6;
     uint32_t maxDpbSize = MaxDpbPicBuf;
-    if (!param.uhdBluray) /* Do not change MaxDpbPicBuf for UHD-Bluray */
-    {
-        if (lumaSamples <= (l.maxLumaSamples >> 2))
-            maxDpbSize = S265_MIN(4 * MaxDpbPicBuf, 16);
-        else if (lumaSamples <= (l.maxLumaSamples >> 1))
-            maxDpbSize = S265_MIN(2 * MaxDpbPicBuf, 16);
-        else if (lumaSamples <= ((3 * l.maxLumaSamples) >> 2))
-            maxDpbSize = S265_MIN((4 * MaxDpbPicBuf) / 3, 16);
-    }
+    if (lumaSamples <= (l.maxLumaSamples >> 2))
+        maxDpbSize = S265_MIN(4 * MaxDpbPicBuf, 16);
+    else if (lumaSamples <= (l.maxLumaSamples >> 1))
+        maxDpbSize = S265_MIN(2 * MaxDpbPicBuf, 16);
+    else if (lumaSamples <= ((3 * l.maxLumaSamples) >> 2))
+        maxDpbSize = S265_MIN((4 * MaxDpbPicBuf) / 3, 16);
 
     int savedRefCount = param.maxNumReferences;
     while (vps.maxDecPicBuffering > maxDpbSize && param.maxNumReferences > 1)

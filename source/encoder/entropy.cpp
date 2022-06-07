@@ -386,7 +386,7 @@ void Entropy::codeProfileTier(const ProfileTierLevel& ptl, int maxTempSubLayers)
         WRITE_FLAG(ptl.profileCompatibilityFlag[j], "XXX_profile_compatibility_flag[][j]");
 
     WRITE_FLAG(ptl.progressiveSourceFlag,   "general_progressive_source_flag");
-    WRITE_FLAG(ptl.interlacedSourceFlag,    "general_interlaced_source_flag");
+    WRITE_FLAG(0,    "general_interlaced_source_flag");
     WRITE_FLAG(ptl.nonPackedConstraintFlag, "general_non_packed_constraint_flag");
     WRITE_FLAG(ptl.frameOnlyConstraintFlag, "general_frame_only_constraint_flag");
 
@@ -456,16 +456,11 @@ void Entropy::codeVUI(const VUI& vui, int maxSubTLayers, bool bEmitVUITimingInfo
         }
     }
 
-    WRITE_FLAG(vui.chromaLocInfoPresentFlag, "chroma_loc_info_present_flag");
-    if (vui.chromaLocInfoPresentFlag)
-    {
-        WRITE_UVLC(vui.chromaSampleLocTypeTopField, "chroma_sample_loc_type_top_field");
-        WRITE_UVLC(vui.chromaSampleLocTypeBottomField, "chroma_sample_loc_type_bottom_field");
-    }
+    WRITE_FLAG(0, "chroma_loc_info_present_flag");
 
     WRITE_FLAG(0, "neutral_chroma_indication_flag");
-    WRITE_FLAG(vui.fieldSeqFlag, "field_seq_flag");
-    WRITE_FLAG(vui.frameFieldInfoPresentFlag, "frame_field_info_present_flag");
+    WRITE_FLAG(0, "field_seq_flag");
+    WRITE_FLAG(0, "frame_field_info_present_flag");
 
     WRITE_FLAG(vui.defaultDisplayWindow.bEnabled, "default_display_window_flag");
     if (vui.defaultDisplayWindow.bEnabled)

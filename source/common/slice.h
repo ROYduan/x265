@@ -114,7 +114,6 @@ struct ProfileTierLevel
     int      chromaFormatConstraint;
     bool     tierFlag;
     bool     progressiveSourceFlag;
-    bool     interlacedSourceFlag;
     bool     nonPackedConstraintFlag;
     bool     frameOnlyConstraintFlag;
     bool     profileCompatibilityFlag[32];
@@ -184,8 +183,6 @@ struct VUI
     int        colourPrimaries;
     int        transferCharacteristics;
     int        matrixCoefficients;
-    int        chromaSampleLocTypeTopField;
-    int        chromaSampleLocTypeBottomField;
 
     bool       aspectRatioInfoPresentFlag;
     bool       overscanInfoPresentFlag;
@@ -193,9 +190,6 @@ struct VUI
     bool       videoSignalTypePresentFlag;
     bool       videoFullRangeFlag;
     bool       colourDescriptionPresentFlag;
-    bool       chromaLocInfoPresentFlag;
-    bool       frameFieldInfoPresentFlag;
-    bool       fieldSeqFlag;
     bool       hrdParametersPresentFlag;
 
     HRDInfo    hrdParameters;
@@ -362,7 +356,6 @@ public:
     int         numRefIdxDefault[2];
     int         m_iNumRPSInSPS;
     const s265_param *m_param;
-    int         m_fieldNum;
 
     Slice()
     {
@@ -378,7 +371,6 @@ public:
         numRefIdxDefault[1] = 1;
         m_rpsIdx = -1;
         m_chromaQpOffset[0] = m_chromaQpOffset[1] = 0;
-        m_fieldNum = 0;
     }
 
     void disableWeights();

@@ -131,7 +131,6 @@ public:
     uint32_t*              m_classifyCount;
 
     bool                   m_classifyFrame;
-    int                    m_fieldNum;
 
     /* aq-mode 4 : Gaussian, edge and theta frames for edge information */
     pixel*                 m_edgePic;

@@ -141,10 +141,7 @@ void s265_param_default(s265_param* param)
     param->sourceBitDepth = 8;
     param->internalCsp = S265_CSP_I420;
     param->levelIdc = 0; //Auto-detect level
-    param->uhdBluray = 0;
     param->bHighTier = 1; //Allow high tier by default
-    param->interlaceMode = 0;
-    param->bField = 0;
     param->bAnnexB = 1;
     param->bRepeatHeaders = 0;
     param->bEnableAccessUnitDelimiters = 0;
@@ -327,9 +324,6 @@ void s265_param_default(s265_param* param)
     param->vui.colorPrimaries = 2;
     param->vui.transferCharacteristics = 2;
     param->vui.matrixCoeffs = 2;
-    param->vui.bEnableChromaLocInfoPresentFlag = 0;
-    param->vui.chromaSampleLocTypeTopField = 0;
-    param->vui.chromaSampleLocTypeBottomField = 0;
     param->vui.bEnableDefaultDisplayWindowFlag = 0;
     param->vui.defDispWinLeftOffset = 0;
     param->vui.defDispWinRightOffset = 0;
@@ -341,7 +335,6 @@ void s265_param_default(s265_param* param)
     param->maxLuma = PIXEL_MAX;
     param->log2MaxPocLsb = 8;
     param->maxSlices = 1;
-    param->videoSignalTypePreset = NULL;
 
     /*Conformance window*/
     param->confWinRightOffset = 0;
@@ -365,7 +358,6 @@ void s265_param_default(s265_param* param)
     param->interRefine = 0;
     param->bDynamicRefine = 0;
     param->mvRefine = 1;
-    param->bUseAnalysisFile = 1;
     param->csvfpt = NULL;
     param->forceFlush = 0;
     param->bDisableLookahead = 0;
@@ -379,11 +371,7 @@ void s265_param_default(s265_param* param)
 
     /* SEI messages */
     param->preferredTransferCharacteristics = -1;
-    param->pictureStructure = -1;
     param->bEmitCLL = 1;
-
-    param->bEnableFrameDuplication = 0;
-    param->dupThreshold = 70;
 
     /* SVT Hevc Encoder specific params */
     param->bEnableSvtHevc = 0;
@@ -986,15 +974,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         //     p->bFrameAdaptive = atoi(value);
         // }
     }
-    OPT("interlace")
-    {
-        p->interlaceMode = atobool(value);
-        if (bError || p->interlaceMode)
-        {
-            bError = false;
-            p->interlaceMode = parseName(value, s265_interlace_names, bError);
-        }
-    }
     OPT("ref") p->maxNumReferences = atoi(value);
     OPT("limit-refs") p->limitReferences = atoi(value);
     OPT("limit-modes") p->limitModes = atobool(value);
@@ -1207,12 +1186,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         p->vui.bEnableColorDescriptionPresentFlag = 1;
         p->vui.matrixCoeffs = parseName(value, s265_colmatrix_names, bError);
     }
-    OPT("chromaloc")
-    {
-        p->vui.bEnableChromaLocInfoPresentFlag = 1;
-        p->vui.chromaSampleLocTypeTopField = atoi(value);
-        p->vui.chromaSampleLocTypeBottomField = p->vui.chromaSampleLocTypeTopField;
-    }
     OPT2("display-window", "crop-rect")
     {
         p->vui.bEnableDefaultDisplayWindowFlag = 1;
@@ -1240,7 +1213,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("max-cll") bError |= sscanf(value, "%hu,%hu", &p->maxCLL, &p->maxFALL) != 2;
     OPT("min-luma") p->minLuma = (uint16_t)atoi(value);
     OPT("max-luma") p->maxLuma = (uint16_t)atoi(value);
-    OPT("uhd-bd") p->uhdBluray = atobool(value);
     else
         bExtraParams = true;
 
@@ -1318,7 +1290,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("dynamic-refine") p->bDynamicRefine = atobool(value);
         OPT("single-sei") p->bSingleSeiNal = atobool(value);
         OPT("atc-sei") p->preferredTransferCharacteristics = atoi(value);
-        OPT("pic-struct") p->pictureStructure = atoi(value);
         OPT("chunk-start") p->chunkStart = atoi(value);
         OPT("chunk-end") p->chunkEnd = atoi(value);
         OPT("nalu-file") p->naluFile = strdup(value);
@@ -1427,10 +1398,7 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
                 }
             }
         }
-        OPT("field") p->bField = atobool( value );
         OPT("cll") p->bEmitCLL = atobool(value);
-        OPT("frame-dup") p->bEnableFrameDuplication = atobool(value);
-        OPT("dup-threshold") p->dupThreshold = atoi(value);
         OPT("hme") p->bEnableHME = atobool(value);
         OPT("hme-search")
         {
@@ -1460,7 +1428,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("vbv-live-multi-pass") p->bliveVBV2pass = atobool(value);
         OPT("min-vbv-fullness") p->minVbvFullness = atof(value);
         OPT("max-vbv-fullness") p->maxVbvFullness = atof(value);
-        OPT("video-signal-type-preset") p->videoSignalTypePreset = strdup(value);
         OPT("eob") p->bEnableEndOfBitstream = atobool(value);
         OPT("eos") p->bEnableEndOfSequence = atobool(value);
         else
@@ -1610,8 +1577,6 @@ int s265_check_params(s265_param* param)
 {
 #define CHECK(expr, msg) check_failed |= _confirm(param, expr, msg)
     int check_failed = 0; /* abort if there is a fatal configuration problem */
-    CHECK(param->uhdBluray == 1 && (S265_DEPTH != 10 || param->internalCsp != 1 || param->interlaceMode != 0),
-        "uhd-bd: bit depth, chroma subsample, source picture type must be 10, 4:2:0, progressive");
     CHECK(param->maxCUSize != 64 && param->maxCUSize != 32 && param->maxCUSize != 16,
           "max cu size must be 16, 32, or 64");
     if (check_failed == 1)
@@ -1633,8 +1598,6 @@ int s265_check_params(s265_param* param)
           "QP exceeds supported range (-QpBDOffsety to 51)");
     CHECK(param->fpsNum == 0 || param->fpsDenom == 0,
           "Frame rate numerator and denominator must be specified");
-    CHECK(param->interlaceMode < 0 || param->interlaceMode > 2,
-          "Interlace mode must be 0 (progressive) 1 (top-field first) or 2 (bottom field first)");
     CHECK(param->searchMethod < 0 || param->searchMethod > S265_FULL_SEARCH,
           "Search method is not supported value (0:DIA 1:HEX 2:UMH 3:HM 4:SEA 5:FULL)");
     CHECK(param->searchRange < 0,
@@ -1756,12 +1719,6 @@ int s265_check_params(s265_param* param)
           || param->vui.matrixCoeffs == 3,
           "Matrix Coefficients must be unknown, bt709, fcc, bt470bg, smpte170m,"
           " smpte240m, gbr, ycgco, bt2020nc, bt2020c, smpte-st-2085, chroma-nc, chroma-c or ictcp");
-    CHECK(param->vui.chromaSampleLocTypeTopField < 0
-          || param->vui.chromaSampleLocTypeTopField > 5,
-          "Chroma Sample Location Type Top Field must be 0-5");
-    CHECK(param->vui.chromaSampleLocTypeBottomField < 0
-          || param->vui.chromaSampleLocTypeBottomField > 5,
-          "Chroma Sample Location Type Bottom Field must be 0-5");
     CHECK(param->vui.defDispWinLeftOffset < 0,
           "Default Display Window Left Offset must be 0 or greater");
     CHECK(param->vui.defDispWinRightOffset < 0,
@@ -1841,8 +1798,6 @@ int s265_check_params(s265_param* param)
         "Supported factor for controlling max AU size is from 0.5 to 1");
     CHECK((param->dolbyProfile != 0) && (param->dolbyProfile != 50) && (param->dolbyProfile != 81) && (param->dolbyProfile != 82),
         "Unsupported Dolby Vision profile, only profile 5, profile 8.1 and profile 8.2 enabled");
-    CHECK(param->dupThreshold < 1 || 99 < param->dupThreshold,
-        "Invalid frame-duplication threshold. Value must be between 1 and 99.");
     if (param->dolbyProfile)
     {
         CHECK((param->rc.vbvMaxBitrate <= 0 || param->rc.vbvBufferSize <= 0), "Dolby Vision requires VBV settings to enable HRD.\n");
@@ -1850,11 +1805,6 @@ int s265_check_params(s265_param* param)
         CHECK((param->internalCsp != S265_CSP_I420), "Dolby Vision profile - 5, profile - 8.1 and profile - 8.2 requires YCbCr 4:2:0 color space\n");
         if (param->dolbyProfile == 81)
             CHECK(!(param->masteringDisplayColorVolume), "Dolby Vision profile - 8.1 requires Mastering display color volume information\n");
-    }
-    if (param->bField && param->interlaceMode)
-    {
-        CHECK( (param->bFrameAdaptive==0), "Adaptive B-frame decision method should be closed for field feature.\n" );
-        // to do
     }
     CHECK(param->selectiveSAO < 0 || param->selectiveSAO > 4,
         "Invalid SAO tune level. Value must be between 0 and 4 (inclusive)");
@@ -1903,7 +1853,6 @@ int s265_check_params(s265_param* param)
                      || param->bEmitInfoSEI
                      || param->bEmitHDR10SEI
                      || param->bEmitIDRRecoverySEI
-                   || !!param->interlaceMode
                      || param->preferredTransferCharacteristics > 1
                      || param->toneMapFile
                      || param->naluFile);
@@ -1966,9 +1915,6 @@ void s265_print_params(s265_param* param)
 {
     if (param->logLevel < S265_LOG_INFO)
         return;
-
-    if (param->interlaceMode)
-        s265_log(param, S265_LOG_INFO, "Interlaced field inputs             : %s\n", s265_interlace_names[param->interlaceMode]);
 
     s265_log(param, S265_LOG_INFO, "Coding QT: max CU size, min CU size : %d / %d\n", param->maxCUSize, param->minCUSize);
 
@@ -2099,8 +2045,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
         bufSize += strlen(p->numaPools);
     if (p->masteringDisplayColorVolume)
         bufSize += strlen(p->masteringDisplayColorVolume);
-    if (p->videoSignalTypePreset)
-        bufSize += strlen(p->videoSignalTypePreset);
 
     buf = s = S265_MALLOC(char, bufSize);
     if (!buf)
@@ -2124,7 +2068,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " input-csp=%d", p->internalCsp);
     s += sprintf(s, " fps=%u/%u", p->fpsNum, p->fpsDenom);
     s += sprintf(s, " input-res=%dx%d", p->sourceWidth - padx, p->sourceHeight - pady);
-    s += sprintf(s, " interlace=%d", p->interlaceMode);
     s += sprintf(s, " total-frames=%d", p->totalFrames);
     if (p->chunkStart)
         s += sprintf(s, " chunk-start=%d", p->chunkStart);
@@ -2132,7 +2075,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
         s += sprintf(s, " chunk-end=%d", p->chunkEnd);
     s += sprintf(s, " level-idc=%d", p->levelIdc);
     s += sprintf(s, " high-tier=%d", p->bHighTier);
-    s += sprintf(s, " uhd-bd=%d", p->uhdBluray);
     s += sprintf(s, " ref=%d", p->maxNumReferences);
     BOOL(p->bAllowNonConformance, "allow-non-conformance");
     BOOL(p->bRepeatHeaders, "repeat-headers");
@@ -2186,9 +2128,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " subme=%d", p->subpelRefine);
     s += sprintf(s, " merange=%d", p->searchRange);
     BOOL(p->bEnableTemporalMvp, "temporal-mvp");
-    BOOL(p->bEnableFrameDuplication, "frame-dup");
-    if(p->bEnableFrameDuplication)
-        s += sprintf(s, " dup-threshold=%d", p->dupThreshold);
     BOOL(p->bEnableHME, "hme");
     if (p->bEnableHME)
     {
@@ -2289,10 +2228,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " colorprim=%d", p->vui.colorPrimaries);
     s += sprintf(s, " transfer=%d", p->vui.transferCharacteristics);
     s += sprintf(s, " colormatrix=%d", p->vui.matrixCoeffs);
-    s += sprintf(s, " chromaloc=%d", p->vui.bEnableChromaLocInfoPresentFlag);
-    if (p->vui.bEnableChromaLocInfoPresentFlag)
-        s += sprintf(s, " chromaloc-top=%d chromaloc-bottom=%d",
-        p->vui.chromaSampleLocTypeTopField, p->vui.chromaSampleLocTypeBottomField);
     s += sprintf(s, " display-window=%d", p->vui.bEnableDefaultDisplayWindowFlag);
     if (p->vui.bEnableDefaultDisplayWindowFlag)
         s += sprintf(s, " left=%d top=%d right=%d bottom=%d",
@@ -2332,7 +2267,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bSingleSeiNal, "single-sei");
     BOOL(p->rc.hevcAq, "hevc-aq");
     BOOL(p->bEnableSvtHevc, "svt");
-    BOOL(p->bField, "field");
     s += sprintf(s, " qp-adaptation-range=%.2f", p->rc.qpAdaptationRange);
     s += sprintf(s, " scenecut-aware-qp=%d", p->bEnableSceneCutAwareQp);
     if (p->bEnableSceneCutAwareQp)
@@ -2440,11 +2374,9 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->fpsDenom = src->fpsDenom;
     dst->sourceHeight = src->sourceHeight;
     dst->sourceWidth = src->sourceWidth;
-    dst->interlaceMode = src->interlaceMode;
     dst->totalFrames = src->totalFrames;
     dst->levelIdc = src->levelIdc;
     dst->bHighTier = src->bHighTier;
-    dst->uhdBluray = src->uhdBluray;
     dst->maxNumReferences = src->maxNumReferences;
     dst->bAllowNonConformance = src->bAllowNonConformance;
     dst->bRepeatHeaders = src->bRepeatHeaders;
@@ -2493,8 +2425,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->subpelRefine = src->subpelRefine;
     dst->searchRange = src->searchRange;
     dst->bEnableTemporalMvp = src->bEnableTemporalMvp;
-    dst->bEnableFrameDuplication = src->bEnableFrameDuplication;
-    dst->dupThreshold = src->dupThreshold;
     dst->bEnableHME = src->bEnableHME;
     if (src->bEnableHME)
     {
@@ -2529,7 +2459,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->cbQpOffset = src->cbQpOffset;
     dst->crQpOffset = src->crQpOffset;
     dst->preferredTransferCharacteristics = src->preferredTransferCharacteristics;
-    dst->pictureStructure = src->pictureStructure;
 
     dst->rc.rateControlMode = src->rc.rateControlMode;
     dst->rc.qp = src->rc.qp;
@@ -2628,9 +2557,7 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->vui.colorPrimaries = src->vui.colorPrimaries;
     dst->vui.transferCharacteristics = src->vui.transferCharacteristics;
     dst->vui.matrixCoeffs = src->vui.matrixCoeffs;
-    dst->vui.bEnableChromaLocInfoPresentFlag = src->vui.bEnableChromaLocInfoPresentFlag;
-    dst->vui.chromaSampleLocTypeTopField = src->vui.chromaSampleLocTypeTopField;
-    dst->vui.chromaSampleLocTypeBottomField = src->vui.chromaSampleLocTypeBottomField;
+
     dst->vui.bEnableDefaultDisplayWindowFlag = src->vui.bEnableDefaultDisplayWindowFlag;
     dst->vui.defDispWinBottomOffset = src->vui.defDispWinBottomOffset;
     dst->vui.defDispWinLeftOffset = src->vui.defDispWinLeftOffset;
@@ -2678,7 +2605,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
 
     dst->csvfpt = src->csvfpt;
     dst->bEnableSplitRdSkip = src->bEnableSplitRdSkip;
-    dst->bUseAnalysisFile = src->bUseAnalysisFile;
     dst->forceFlush = src->forceFlush;
     dst->bDisableLookahead = src->bDisableLookahead;
     dst->bLowPassDct = src->bLowPassDct;
@@ -2708,14 +2634,11 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bwdScenecutWindow = src->bwdScenecutWindow;
     dst->bwdRefQpDelta = src->bwdRefQpDelta;
     dst->bwdNonRefQpDelta = src->bwdNonRefQpDelta;
-    dst->bField = src->bField;
 
     dst->confWinRightOffset = src->confWinRightOffset;
     dst->confWinBottomOffset = src->confWinBottomOffset;
     dst->bliveVBV2pass = src->bliveVBV2pass;
 
-    if (src->videoSignalTypePreset) dst->videoSignalTypePreset = strdup(src->videoSignalTypePreset);
-    else dst->videoSignalTypePreset = NULL;
 #ifdef SVT_HEVC
     memcpy(dst->svtHevcParam, src->svtHevcParam, sizeof(EB_H265_ENC_CONFIGURATION));
 #endif
@@ -2744,9 +2667,6 @@ void svt_param_default(s265_param* param)
     //Preset & Tune
     svtHevcParam->encMode = 7;
     svtHevcParam->tune = 1;
-
-    // Interlaced Video 
-    svtHevcParam->interlacedVideo = 0;
 
     // Quantization
     svtHevcParam->qp = 32;
@@ -2985,15 +2905,6 @@ int svt_param_parse(s265_param* param, const char* name, const char* value)
     {
         svtHevcParam->rateControlMode = 1;
         svtHevcParam->targetBitRate = atoi(value);
-    }
-    OPT("interlace")
-    {
-        svtHevcParam->interlacedVideo = (uint8_t)s265_atobool(value, bError);
-        if (bError || svtHevcParam->interlacedVideo)
-        {
-            bError = false;
-            svtHevcParam->interlacedVideo = 1;
-        }
     }
     OPT("svt-hme")
     {

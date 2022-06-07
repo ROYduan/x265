@@ -98,8 +98,6 @@ SVT-HEVC encoder options (Name as shown in SVT-HEVC's sample configuration file)
 | :option:`--bitrate`                       +------------------------------+------------------------------+
 |                                           | TargetBitrate                | Any Positive Integer         |
 +-------------------------------------------+------------------------------+------------------------------+
-| :option:`--interlace`                     | InterlacedVideo              | [0 - 2]                      |
-+-------------------------------------------+------------------------------+------------------------------+
 | :option:`--pools`                         | TargetSocket,                | Maximum NUMA Nodes = 2       |
 |                                           | LogicalProcessors            |                              |
 +-------------------------------------------+------------------------------+------------------------------+
