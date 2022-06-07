@@ -233,7 +233,6 @@ namespace S265_NS {
         H0("   --analysis-load <filename>    Load analysis buffers from the file specified. Default Disabled\n");
         H0("   --analysis-reuse-file <filename>    Specify file name used for either dumping or reading analysis data. Deault s265_analysis.dat\n");
         H0("   --analysis-reuse-level <1..10>      Level of analysis reuse indicates amount of info stored/reused in save/load mode, 1:least..10:most. Now deprecated. Default %d\n", param->analysisReuseLevel);
-        H0("   --analysis-load-reuse-level <1..10> Indicates the amount of analysis info reused in load mode, 1:least..10:most. Default %d\n", param->analysisLoadReuseLevel);
         H0("   --refine-analysis-type <string>     Reuse anlaysis information received through API call. Supported options are avc and hevc. Default disabled - %d\n", param->bAnalysisType);
         H0("   --scale-factor <int>          Specify factor by which input video is scaled down for analysis save mode. Default %d\n", param->scaleFactor);
         H0("   --refine-intra <0..4>         Enable intra refinement for encode that uses analysis-load.\n"

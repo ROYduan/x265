@@ -92,9 +92,6 @@ bool Frame::create(s265_param *param, float* quantOffsets)
     if (param->bAnalysisType == AVC_INFO)
     {
         m_analysisData.wt = NULL;
-        m_analysisData.intraData = NULL;
-        m_analysisData.interData = NULL;
-        m_analysisData.distortionData = NULL;
     }
 
     if (param->bDynamicRefine)

@@ -337,11 +337,6 @@ void FrameEncoder::threadMain()
             while (!m_frame->m_ctuInfo)
                 m_frame->m_copied.wait();
         }
-        if ((m_param->bAnalysisType == AVC_INFO) && !m_param->analysisLoad && !(IS_S265_TYPE_I(m_frame->m_lowres.sliceType)))
-        {
-            while (((m_frame->m_analysisData.interData == NULL && m_frame->m_analysisData.intraData == NULL) || (uint32_t)m_frame->m_poc != m_frame->m_analysisData.poc))
-                m_frame->m_copyMVType.wait();
-        }
         compressFrame();
         m_done.trigger(); /* FrameEncoder::getEncodedPicture() blocks for this event */
         m_enable.wait();
@@ -511,37 +506,18 @@ void FrameEncoder::compressFrame()
     bool bUseWeightP = slice->m_sliceType == P_SLICE && slice->m_pps->bUseWeightPred;
     bool bUseWeightB = slice->m_sliceType == B_SLICE && slice->m_pps->bUseWeightedBiPred;
 
-    WeightParam* reuseWP = NULL;
-    if (m_param->analysisLoad && (bUseWeightP || bUseWeightB))
-        reuseWP = (WeightParam*)m_frame->m_analysisData.wt;
-
     if (bUseWeightP || bUseWeightB)
     {
 #if DETAILED_CU_STATS
         m_cuStats.countWeightAnalyze++;
         ScopedElapsedTime time(m_cuStats.weightAnalyzeTime);
 #endif
-        if (m_param->analysisLoad)
-        {
-            for (int list = 0; list < slice->isInterB() + 1; list++) 
-            {
-                for (int plane = 0; plane < (m_param->internalCsp != S265_CSP_I400 ? 3 : 1); plane++)
-                {
-                    for (int ref = 1; ref < slice->m_numRefIdx[list]; ref++)
-                        SET_WEIGHT(slice->m_weightPredTable[list][ref][plane], false, 1 << reuseWP->log2WeightDenom, reuseWP->log2WeightDenom, 0);
-                    slice->m_weightPredTable[list][0][plane] = *(reuseWP++);
-                }
-            }
-        }
+        WeightAnalysis wa(*this);
+        if (m_pool && wa.tryBondPeers(*this, 1))
+            /* use an idle worker for weight analysis */
+            wa.waitForExit();
         else
-        {
-            WeightAnalysis wa(*this);
-            if (m_pool && wa.tryBondPeers(*this, 1))
-                /* use an idle worker for weight analysis */
-                wa.waitForExit();
-            else
-                weightAnalyse(*slice, *m_frame, *m_param);
-        }
+            weightAnalyse(*slice, *m_frame, *m_param);
     }
     else
         slice->disableWeights();
@@ -1486,20 +1462,17 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             /* TODO: use defines from slicetype.h for lowres block size */
             uint32_t block_y = (ctu->m_cuPelY >> m_param->maxLog2CUSize) * noOfBlocks;
             uint32_t block_x = (ctu->m_cuPelX >> m_param->maxLog2CUSize) * noOfBlocks;
-            if (!m_param->analysisLoad || !m_param->bDisableLookahead)
+            cuStat.vbvCost = 0;
+            cuStat.intraVbvCost = 0;
+
+            for (uint32_t h = 0; h < noOfBlocks && block_y < m_sliceMaxBlockRow[sliceId + 1]; h++, block_y++)
             {
-                cuStat.vbvCost = 0;
-                cuStat.intraVbvCost = 0;
+                uint32_t idx = block_x + (block_y * maxBlockCols);
 
-                for (uint32_t h = 0; h < noOfBlocks && block_y < m_sliceMaxBlockRow[sliceId + 1]; h++, block_y++)
+                for (uint32_t w = 0; w < noOfBlocks && (block_x + w) < maxBlockCols; w++, idx++)
                 {
-                    uint32_t idx = block_x + (block_y * maxBlockCols);
-
-                    for (uint32_t w = 0; w < noOfBlocks && (block_x + w) < maxBlockCols; w++, idx++)
-                    {
-                        cuStat.vbvCost += m_frame->m_lowres.lowresCostForRc[idx] & LOWRES_COST_MASK;
-                        cuStat.intraVbvCost += m_frame->m_lowres.intraCost[idx];
-                    }
+                    cuStat.vbvCost += m_frame->m_lowres.lowresCostForRc[idx] & LOWRES_COST_MASK;
+                    cuStat.intraVbvCost += m_frame->m_lowres.intraCost[idx];
                 }
             }
         }

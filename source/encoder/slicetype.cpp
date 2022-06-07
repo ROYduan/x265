@@ -1154,21 +1154,9 @@ void Lookahead::destroy()
 /* Called by API thread */
 void Lookahead::addPicture(Frame& curFrame, int sliceType)
 {
-    if (m_param->analysisLoad && m_param->bDisableLookahead)
-    {
-        if (!m_filled)
-            m_filled = true;
-        m_outputLock.acquire();
-        m_outputQueue.pushBack(curFrame);
-        m_outputLock.release();
-        m_inputCount++;
-    }
-    else
-    {
-        checkLookaheadQueue(m_inputCount);
-        curFrame.m_lowres.sliceType = sliceType;
-        addPicture(curFrame);
-    }
+    checkLookaheadQueue(m_inputCount);
+    curFrame.m_lowres.sliceType = sliceType;
+    addPicture(curFrame);
 }
 
 void Lookahead::addPicture(Frame& curFrame)
@@ -1255,9 +1243,6 @@ Frame* Lookahead::getDecidedPicture()
             return out;
         }
 
-        if (m_param->analysisLoad && m_param->bDisableLookahead)
-            return NULL;
-
         findJob(-1); /* run slicetypeDecide() if necessary */
 
         m_inputLock.acquire();
@@ -1325,69 +1310,66 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
     default:
         return;
     }
-    if (!m_param->analysisLoad || !m_param->bDisableLookahead)
+    S265_CHECK(curFrame->m_lowres.costEst[b - p0][p1 - b] > 0, "Slice cost not estimated\n")
+
+    if (m_param->rc.cuTree && !m_param->rc.bStatRead)
+        /* update row satds based on cutree offsets */
+        curFrame->m_lowres.satdCost = frameCostRecalculate(frames, p0, p1, b);
+    else
     {
-        S265_CHECK(curFrame->m_lowres.costEst[b - p0][p1 - b] > 0, "Slice cost not estimated\n")
+        if (m_param->rc.aqMode)
+            curFrame->m_lowres.satdCost = curFrame->m_lowres.costEstAq[b - p0][p1 - b];
+        else
+            curFrame->m_lowres.satdCost = curFrame->m_lowres.costEst[b - p0][p1 - b];
+    }
+    if (m_param->rc.vbvBufferSize && m_param->rc.vbvMaxBitrate)
+    {
+        /* aggregate lowres row satds to CTU resolution */
+        curFrame->m_lowres.lowresCostForRc = curFrame->m_lowres.lowresCosts[b - p0][p1 - b];
+        uint32_t lowresRow = 0, lowresCol = 0, lowresCuIdx = 0, sum = 0, intraSum = 0;
+        uint32_t scale = m_param->maxCUSize / (2 * S265_LOWRES_CU_SIZE);
+        uint32_t numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
+        uint32_t widthInLowresCu = (uint32_t)m_8x8Width, heightInLowresCu = (uint32_t)m_8x8Height;
+        double *qp_offset = 0;
+        /* Factor in qpoffsets based on Aq/Cutree in CU costs */
+        if (m_param->rc.aqMode || m_param->bAQMotion)
+            qp_offset = (frames[b]->sliceType == S265_TYPE_B || !m_param->rc.cuTree) ? frames[b]->qpAqOffset : frames[b]->qpCuTreeOffset;
 
-        if (m_param->rc.cuTree && !m_param->rc.bStatRead)
-            /* update row satds based on cutree offsets */
-            curFrame->m_lowres.satdCost = frameCostRecalculate(frames, p0, p1, b);
-        else if (!m_param->analysisLoad || m_param->scaleFactor || m_param->bAnalysisType == HEVC_INFO)
+        for (uint32_t row = 0; row < numCuInHeight; row++)
         {
-            if (m_param->rc.aqMode)
-                curFrame->m_lowres.satdCost = curFrame->m_lowres.costEstAq[b - p0][p1 - b];
-            else
-                curFrame->m_lowres.satdCost = curFrame->m_lowres.costEst[b - p0][p1 - b];
-        }
-        if (m_param->rc.vbvBufferSize && m_param->rc.vbvMaxBitrate)
-        {
-            /* aggregate lowres row satds to CTU resolution */
-            curFrame->m_lowres.lowresCostForRc = curFrame->m_lowres.lowresCosts[b - p0][p1 - b];
-            uint32_t lowresRow = 0, lowresCol = 0, lowresCuIdx = 0, sum = 0, intraSum = 0;
-            uint32_t scale = m_param->maxCUSize / (2 * S265_LOWRES_CU_SIZE);
-            uint32_t numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
-            uint32_t widthInLowresCu = (uint32_t)m_8x8Width, heightInLowresCu = (uint32_t)m_8x8Height;
-            double *qp_offset = 0;
-            /* Factor in qpoffsets based on Aq/Cutree in CU costs */
-            if (m_param->rc.aqMode || m_param->bAQMotion)
-                qp_offset = (frames[b]->sliceType == S265_TYPE_B || !m_param->rc.cuTree) ? frames[b]->qpAqOffset : frames[b]->qpCuTreeOffset;
-
-            for (uint32_t row = 0; row < numCuInHeight; row++)
+            lowresRow = row * scale;
+            for (uint32_t cnt = 0; cnt < scale && lowresRow < heightInLowresCu; lowresRow++, cnt++)
             {
-                lowresRow = row * scale;
-                for (uint32_t cnt = 0; cnt < scale && lowresRow < heightInLowresCu; lowresRow++, cnt++)
+                sum = 0; intraSum = 0;
+                int diff = 0;
+                lowresCuIdx = lowresRow * widthInLowresCu;
+                for (lowresCol = 0; lowresCol < widthInLowresCu; lowresCol++, lowresCuIdx++)
                 {
-                    sum = 0; intraSum = 0;
-                    int diff = 0;
-                    lowresCuIdx = lowresRow * widthInLowresCu;
-                    for (lowresCol = 0; lowresCol < widthInLowresCu; lowresCol++, lowresCuIdx++)
+                    uint16_t lowresCuCost = curFrame->m_lowres.lowresCostForRc[lowresCuIdx] & LOWRES_COST_MASK;
+                    if (qp_offset)
                     {
-                        uint16_t lowresCuCost = curFrame->m_lowres.lowresCostForRc[lowresCuIdx] & LOWRES_COST_MASK;
-                        if (qp_offset)
-                        {
-                            double qpOffset;
-                            if (m_param->rc.qgSize == 8)
-                                qpOffset = (qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4] +
-                                qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + 1] +
-                                qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes] +
-                                qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes + 1]) / 4;
-                            else
-                                qpOffset = qp_offset[lowresCuIdx];
-                            lowresCuCost = (uint16_t)((lowresCuCost * s265_exp2fix8(qpOffset) + 128) >> 8);
-                            int32_t intraCuCost = curFrame->m_lowres.intraCost[lowresCuIdx];
-                            curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * s265_exp2fix8(qpOffset) + 128) >> 8;
-                        }
-                        if (m_param->bIntraRefresh && slice->m_sliceType == S265_TYPE_P)
-                            for (uint32_t x = curFrame->m_encData->m_pir.pirStartCol; x <= curFrame->m_encData->m_pir.pirEndCol; x++)
-                                diff += curFrame->m_lowres.intraCost[lowresCuIdx] - lowresCuCost;
-                        curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;
-                        sum += lowresCuCost;
-                        intraSum += curFrame->m_lowres.intraCost[lowresCuIdx];
+                        double qpOffset;
+                        if (m_param->rc.qgSize == 8)
+                            qpOffset = (qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4] +
+                            qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + 1] +
+                            qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes] +
+                            qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes + 1]) / 4;
+                        else
+                            qpOffset = qp_offset[lowresCuIdx];
+                        lowresCuCost = (uint16_t)((lowresCuCost * s265_exp2fix8(qpOffset) + 128) >> 8);
+                        int32_t intraCuCost = curFrame->m_lowres.intraCost[lowresCuIdx];
+                        curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * s265_exp2fix8(qpOffset) + 128) >> 8;
                     }
-                    curFrame->m_encData->m_rowStat[row].satdForVbv += sum;
-                    curFrame->m_encData->m_rowStat[row].satdForVbv += diff;
-                    curFrame->m_encData->m_rowStat[row].intraSatdForVbv += intraSum;
+                    if (m_param->bIntraRefresh && slice->m_sliceType == S265_TYPE_P)
+                        for (uint32_t x = curFrame->m_encData->m_pir.pirStartCol; x <= curFrame->m_encData->m_pir.pirEndCol; x++)
+                            diff += curFrame->m_lowres.intraCost[lowresCuIdx] - lowresCuCost;
+                    curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;
+                    sum += lowresCuCost;
+                    intraSum += curFrame->m_lowres.intraCost[lowresCuIdx];
                 }
+                curFrame->m_encData->m_rowStat[row].satdForVbv += sum;
+                curFrame->m_encData->m_rowStat[row].satdForVbv += diff;
+                curFrame->m_encData->m_rowStat[row].intraSatdForVbv += intraSum;
             }
         }
     }
@@ -1592,8 +1574,7 @@ void Lookahead::slicetypeDecide()
     {
         if(!m_param->rc.bStatRead)
             slicetypeAnalyse(frames, false);
-        bool bIsVbv = m_param->rc.vbvBufferSize > 0 && m_param->rc.vbvMaxBitrate > 0;
-        if ((m_param->analysisLoad && m_param->scaleFactor && bIsVbv) || m_param->bliveVBV2pass)
+        if (m_param->bliveVBV2pass)
         {
             int numFrames;
             for (numFrames = 0; numFrames < maxSearch; numFrames++)
@@ -1607,170 +1588,128 @@ void Lookahead::slicetypeDecide()
     }
 
     int bframes, brefs;
-    if (!m_param->analysisLoad || m_param->bAnalysisType == HEVC_INFO)
+    bool isClosedGopRadl = m_param->radl && (m_param->keyframeMax != m_param->keyframeMin);
+    for (bframes = 0, brefs = 0;; bframes++)
     {
-        bool isClosedGopRadl = m_param->radl && (m_param->keyframeMax != m_param->keyframeMin);
-        for (bframes = 0, brefs = 0;; bframes++)
+        Lowres& frm = list[bframes]->m_lowres;
+
+        if (frm.sliceType == S265_TYPE_BREF && !m_param->bBPyramid && brefs == m_param->bBPyramid)
         {
-            Lowres& frm = list[bframes]->m_lowres;
+            frm.sliceType = S265_TYPE_B;
+            s265_log(m_param, S265_LOG_WARNING, "B-ref at frame %d incompatible with B-pyramid\n",
+                frm.frameNum);
+        }
 
-            if (frm.sliceType == S265_TYPE_BREF && !m_param->bBPyramid && brefs == m_param->bBPyramid)
+        /* pyramid with multiple B-refs needs a big enough dpb that the preceding P-frame stays available.
+            * smaller dpb could be supported by smart enough use of mmco, but it's easier just to forbid it. */
+        else if (frm.sliceType == S265_TYPE_BREF && m_param->bBPyramid == S265_B_PYRAMID_STRICT && brefs &&
+            m_param->maxNumReferences <= (brefs + 3))
+        {
+            frm.sliceType = S265_TYPE_B;
+            s265_log(m_param, S265_LOG_WARNING, "B-ref at frame %d incompatible with B-pyramid and %d reference frames\n",
+                frm.sliceType, m_param->maxNumReferences);
+        }
+        if (((!m_param->bIntraRefresh || frm.frameNum == 0) && frm.frameNum - m_lastKeyframe >= m_param->keyframeMax &&
+            (!m_extendGopBoundary || frm.frameNum - m_lastKeyframe >= m_param->keyframeMax + m_param->gopLookahead)) ||
+            (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
+        {
+            if (frm.sliceType == S265_TYPE_AUTO || frm.sliceType == S265_TYPE_I)
+                frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
+            bool warn = frm.sliceType != S265_TYPE_IDR;
+            if (warn && m_param->bOpenGOP)
+                warn &= frm.sliceType != S265_TYPE_I;
+            if (warn)
             {
-                frm.sliceType = S265_TYPE_B;
-                s265_log(m_param, S265_LOG_WARNING, "B-ref at frame %d incompatible with B-pyramid\n",
-                    frm.frameNum);
-            }
-
-            /* pyramid with multiple B-refs needs a big enough dpb that the preceding P-frame stays available.
-             * smaller dpb could be supported by smart enough use of mmco, but it's easier just to forbid it. */
-            else if (frm.sliceType == S265_TYPE_BREF && m_param->bBPyramid == S265_B_PYRAMID_STRICT && brefs &&
-                m_param->maxNumReferences <= (brefs + 3))
-            {
-                frm.sliceType = S265_TYPE_B;
-                s265_log(m_param, S265_LOG_WARNING, "B-ref at frame %d incompatible with B-pyramid and %d reference frames\n",
-                    frm.sliceType, m_param->maxNumReferences);
-            }
-            if (((!m_param->bIntraRefresh || frm.frameNum == 0) && frm.frameNum - m_lastKeyframe >= m_param->keyframeMax &&
-                (!m_extendGopBoundary || frm.frameNum - m_lastKeyframe >= m_param->keyframeMax + m_param->gopLookahead)) ||
-                (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
-            {
-                if (frm.sliceType == S265_TYPE_AUTO || frm.sliceType == S265_TYPE_I)
-                    frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
-                bool warn = frm.sliceType != S265_TYPE_IDR;
-                if (warn && m_param->bOpenGOP)
-                    warn &= frm.sliceType != S265_TYPE_I;
-                if (warn)
-                {
-                    s265_log(m_param, S265_LOG_WARNING, "specified frame type (%d) at %d is not compatible with keyframe interval\n",
-                        frm.sliceType, frm.frameNum);
-                    frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
-                }
-            }
-            if (frm.bIsFadeEnd){
+                s265_log(m_param, S265_LOG_WARNING, "specified frame type (%d) at %d is not compatible with keyframe interval\n",
+                    frm.sliceType, frm.frameNum);
                 frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
             }
+        }
+        if (frm.bIsFadeEnd){
+            frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
+        }
+        if (m_param->bResetZoneConfig)
+        {
+            for (int i = 0; i < m_param->rc.zonefileCount; i++)
+            {
+                int curZoneStart = m_param->rc.zones[i].startFrame;
+                curZoneStart += curZoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
+                if (curZoneStart == frm.frameNum)
+                    frm.sliceType = S265_TYPE_IDR;
+            }
+        }
+        if ((frm.sliceType == S265_TYPE_I && frm.frameNum - m_lastKeyframe >= m_param->keyframeMin) || (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
+        {
+            if (m_param->bOpenGOP)
+            {
+                m_lastKeyframe = frm.frameNum;
+                frm.bKeyframe = true;
+            }
+            else
+                frm.sliceType = S265_TYPE_IDR;
+        }
+        if (frm.sliceType == S265_TYPE_IDR && frm.bScenecut && isClosedGopRadl)
+        {
+            if (!m_param->bHistBasedSceneCut || (m_param->bHistBasedSceneCut && frm.m_bIsHardScenecut))
+            {
+                for (int i = bframes; i < bframes + m_param->radl; i++)
+                    list[i]->m_lowres.sliceType = S265_TYPE_B;
+                list[(bframes + m_param->radl)]->m_lowres.sliceType = S265_TYPE_IDR;
+            }
+        }
+        if (frm.sliceType == S265_TYPE_IDR)
+        {
+            /* Closed GOP */
+            m_lastKeyframe = frm.frameNum;
+            frm.bKeyframe = true;
+            int zoneRadl = 0;
             if (m_param->bResetZoneConfig)
             {
                 for (int i = 0; i < m_param->rc.zonefileCount; i++)
                 {
-                    int curZoneStart = m_param->rc.zones[i].startFrame;
-                    curZoneStart += curZoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
-                    if (curZoneStart == frm.frameNum)
-                        frm.sliceType = S265_TYPE_IDR;
-                }
-            }
-            if ((frm.sliceType == S265_TYPE_I && frm.frameNum - m_lastKeyframe >= m_param->keyframeMin) || (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
-            {
-                if (m_param->bOpenGOP)
-                {
-                    m_lastKeyframe = frm.frameNum;
-                    frm.bKeyframe = true;
-                }
-                else
-                    frm.sliceType = S265_TYPE_IDR;
-            }
-            if (frm.sliceType == S265_TYPE_IDR && frm.bScenecut && isClosedGopRadl)
-            {
-                if (!m_param->bHistBasedSceneCut || (m_param->bHistBasedSceneCut && frm.m_bIsHardScenecut))
-                {
-                    for (int i = bframes; i < bframes + m_param->radl; i++)
-                        list[i]->m_lowres.sliceType = S265_TYPE_B;
-                    list[(bframes + m_param->radl)]->m_lowres.sliceType = S265_TYPE_IDR;
-                }
-            }
-            if (frm.sliceType == S265_TYPE_IDR)
-            {
-                /* Closed GOP */
-                m_lastKeyframe = frm.frameNum;
-                frm.bKeyframe = true;
-                int zoneRadl = 0;
-                if (m_param->bResetZoneConfig)
-                {
-                    for (int i = 0; i < m_param->rc.zonefileCount; i++)
+                    int zoneStart = m_param->rc.zones[i].startFrame;
+                    zoneStart += zoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
+                    if (zoneStart == frm.frameNum)
                     {
-                        int zoneStart = m_param->rc.zones[i].startFrame;
-                        zoneStart += zoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
-                        if (zoneStart == frm.frameNum)
-                        {
-                            zoneRadl = m_param->rc.zones[i].zoneParam->radl;
-                            m_param->radl = 0;
-                            m_param->rc.zones->zoneParam->radl = i < m_param->rc.zonefileCount - 1 ? m_param->rc.zones[i + 1].zoneParam->radl : 0;
-                            break;
-                        }
+                        zoneRadl = m_param->rc.zones[i].zoneParam->radl;
+                        m_param->radl = 0;
+                        m_param->rc.zones->zoneParam->radl = i < m_param->rc.zonefileCount - 1 ? m_param->rc.zones[i + 1].zoneParam->radl : 0;
+                        break;
                     }
                 }
-                if (bframes > 0 && !m_param->radl && !zoneRadl)
-                {
-                    list[bframes - 1]->m_lowres.sliceType = S265_TYPE_P;
-                    bframes--;
-                }
             }
-            if (bframes == m_param->bframes || !list[bframes + 1])
+            if (bframes > 0 && !m_param->radl && !zoneRadl)
             {
-                if (IS_S265_TYPE_B(frm.sliceType))
-                    s265_log(m_param, S265_LOG_WARNING, "specified frame type is not compatible with max B-frames\n");
-                if (frm.sliceType == S265_TYPE_AUTO || IS_S265_TYPE_B(frm.sliceType))
-                    frm.sliceType = S265_TYPE_P;
+                list[bframes - 1]->m_lowres.sliceType = S265_TYPE_P;
+                bframes--;
             }
-            if (frm.sliceType == S265_TYPE_BREF)
-                brefs++;
-            if (frm.sliceType == S265_TYPE_AUTO)
-                frm.sliceType = S265_TYPE_B;
-            else if (!IS_S265_TYPE_B(frm.sliceType))
-            {
-                //如果是非S265_TYPE_B，自然也可以做参考帧，我们在这里标记一下i_bref。
-                //另：我们需要i_bref这个变量吗？或许可以去掉
-                frm.i_bref = 1;
-                break;
-            }
-                
         }
-    }
-    else
-    {
-        for (bframes = 0, brefs = 0;; bframes++)
+        if (bframes == m_param->bframes || !list[bframes + 1])
         {
-            Lowres& frm = list[bframes]->m_lowres;
-            if (frm.sliceType == S265_TYPE_BREF)
-                brefs++;
-            if ((IS_S265_TYPE_I(frm.sliceType) && frm.frameNum - m_lastKeyframe >= m_param->keyframeMin)
-                || (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
-            {
-                m_lastKeyframe = frm.frameNum;
-                frm.bKeyframe = true;
-            }
-            if (!IS_S265_TYPE_B(frm.sliceType))
-                break;
+            if (IS_S265_TYPE_B(frm.sliceType))
+                s265_log(m_param, S265_LOG_WARNING, "specified frame type is not compatible with max B-frames\n");
+            if (frm.sliceType == S265_TYPE_AUTO || IS_S265_TYPE_B(frm.sliceType))
+                frm.sliceType = S265_TYPE_P;
         }
+        if (frm.sliceType == S265_TYPE_BREF)
+            brefs++;
+        if (frm.sliceType == S265_TYPE_AUTO)
+            frm.sliceType = S265_TYPE_B;
+        else if (!IS_S265_TYPE_B(frm.sliceType))
+        {
+            //如果是非S265_TYPE_B，自然也可以做参考帧，我们在这里标记一下i_bref。
+            //另：我们需要i_bref这个变量吗？或许可以去掉
+            frm.i_bref = 1;
+            break;
+        }
+            
     }
+
     if (bframes)
         list[bframes - 1]->m_lowres.bLastMiniGopBFrame = true;
     list[bframes]->m_lowres.leadingBframes = bframes;
     m_lastNonB = &list[bframes]->m_lowres;
     m_histogram[bframes]++;
-
-
-
-    /* insert a bref into the sequence */
-    //ZY TODO:有可能放到if (!m_param->analysisLoad || m_param->bAnalysisType == HEVC_INFO)之前会比较好，可以做检查
-    // if (m_param->bBPyramid == S265_B_PYRAMID_HIER && bframes > 1)
-    // {
-    //     int32_t gop_id = 1;
-    //     set_gop_info_internal(frames[bframes + 1], &gop_id, bframes + 2, 0);
-    //     set_gop_info_random_access(frames, &gop_id, 1, bframes, bframes + 2, 1);
-    //     //frames[1+ numBFramesReal]->sliceType = S265_TYPE_P;
-    //     for (int i = 1, brefs = 0; i <= bframes; i++)
-    //     {
-    //         Lowres &frm = list[i]->m_lowres;
-    //         if (frm.sliceType == S265_TYPE_BREF)
-    //             brefs++;
-    //     }
-    // }
-    // else if (m_param->bBPyramid && bframes > 1 && !brefs)
-    // {
-    //     list[bframes / 2]->m_lowres.sliceType = S265_TYPE_BREF;
-    //     brefs++;
-    // }
 
     if (m_param->bBPyramid && bframes > 1 && !brefs)
     {
@@ -1963,8 +1902,7 @@ void Lookahead::slicetypeDecide()
         frames[j + 1] = NULL;
         if (!m_param->rc.bStatRead)
             slicetypeAnalyse(frames, true);
-        bool bIsVbv = m_param->rc.vbvBufferSize > 0 && m_param->rc.vbvMaxBitrate > 0;
-        if ((m_param->analysisLoad && m_param->scaleFactor && bIsVbv) || m_param->bliveVBV2pass)
+        if (m_param->bliveVBV2pass)
         {
             int numFrames;
             for (numFrames = 0; numFrames < maxSearch; numFrames++)
@@ -2476,7 +2414,7 @@ static void bilateralFilterCoreAvx( const int32_t c, const int32_t height, const
 #endif
 
 void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, const int32_t width, const int32_t numRefs, pixel *correctedPics[10][3], const pixel *srcPelRow, const int32_t srcStride,
-    pixel *dstPelRow, const int32_t dstStride, const double expValue[4][4][1024], const int32_t offsetIndex[10], double weightScaling, double sigmaSq, int s_range )
+    pixel *dstPelRow, const int32_t dstStride, const double expValue[4][4][1024], const int32_t offsetIndex[10], int s_range )
 {
     const pixel maxSampleValue = 255;
     const int32_t stepX = 1; //ZY TODO:先逐个进行 调好后考虑汇编
@@ -2574,7 +2512,6 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
                 double diff = (double)(refVal - orgVal);
                 int diffInt = abs(refVal - orgVal);
                 diff *= 4;
-                double diffSq = diff * diff;
                 double weight;
 
                 if (m_param->mctf.method)
@@ -2582,13 +2519,10 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
                     const int error = errorList[i][blkIndex];
                     const int noise = noiseList[i][blkIndex];
                     const int index = S265_MIN(3, abs(offsetIndex[i]) - 1);
-                    double ww = 1, sw = 1;
+                    double ww = 1;
                     ww *= (noise < 25) ? 1 : 1.2;
-                    //sw *= (noise < 25) ? 1.3 : 0.8;
                     ww *= (error < 50) ? 1.2 : ((error > 100) ? 0.8 : 1);
-                    //sw *= (error < 50) ? 1.3 : 1;
                     ww *= ((minError + 1) / (error + 1));
-                    // weight = weightScaling * s_ref_strengths2[refStrengthRow][index] * ww * exp(-diffSq / (2 * sw * sigmaSq));
                     int sw_index = (noise < 25) ? 1 : 0;
                     sw_index = (sw_index << 1) + ((error < 50) ? 1 : 0);
                     weight = expValue[sw_index][index][diffInt] * ww;
@@ -2596,7 +2530,6 @@ void Lookahead::bilateralFilterCoreC( const int32_t c, const int32_t height, con
                 else
                 {
                     const int32_t index = S265_MIN(1, abs(offsetIndex[i]) - 1);
-                    //weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
                     weight = expValue[0][index][diffInt];
                 }
                 newVal += weight * refVal;
@@ -2706,7 +2639,7 @@ void Lookahead::bilateralFilter( pixel *correctedPics[10][3], Frame *curFrame, d
             }
             //weight = weightScaling * s_ref_strengths2[refStrengthRow][index] * ww * exp(-diffSq / (2 * sw * sigmaSq));
             //weight = weightScaling * s_ref_strengths[refStrengthRow][index] * exp(-diffSq / (2 * sigmaSq));
-            bilateralFilterCoreC(c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, expValueFloat, offsetIndex, weightScaling, sigmaSq, sRange);
+            bilateralFilterCoreC(c, height, width, numRefs, correctedPics, srcPelRow, srcStride, dstPelRow, dstStride, expValueFloat, offsetIndex, sRange);
         }
     }
 }

@@ -321,10 +321,6 @@ public:
 
     int getRefFrameList(PicYuv** l0, PicYuv** l1, int sliceType, int poc, int* pocL0, int* pocL1);
 
-    int setAnalysisDataAfterZScan(s265_analysis_data *analysis_data, Frame* curFrame);
-
-    int setAnalysisData(s265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
-
     void getStreamHeaders(NALList& list, Entropy& sbacCoder, Bitstream& bs);
 
     void getEndNalUnits(NALList& list, Bitstream& bs);
@@ -343,25 +339,11 @@ public:
 
     void updateVbvPlan(RateControl* rc);
 
-    void readAnalysisFile(s265_analysis_data* analysis, int poc, int sliceType);
-
-    void readAnalysisFile(s265_analysis_data* analysis, int poc, const s265_picture* picIn, int paramBytes);
-
-    void readAnalysisFile(s265_analysis_data* analysis, int poc, const s265_picture* picIn, int paramBytes, cuLocation cuLoc);
-
-    void computeDistortionOffset(s265_analysis_data* analysis);
-
     int getCUIndex(cuLocation* cuLoc, uint32_t* count, int bytes, int flag);
 
     int getPuShape(puOrientation* puOrient, int partSize, int numCTU);
 
-    void writeAnalysisFileRefine(s265_analysis_data* analysis, FrameData &curEncData);
-
-    void copyDistortionData(s265_analysis_data* analysis, FrameData &curEncData);
-
     void finishFrameStats(Frame* pic, FrameEncoder *curEncoder, s265_frame_stats* frameStats, int inPoc);
-
-    int validateAnalysisData(s265_analysis_validate* param, int readWriteFlag);
 
     void readUserSeiFile(s265_sei_payload& seiMsg, int poc);
 

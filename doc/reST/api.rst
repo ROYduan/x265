@@ -224,25 +224,6 @@ changes made to the parameters for auto-detection and other reasons::
      *    the encoder will wait for this copy to complete if enabled.*/
     int s265_encoder_ctu_info(s265_encoder *encoder, int poc, s265_ctu_info_t** ctu);
 
-**s265_set_analysis_data()** may be used to recive analysis information from external application::
-
-    /* s265_set_analysis_data:
-     *     set the analysis data. The incoming analysis_data structure is assumed to be AVC-sized blocks.
-     *     returns negative on error, 0 access unit were output.*/
-     int s265_set_analysis_data(s265_encoder *encoder, s265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
-
-**s265_alloc_analysis_data()** may be used to allocate memory for the s265_analysis_data::
-
-    /* s265_alloc_analysis_data:
-     *     Allocate memory for the s265_analysis_data object's internal structures. */
-     void s265_alloc_analysis_data(s265_param *param, s265_analysis_data* analysis);
-
-**s265_free_analysis_data()** may be used to free memory for the s265_analysis_data::
-
-    /* s265_free_analysis_data:
-     *    Free the allocated memory for s265_analysis_data object's internal structures. */
-     void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis);
-
 Pictures
 ========
 
@@ -299,37 +280,6 @@ Structures allocated from the library should eventually be released::
 	 *  Use s265_picture_free() to release storage for an s265_picture instance
 	 *  allocated by s265_picture_alloc() */
 	void s265_picture_free(s265_picture *);
-
-
-Analysis Buffers
-================
-
-Analysis information can be saved and reused to between encodes of the
-same video sequence (generally for multiple bitrate encodes).  The best
-results are attained by saving the analysis information of the highest
-bitrate encode and reuse it in lower bitrate encodes.
-
-When saving or loading analysis data, buffers must be allocated for
-every picture passed into the encoder using::
-
-	/* s265_alloc_analysis_data:
-	 *  Allocate memory to hold analysis meta data, returns 1 on success else 0 */
-	int s265_alloc_analysis_data(s265_picture*);
-
-Note that this is very different from the typical semantics of
-**s265_picture**, which can be reused many times. The analysis buffers must
-be re-allocated for every input picture.
-
-Analysis buffers passed to the encoder are owned by the encoder until
-they pass the buffers back via an output **s265_picture**. The user is
-responsible for releasing the buffers when they are finished with them
-via::
-
-	/* s265_free_analysis_data:
-	 *  Use s265_free_analysis_data to release storage of members allocated by
-	 *  s265_alloc_analysis_data */
-	void s265_free_analysis_data(s265_picture*);
-
 
 Encode Process
 ==============

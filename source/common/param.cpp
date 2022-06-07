@@ -245,10 +245,7 @@ void s265_param_default(s265_param* param)
     param->psyRd = 2.0;
     param->psyRdoq = 0.0;
     param->analysisReuseMode = 0; /*DEPRECATED*/
-    param->analysisMultiPassRefine = 0;
-    param->analysisMultiPassDistortion = 0;
     param->analysisReuseFileName = NULL;
-    param->analysisLoad = NULL;
     param->bIntraInBFrames = 1;
     param->bLossless = 0;
     param->bCULossless = 0;
@@ -360,7 +357,6 @@ void s265_param_default(s265_param* param)
     param->bHDROpt = 0; /*DEPRECATED*/
     param->bHDR10Opt = 0;
     param->analysisReuseLevel = 0;  /*DEPRECATED*/
-    param->analysisLoadReuseLevel = 0;
     param->toneMapFile = NULL;
     param->bDhdr10opt = 0;
     param->dolbyProfile = 0;
@@ -1290,16 +1286,12 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("rskip-edge-threshold") p->edgeVarThreshold = atoi(value)/100.0f;
         OPT("lookahead-threads") p->lookaheadThreads = atoi(value);
         OPT("opt-cu-delta-qp") p->bOptCUDeltaQP = atobool(value);
-        OPT("multi-pass-opt-analysis") p->analysisMultiPassRefine = atobool(value);
-        OPT("multi-pass-opt-distortion") p->analysisMultiPassDistortion = atobool(value);
         OPT("aq-motion") p->bAQMotion = atobool(value);
         OPT("dynamic-rd") p->dynamicRd = atof(value);
         OPT("analysis-reuse-level")
         {
             p->analysisReuseLevel = atoi(value);
-            p->analysisLoadReuseLevel = atoi(value);
         }
-        OPT("analysis-load-reuse-level") p->analysisLoadReuseLevel = atoi(value);
         OPT("ssim-rd")
         {
             int bval = atobool(value);
@@ -1350,7 +1342,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
             }
         }
         OPT("gop-lookahead") p->gopLookahead = atoi(value);
-        OPT("analysis-load") p->analysisLoad = strdup(value);
         OPT("radl") p->radl = atoi(value);
         OPT("max-ausize-factor") p->maxAUSizeFactor = atof(value);
         OPT("dynamic-refine") p->bDynamicRefine = atobool(value);
@@ -1863,10 +1854,6 @@ int s265_check_params(s265_param* param)
           "Constant QP is incompatible with 2pass");
     CHECK(param->rc.bStrictCbr && (param->rc.bitrate <= 0 || param->rc.vbvBufferSize <=0),
           "Strict-cbr cannot be applied without specifying target bitrate or vbv bufsize");
-    CHECK(param->analysisLoad && (param->analysisLoadReuseLevel < 0 || param->analysisLoadReuseLevel > 10),
-        "Invalid analysis load refine level. Value must be between 1 and 10 (inclusive)");
-    CHECK(param->analysisLoad && (param->mvRefine < 1 || param->mvRefine > 3),
-        "Invalid mv refinement level. Value must be between 1 and 3 (inclusive)");
     CHECK(param->scaleFactor > 2, "Invalid scale-factor. Supports factor <= 2");
     CHECK(param->rc.qpMax < QP_MIN || param->rc.qpMax > QP_MAX_MAX,
         "qpmax exceeds supported range (0 to 69)");
@@ -2370,10 +2357,7 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bHDR10Opt, "hdr10-opt");
     BOOL(p->bDhdr10opt, "dhdr10-opt");
     BOOL(p->bEmitIDRRecoverySEI, "idr-recovery-sei");
-    if (p->analysisLoad)
-        s += sprintf(s, " analysis-load");
     s += sprintf(s, " analysis-reuse-level=%d", p->analysisReuseLevel);
-    s += sprintf(s, " analysis-load-reuse-level=%d", p->analysisLoadReuseLevel);
     s += sprintf(s, " scale-factor=%d", p->scaleFactor);
     s += sprintf(s, " refine-intra=%d", p->intraRefine);
     s += sprintf(s, " refine-inter=%d", p->interRefine);
@@ -2714,8 +2698,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->edgeTransitionThreshold = src->edgeTransitionThreshold;
     dst->gopLookahead = src->lookaheadDepth;
     dst->bOptCUDeltaQP = src->bOptCUDeltaQP;
-    dst->analysisMultiPassDistortion = src->analysisMultiPassDistortion;
-    dst->analysisMultiPassRefine = src->analysisMultiPassRefine;
     dst->bAQMotion = src->bAQMotion;
     dst->bSsimRd = src->bSsimRd;
     dst->dynamicRd = src->dynamicRd;
@@ -2724,7 +2706,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bHDROpt = src->bHDROpt; /*DEPRECATED*/
     dst->bHDR10Opt = src->bHDR10Opt;
     dst->analysisReuseLevel = src->analysisReuseLevel;
-    dst->analysisLoadReuseLevel = src->analysisLoadReuseLevel;
     dst->bLimitSAO = src->bLimitSAO;
     if (src->toneMapFile) dst->toneMapFile = strdup(src->toneMapFile);
     else dst->toneMapFile = NULL;
@@ -2749,8 +2730,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->vbvEndFrameAdjust = src->vbvEndFrameAdjust;
     dst->bAnalysisType = src->bAnalysisType;
     dst->bCopyPicToFrame = src->bCopyPicToFrame;
-    if (src->analysisLoad) dst->analysisLoad=strdup(src->analysisLoad);
-    else dst->analysisLoad = NULL;
     dst->gopLookahead = src->gopLookahead;
     dst->radl = src->radl;
     dst->selectiveSAO = src->selectiveSAO;

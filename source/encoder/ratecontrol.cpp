@@ -555,28 +555,6 @@ bool RateControl::init(const SPS& sps)
                             m_param->fpsNum, m_param->fpsDenom, k, l);
                         return false;
                     }
-                    if (m_param->analysisMultiPassRefine)
-                    {
-                        p = strstr(opts, "ref=");
-                        sscanf(p, "ref=%d", &i);
-                        if (i > m_param->maxNumReferences)
-                        {
-                            s265_log(m_param, S265_LOG_ERROR, "maxNumReferences cannot be less than 1st pass (%d vs %d)\n",
-                                i, m_param->maxNumReferences);
-                            return false;
-                        }
-                    }
-                    if (m_param->analysisMultiPassRefine || m_param->analysisMultiPassDistortion)
-                    {
-                        p = strstr(opts, "ctu=");
-                        sscanf(p, "ctu=%u", &k);
-                        if (k != m_param->maxCUSize)
-                        {
-                            s265_log(m_param, S265_LOG_ERROR, "maxCUSize mismatch with 1st pass (%u vs %u)\n",
-                                k, m_param->maxCUSize);
-                            return false;
-                        }
-                    }
                     CMP_OPT_FIRST_PASS("bitdepth", m_param->internalBitDepth);
                     CMP_OPT_FIRST_PASS("weightp", m_param->bEnableWeightedPred);
                     CMP_OPT_FIRST_PASS("bframes", m_param->bframes);
@@ -2970,9 +2948,8 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
     FrameData& curEncData = *curFrame->m_encData;
     int64_t actualBits = bits;
     Slice *slice = curEncData.m_slice;
-    bool bEnableDistOffset = m_param->analysisMultiPassDistortion && m_param->rc.bStatRead;
 
-    if (m_param->rc.aqMode || m_isVbv || m_param->bAQMotion || bEnableDistOffset)
+    if (m_param->rc.aqMode || m_isVbv || m_param->bAQMotion)
     {
         if (m_isVbv && !(m_2pass && m_param->rc.rateControlMode == S265_RC_CRF && !m_param->rc.bEncFocusedFramesOnly))
         {
@@ -2986,7 +2963,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
             rce->qpaRc = curEncData.m_avgQpRc;
         }
 
-        if (m_param->rc.aqMode || m_param->bAQMotion || bEnableDistOffset)
+        if (m_param->rc.aqMode || m_param->bAQMotion)
         {
             double avgQpAq = 0;
             /* determine actual avg encoded QP, after AQ/cutree/distortion adjustments */

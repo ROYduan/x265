@@ -122,7 +122,6 @@ public:
     int32_t loadTUDepth(CUGeom cuGeom, CUData parentCTU);
 protected:
     /* Analysis data for save/load mode, writes/reads data based on absPartIdx */
-    s265_analysis_inter_data*  m_reuseInterDataCTU;
     int32_t*                   m_reuseRef;
     uint8_t*                   m_reuseDepth;
     uint8_t*                   m_reuseModes;

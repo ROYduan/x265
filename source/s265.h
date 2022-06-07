@@ -113,40 +113,6 @@ typedef struct s265_lookahead_data
     int64_t   reorderedPts;
 } s265_lookahead_data;
 
-typedef struct s265_analysis_validate
-{
-    int     maxNumReferences;
-    int     analysisReuseLevel;
-    int     sourceWidth;
-    int     sourceHeight;
-    int     keyframeMax;
-    int     keyframeMin;
-    int     openGOP;
-    int     bframes;
-    int     bPyramid;
-    int     maxCUSize;
-    int     minCUSize;
-    int     intraRefresh;
-    int     lookaheadDepth;
-    int     chunkStart;
-    int     chunkEnd;
-    int     cuTree;
-    int     ctuDistortionRefine;
-    int     rightOffset;
-    int     bottomOffset;
-    int     frameDuplication;
-}s265_analysis_validate;
-
-/* Stores intra analysis data for a single frame. This struct needs better packing */
-typedef struct s265_analysis_intra_data
-{
-    uint8_t*  depth;
-    uint8_t*  modes;
-    char*     partSizes;
-    uint8_t*  chromaModes;
-    int8_t*    cuQPOff;
-}s265_analysis_intra_data;
-
 typedef struct s265_analysis_MV
 {
     union{
@@ -155,22 +121,6 @@ typedef struct s265_analysis_MV
         int64_t word;
     };
 }s265_analysis_MV;
-
-/* Stores inter analysis data for a single frame */
-typedef struct s265_analysis_inter_data
-{
-    int32_t*    ref;
-    uint8_t*    depth;
-    uint8_t*    modes;
-    uint8_t*    partSize;
-    uint8_t*    mergeFlag;
-    uint8_t*    interDir;
-    uint8_t*    mvpIdx[2];
-    int8_t*     refIdx[2];
-    s265_analysis_MV*         mv[2];
-    int64_t*     sadCost;
-    int8_t*    cuQPOff;
-}s265_analysis_inter_data;
 
 typedef struct s265_weight_param
 {
@@ -190,19 +140,6 @@ typedef uint64_t sse_t;
 #define CTU_DISTORTION_INTERNAL 1
 #define CTU_DISTORTION_EXTERNAL 2
 
-typedef struct s265_analysis_distortion_data
-{
-    sse_t*        ctuDistortion;
-    double*       scaledDistortion;
-    double        averageDistortion;
-    double        sdDistortion;
-    uint32_t      highDistortionCtuCount;
-    uint32_t      lowDistortionCtuCount;
-    double*       offset;
-    double*       threshold;
-
-}s265_analysis_distortion_data;
-
 #define MAX_NUM_REF 16
 #define EDGE_BINS 2
 #define MAX_HIST_BINS 1024
@@ -221,13 +158,9 @@ typedef struct s265_analysis_data
     int32_t                           yuvHist[3][MAX_HIST_BINS];
     int                               bScenecut;
     s265_weight_param*                wt;
-    s265_analysis_inter_data*         interData;
-    s265_analysis_intra_data*         intraData;
     uint32_t                          numCuInHeight;
     s265_lookahead_data               lookahead;
     uint8_t*                          modeFlag[2];
-    s265_analysis_validate            saveParam;
-    s265_analysis_distortion_data*    distortionData;
     uint64_t                          frameBits;
     int                               list0POC[MAX_NUM_REF];
     int                               list1POC[MAX_NUM_REF];
@@ -437,14 +370,6 @@ typedef struct s265_picture
      * to allow the encoder to determine base QP */
     int     forceqp;
 
-    /* If param.analysisLoad are disabled, this field is
-     * ignored on input and output. Else the user must call s265_alloc_analysis_data()
-     * to allocate analysis buffers for every picture passed to the encoder.
-     *
-     * On input when param.analysisLoad is enabled and analysisData
-     * member pointers are valid, the encoder will use the data stored here to
-     * reduce encoder work.
-     */
     s265_analysis_data analysisData;
 
     /* An array of quantizer offsets to be applied to this image during encoding.
@@ -1693,10 +1618,6 @@ typedef struct s265_param
     int       lookaheadThreads;
     /* Optimize CU level QPs to signal consistent deltaQPs in frame for rd level > 4 */
     int       bOptCUDeltaQP;
-    /* Refine analysis in multipass ratecontrol based on analysis information stored */
-    int       analysisMultiPassRefine;
-    /* Refine analysis in multipass ratecontrol based on distortion data stored */
-    int       analysisMultiPassDistortion;
     /* Adaptive Quantization based on relative motion */
     int       bAQMotion;
     /* SSIM based RDO, based on residual divisive normalization scheme. Used for mode
@@ -1801,10 +1722,6 @@ typedef struct s265_param
     * within this from the gop boundary set by keyint, the GOP will be extented until such a point,
     * otherwise the GOP will be terminated as set by keyint*/
     int       gopLookahead;
-
-    /* Read analysis information into analysis buffer and use this analysis information
-     * to reduce the amount of work the encoder must perform. Default disabled. */
-    const char* analysisLoad;
 
     /*Number of RADL pictures allowed in front of IDR*/
     int radl;
@@ -1931,11 +1848,6 @@ typedef struct s265_param
     * Auto-enabled when max-cll, max-fall, or mastering display info is specified.
     * Default is disabled */
     int       bEmitHDR10SEI;
-
-    /* A value between 1 and 10 (both inclusive) determines the level of
-    * analysis information reused in analysis-load. Higher the refine level higher
-    * the information reused. Default is 5 */
-    int       analysisLoadReuseLevel;
 
     /* Conformance window right offset specifies the padding offset to the
     * right side of the internal copy of the input pictures in the library.
@@ -2123,10 +2035,6 @@ S265_API extern const char *s265_version_str;
  *      A static string describing the compiler and target architecture */
 S265_API extern const char *s265_build_info_str;
 
-/* s265_alloc_analysis_data:
-*     Allocate memory for the s265_analysis_data object's internal structures. */
-void s265_alloc_analysis_data(s265_param *param, s265_analysis_data* analysis);
-
 /*
 *    Free the allocated memory for s265_analysis_data object's internal structures. */
 void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis);
@@ -2235,11 +2143,6 @@ int s265_get_slicetype_poc_and_scenecut(s265_encoder *encoder, int *slicetype, i
  *     This API must be called after(poc >= lookaheadDepth + bframes + 2) condition check */
 int s265_get_ref_frame_list(s265_encoder *encoder, s265_picyuv**, s265_picyuv**, int, int, int*, int*);
 
-/* s265_set_analysis_data:
- *     set the analysis data. The incoming analysis_data structure is assumed to be AVC-sized blocks.
- *     returns negative on error, 0 access unit were output. */
-int s265_set_analysis_data(s265_encoder *encoder, s265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
-
 /* s265_cleanup:
  *       release library static allocations, reset configured CTU size */
 void s265_cleanup(void);
@@ -2333,7 +2236,6 @@ typedef struct s265_api
     void          (*csvlog_frame)(const s265_param*, const s265_picture*);
     void          (*csvlog_encode)(const s265_param*, const s265_stats *, int, int, int, char**);
     void          (*dither_image)(s265_picture*, int, int, int16_t*, int);
-    int           (*set_analysis_data)(s265_encoder *encoder, s265_analysis_data *analysis_data, int poc, uint32_t cuBytes);
 #if ENABLE_LIBVMAF
     double        (*calculate_vmafscore)(s265_param *, s265_vmaf_data *);
     double        (*calculate_vmaf_framelevelscore)(s265_vmaf_framedata *);
