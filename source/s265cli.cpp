@@ -222,18 +222,11 @@ namespace S265_NS {
             "                                   - 1 : First pass, creates stats file\n"
             "                                   - 2 : Last pass, does not overwrite stats file\n"
             "                                   - 3 : Nth pass, overwrites stats file\n");
-        H0("   --[no-]multi-pass-opt-analysis   Refine analysis in 2 pass based on analysis information from pass 1\n");
-        H0("   --[no-]multi-pass-opt-distortion Use distortion of CTU from pass 1 to refine qp in 2 pass\n");
         H0("   --[no-]vbv-live-multi-pass    Enable realtime VBV in rate control 2 pass.Default %s\n", OPT(param->bliveVBV2pass));
         H0("   --stats                       Filename for stats file in multipass pass rate control. Default s265_2pass.log\n");
         H0("   --[no-]analyze-src-pics       Motion estimation uses source frame planes. Default disable\n");
         H0("   --[no-]slow-firstpass         Enable a slow first pass in a multipass rate control mode. Default %s\n", OPT(param->rc.bEnableSlowFirstPass));
         H0("   --[no-]strict-cbr             Enable stricter conditions and tolerance for bitrate deviations in CBR mode. Default %s\n", OPT(param->rc.bStrictCbr));
-        H0("   --analysis-save <filename>    Dump analysis info into the specified file. Default Disabled\n");
-        H0("   --analysis-load <filename>    Load analysis buffers from the file specified. Default Disabled\n");
-        H0("   --analysis-reuse-file <filename>    Specify file name used for either dumping or reading analysis data. Deault s265_analysis.dat\n");
-        H0("   --analysis-reuse-level <1..10>      Level of analysis reuse indicates amount of info stored/reused in save/load mode, 1:least..10:most. Now deprecated. Default %d\n", param->analysisReuseLevel);
-        H0("   --refine-analysis-type <string>     Reuse anlaysis information received through API call. Supported options are avc and hevc. Default disabled - %d\n", param->bAnalysisType);
         H0("   --scale-factor <int>          Specify factor by which input video is scaled down for analysis save mode. Default %d\n", param->scaleFactor);
         H0("   --refine-intra <0..4>         Enable intra refinement for encode that uses analysis-load.\n"
             "                                    - 0 : Forces both mode and depth from the save encode.\n"
@@ -251,10 +244,6 @@ namespace S265_NS {
             "                                Default:%d\n", param->interRefine);
         H0("   --[no-]dynamic-refine         Dynamically changes refine-inter level for each CU. Default %s\n", OPT(param->bDynamicRefine));
         H0("   --refine-mv <1..3>            Enable mv refinement for load mode. Default %d\n", param->mvRefine);
-        H0("   --refine-ctu-distortion       Store/normalize ctu distortion in analysis-save/load.\n"
-            "                                    - 0 : Disabled.\n"
-            "                                    - 1 : Store/Load ctu distortion to/from the file specified in analysis-save/load.\n"
-            "                                Default 0 - Disabled\n");
         H0("   --aq-mode <integer>           Mode for Adaptive Quantization - 0:none 1:uniform AQ 2:auto variance 3:auto variance with bias to dark scenes 4:auto variance with edge information. Default %d\n", param->rc.aqMode);
         H0("   --[no-]hevc-aq                Mode for HEVC Adaptive Quantization. Default %s\n", OPT(param->rc.hevcAq));
         H0("   --aq-strength <float>         Reduces blocking and blurring in flat and textured areas (0 to 3.0). Default %.2f\n", param->rc.aqStrength);

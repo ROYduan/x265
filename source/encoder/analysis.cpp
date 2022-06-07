@@ -431,7 +431,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
     bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
     bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
 
-    bool bAlreadyDecided = m_param->intraRefine != 4 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] != (uint8_t)ALL_IDX && !(m_param->bAnalysisType == HEVC_INFO);
+    bool bAlreadyDecided = m_param->intraRefine != 4 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] != (uint8_t)ALL_IDX;
     bool bDecidedDepth = m_param->intraRefine != 4 && parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
     int split = 0;
     if (m_param->intraRefine && m_param->intraRefine != 4)
@@ -1077,10 +1077,9 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
     PicYuv& reconPic = *m_frame->m_reconPic;
     SplitData splitCUData;
 
-    bool bHEVCBlockAnalysis = (m_param->bAnalysisType == AVC_INFO && cuGeom.numPartitions > 16);
-    bool bNooffloading = !(m_param->bAnalysisType == AVC_INFO);
+    bool bNooffloading = true;
 
-    if (bHEVCBlockAnalysis || bNooffloading)
+    if (bNooffloading)
     {
         md.bestMode = NULL;
         bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
@@ -1660,44 +1659,6 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
             }
         }
     }
-    else
-    {
-        if (m_param->bAnalysisType == AVC_INFO && cuGeom.numPartitions <= 16)
-        {
-            qprdRefine(parentCTU, cuGeom, qp, qp);
-
-            SplitData splitData[4];
-            splitData[0].initSplitCUData();
-            splitData[1].initSplitCUData();
-            splitData[2].initSplitCUData();
-            splitData[3].initSplitCUData();
-
-            uint32_t allSplitRefs = splitData[0].splitRefs | splitData[1].splitRefs | splitData[2].splitRefs | splitData[3].splitRefs;
-
-            splitCUData.initSplitCUData();
-
-            if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
-            {
-                if (md.bestMode == &md.pred[PRED_SPLIT])
-                    splitCUData.splitRefs = allSplitRefs;
-                else
-                {
-                    /* use best merge/inter mode, in case of intra use 2Nx2N inter references */
-                    CUData& cu = md.bestMode->cu.isIntra(0) ? md.pred[PRED_2Nx2N].cu : md.bestMode->cu;
-                    uint32_t numPU = cu.getNumPartInter(0);
-                    for (uint32_t puIdx = 0, subPartIdx = 0; puIdx < numPU; puIdx++, subPartIdx += cu.getPUOffset(puIdx, 0))
-                        splitCUData.splitRefs |= cu.getBestRefIdx(subPartIdx);
-                }
-            }
-
-            if (m_param->limitModes)
-            {
-                splitCUData.mvCost[0] = md.pred[PRED_2Nx2N].bestME[0][0].mvCost; // L0
-                splitCUData.mvCost[1] = md.pred[PRED_2Nx2N].bestME[0][1].mvCost; // L1
-                splitCUData.sa8dCost = md.pred[PRED_2Nx2N].sa8dCost;
-            }
-        }
-    }
 
     return splitCUData;
 }
@@ -1722,11 +1683,9 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
     }
 
     SplitData splitCUData;
+    bool bNooffloading = true;
 
-    bool bHEVCBlockAnalysis = (m_param->bAnalysisType == AVC_INFO && cuGeom.numPartitions > 16);
-    bool bNooffloading = !(m_param->bAnalysisType == AVC_INFO);
-
-    if (bHEVCBlockAnalysis || bNooffloading)
+    if (bNooffloading)
     {
         bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
         bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
@@ -2169,43 +2128,6 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
         md.bestMode->cu.copyToPic(depth);
         md.bestMode->reconYuv.copyToPicYuv(*m_frame->m_reconPic, parentCTU.m_cuAddr, cuGeom.absPartIdx);
     }
-    else
-    {
-        if (m_param->bAnalysisType == AVC_INFO && cuGeom.numPartitions <= 16)
-        {
-            qprdRefine(parentCTU, cuGeom, qp, qp);
-
-            SplitData splitData[4];
-            splitData[0].initSplitCUData();
-            splitData[1].initSplitCUData();
-            splitData[2].initSplitCUData();
-            splitData[3].initSplitCUData();
-
-            uint32_t allSplitRefs = splitData[0].splitRefs | splitData[1].splitRefs | splitData[2].splitRefs | splitData[3].splitRefs;
-
-            splitCUData.initSplitCUData();
-            if (m_param->limitReferences & S265_REF_LIMIT_DEPTH)
-            {
-                if (md.bestMode == &md.pred[PRED_SPLIT])
-                    splitCUData.splitRefs = allSplitRefs;
-                else
-                {
-                    /* use best merge/inter mode, in case of intra use 2Nx2N inter references */
-                    CUData& cu = md.bestMode->cu.isIntra(0) ? md.pred[PRED_2Nx2N].cu : md.bestMode->cu;
-                    uint32_t numPU = cu.getNumPartInter(0);
-                    for (uint32_t puIdx = 0, subPartIdx = 0; puIdx < numPU; puIdx++, subPartIdx += cu.getPUOffset(puIdx, 0))
-                        splitCUData.splitRefs |= cu.getBestRefIdx(subPartIdx);
-                }
-            }
-
-            if (m_param->limitModes)
-            {
-                splitCUData.mvCost[0] = md.pred[PRED_2Nx2N].bestME[0][0].mvCost; // L0
-                splitCUData.mvCost[1] = md.pred[PRED_2Nx2N].bestME[0][1].mvCost; // L1
-                splitCUData.sa8dCost = md.pred[PRED_2Nx2N].rdCost;
-            }
-        }
-    }
 
     return splitCUData;
 }
@@ -2238,7 +2160,7 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
                 (m_refineLevel && cuGeom.log2CUSize == (uint32_t)(g_log2Size[m_param->minCUSize] + 1))));
     td.split = split;
 
-    if ((bDecidedDepth && mightNotSplit) || (m_param->bAnalysisType == HEVC_INFO && parentCTU.m_cuDepth[cuGeom.absPartIdx] == 4))
+    if ((bDecidedDepth && mightNotSplit))
     {
         setLambdaFromQP(parentCTU, qp, lqp);
 

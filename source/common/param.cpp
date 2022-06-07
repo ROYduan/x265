@@ -245,7 +245,6 @@ void s265_param_default(s265_param* param)
     param->psyRd = 2.0;
     param->psyRdoq = 0.0;
     param->analysisReuseMode = 0; /*DEPRECATED*/
-    param->analysisReuseFileName = NULL;
     param->bIntraInBFrames = 1;
     param->bLossless = 0;
     param->bCULossless = 0;
@@ -356,7 +355,6 @@ void s265_param_default(s265_param* param)
     param->bAQMotion = 0;
     param->bHDROpt = 0; /*DEPRECATED*/
     param->bHDR10Opt = 0;
-    param->analysisReuseLevel = 0;  /*DEPRECATED*/
     param->toneMapFile = NULL;
     param->bDhdr10opt = 0;
     param->dolbyProfile = 0;
@@ -367,7 +365,6 @@ void s265_param_default(s265_param* param)
     param->interRefine = 0;
     param->bDynamicRefine = 0;
     param->mvRefine = 1;
-    param->ctuDistortionRefine = 0;
     param->bUseAnalysisFile = 1;
     param->csvfpt = NULL;
     param->forceFlush = 0;
@@ -378,7 +375,6 @@ void s265_param_default(s265_param* param)
 
     /* DCT Approximations */
     param->bLowPassDct = 0;
-    param->bAnalysisType = 0;
     param->bSingleSeiNal = 0;
 
     /* SEI messages */
@@ -1160,7 +1156,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         p->rc.bStrictCbr = atobool(value);
         p->rc.pbFactor = 1.0;
     }
-    OPT("analysis-reuse-mode") p->analysisReuseMode = parseName(value, s265_analysis_names, bError); /*DEPRECATED*/
     OPT("sar")
     {
         p->vui.aspectRatioIdc = parseName(value, s265_sar_names, bError);
@@ -1240,7 +1235,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("scaling-list") p->scalingLists = strdup(value);
     OPT2("pools", "numa-pools") p->numaPools = strdup(value);
     OPT("lambda-file") p->rc.lambdaFileName = strdup(value);
-    OPT("analysis-reuse-file") p->analysisReuseFileName = strdup(value);
     OPT("qg-size") p->rc.qgSize = atoi(value);
     OPT("master-display") p->masteringDisplayColorVolume = strdup(value);
     OPT("max-cll") bError |= sscanf(value, "%hu,%hu", &p->maxCLL, &p->maxFALL) != 2;
@@ -1288,10 +1282,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("opt-cu-delta-qp") p->bOptCUDeltaQP = atobool(value);
         OPT("aq-motion") p->bAQMotion = atobool(value);
         OPT("dynamic-rd") p->dynamicRd = atof(value);
-        OPT("analysis-reuse-level")
-        {
-            p->analysisReuseLevel = atoi(value);
-        }
         OPT("ssim-rd")
         {
             int bval = atobool(value);
@@ -1322,25 +1312,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("vbv-end") p->vbvBufferEnd = atof(value);
         OPT("vbv-end-fr-adj") p->vbvEndFrameAdjust = atof(value);
         OPT("copy-pic") p->bCopyPicToFrame = atobool(value);
-        OPT("refine-analysis-type")
-        {
-            if (strcmp(strdup(value), "avc") == 0)
-            {
-                p->bAnalysisType = AVC_INFO;
-            }
-            else if (strcmp(strdup(value), "hevc") == 0)
-            {
-                p->bAnalysisType = HEVC_INFO;
-            }
-            else if (strcmp(strdup(value), "off") == 0)
-            {
-                p->bAnalysisType = DEFAULT;
-            }
-            else
-            {
-                bError = true;
-            }
-        }
         OPT("gop-lookahead") p->gopLookahead = atoi(value);
         OPT("radl") p->radl = atoi(value);
         OPT("max-ausize-factor") p->maxAUSizeFactor = atof(value);
@@ -1361,7 +1332,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
                 bError = true;
         }
         OPT("hrd-concat") p->bEnableHRDConcatFlag = atobool(value);
-        OPT("refine-ctu-distortion") p->ctuDistortionRefine = atoi(value);
         OPT("hevc-aq") p->rc.hevcAq = atobool(value);
         OPT("qp-adaptation-range") p->rc.qpAdaptationRange = atof(value);
 #ifdef SVT_HEVC
@@ -1867,8 +1837,6 @@ int s265_check_params(s265_param* param)
         "Invalid refine-inter value, refine-inter levels 0 to 3 supported");
     CHECK(param->intraRefine > 4 || param->intraRefine < 0,
         "Invalid refine-intra value, refine-intra levels 0 to 3 supported");
-    CHECK(param->ctuDistortionRefine < 0 || param->ctuDistortionRefine > 1,
-        "Invalid refine-ctu-distortion value, must be either 0 or 1");
     CHECK(param->maxAUSizeFactor < 0.5 || param->maxAUSizeFactor > 1.0,
         "Supported factor for controlling max AU size is from 0.5 to 1");
     CHECK((param->dolbyProfile != 0) && (param->dolbyProfile != 50) && (param->dolbyProfile != 81) && (param->dolbyProfile != 82),
@@ -2096,12 +2064,6 @@ void s265_print_params(s265_param* param)
     TOOLVAL(param->lookaheadSlices, "lslices=%d");
     TOOLVAL(param->lookaheadThreads, "lthreads=%d")
     TOOLVAL(param->bCTUInfo, "ctu-info=%d");
-    if (param->bAnalysisType == AVC_INFO)
-    {
-        TOOLOPT(param->bAnalysisType, "refine-analysis-type=avc");
-    }
-    else if (param->bAnalysisType == HEVC_INFO)
-        TOOLOPT(param->bAnalysisType, "refine-analysis-type=hevc");
     TOOLOPT(param->bDynamicRefine, "dynamic-refine");
     if (param->maxSlices > 1)
         TOOLVAL(param->maxSlices, "slices=%d");
@@ -2357,16 +2319,13 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bHDR10Opt, "hdr10-opt");
     BOOL(p->bDhdr10opt, "dhdr10-opt");
     BOOL(p->bEmitIDRRecoverySEI, "idr-recovery-sei");
-    s += sprintf(s, " analysis-reuse-level=%d", p->analysisReuseLevel);
     s += sprintf(s, " scale-factor=%d", p->scaleFactor);
     s += sprintf(s, " refine-intra=%d", p->intraRefine);
     s += sprintf(s, " refine-inter=%d", p->interRefine);
     s += sprintf(s, " refine-mv=%d", p->mvRefine);
-    s += sprintf(s, " refine-ctu-distortion=%d", p->ctuDistortionRefine);
     BOOL(p->bLimitSAO, "limit-sao");
     s += sprintf(s, " ctu-info=%d", p->bCTUInfo);
     BOOL(p->bLowPassDct, "lowpass-dct");
-    s += sprintf(s, " refine-analysis-type=%d", p->bAnalysisType);
     s += sprintf(s, " copy-pic=%d", p->bCopyPicToFrame);
     s += sprintf(s, " max-ausize-factor=%.1f", p->maxAUSizeFactor);
     BOOL(p->bDynamicRefine, "dynamic-refine");
@@ -2566,8 +2525,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->psyRdoq = src->psyRdoq;
     dst->bEnableRdRefine = src->bEnableRdRefine;
     dst->analysisReuseMode = src->analysisReuseMode;
-    if (src->analysisReuseFileName) dst->analysisReuseFileName=strdup(src->analysisReuseFileName);
-    else dst->analysisReuseFileName = NULL;
     dst->bLossless = src->bLossless;
     dst->cbQpOffset = src->cbQpOffset;
     dst->crQpOffset = src->crQpOffset;
@@ -2705,7 +2662,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bEmitHRDSEI = src->bEmitHRDSEI;
     dst->bHDROpt = src->bHDROpt; /*DEPRECATED*/
     dst->bHDR10Opt = src->bHDR10Opt;
-    dst->analysisReuseLevel = src->analysisReuseLevel;
     dst->bLimitSAO = src->bLimitSAO;
     if (src->toneMapFile) dst->toneMapFile = strdup(src->toneMapFile);
     else dst->toneMapFile = NULL;
@@ -2728,7 +2684,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bLowPassDct = src->bLowPassDct;
     dst->vbvBufferEnd = src->vbvBufferEnd;
     dst->vbvEndFrameAdjust = src->vbvEndFrameAdjust;
-    dst->bAnalysisType = src->bAnalysisType;
     dst->bCopyPicToFrame = src->bCopyPicToFrame;
     dst->gopLookahead = src->gopLookahead;
     dst->radl = src->radl;
@@ -2742,7 +2697,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     if (src->naluFile) dst->naluFile=strdup(src->naluFile);
     else dst->naluFile = NULL;
     dst->scaleFactor = src->scaleFactor;
-    dst->ctuDistortionRefine = src->ctuDistortionRefine;
     dst->bEnableHRDConcatFlag = src->bEnableHRDConcatFlag;
     dst->dolbyProfile = src->dolbyProfile;
     dst->bEnableSvtHevc = src->bEnableSvtHevc;

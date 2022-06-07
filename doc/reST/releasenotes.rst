@@ -70,8 +70,7 @@ Enhancements to existing features
 ---------------------------------
 1. :option:`--hme-range` to modify search range for HME levels L0, L1, and L2.
 2. Improved performance of AQ mode 4 by reducing memory foot print.
-3. Introduced :option:`--analysis-save-reuse-level` and :option:`--analysis-load-reuse-level` to de-couple reuse levels of :option:`--analysis-save` and :option:`--analysis-load`. Turnaround time of ABR encoding can be reduced by properly leveraging these options.
-  
+
 Encoder enhancements
 --------------------
 1. Improved VBV lookahead to eliminate blocky artifacts in Intra frames coming towards end of the title.
@@ -173,9 +172,7 @@ New features
 
 4. option:: '--qp-adaptation-range'	Delta-QP range by QP adaptation based on a psycho-visual model. Default 1.0. 
 
-5. option:: '--refine-ctu-distortion <0/1>' store/normalize ctu distortion in analysis-save/load. Default 0. 
-
-6. Experimental feature option:: '--hevc-aq' enables adaptive quantization
+5. Experimental feature option:: '--hevc-aq' enables adaptive quantization
 	It scales the quantization step size according to the spatial activity of one coding unit relative to frame average spatial activity. This AQ method utilizes
 	the minimum variance of sub-unit in each coding unit to represent the coding unit’s spatial complexity. 
 
@@ -183,9 +180,8 @@ Encoder enhancements
 --------------------
 1. Preset: change param defaults for veryslow and slower preset. Replace slower preset with defaults used in veryslow preset and change param defaults in veryslow preset as per experimental results.
 2. AQ: change default AQ mode to auto-variance
-3. Cutree offset reuse: restricted to analysis reuse-level 10 for analysis-save -> analysis-load 
-4. Tune: introduce --tune animation option which improves encode quality for animated content 
-5. Reuse CU depth for B frame and allow I, P frame to follow s265 depth decision
+3. Tune: introduce --tune animation option which improves encode quality for animated content
+4. Reuse CU depth for B frame and allow I, P frame to follow s265 depth decision
 
 Bug fixes
 ---------
@@ -272,9 +268,8 @@ New features
 Encoder enhancements
 --------------------
 1. Moved from YASM to NASM assembler. Supports NASM assembler version 2.13 and greater.
-2. Enable analysis save and load in a single run. Introduces two new cli options `--analysis-save <filename>` and `--analysis-load <filename>`.
-3. Comply to HDR10+ LLC specification.
-4. Reduced s265 build time by more than 50% by re-factoring ipfilter.asm.  
+2. Comply to HDR10+ LLC specification.
+3. Reduced s265 build time by more than 50% by re-factoring ipfilter.asm.
 
 Bug fixes
 ---------
@@ -335,8 +330,7 @@ API changes
 -----------
 1. New API s265_encoder_ctu_info() introduced to specify suggested partition sizes for various CTUs in a frame. To be used in conjunction with :option:`--ctu-info` to react to the specified partitions appropriately.
 2. Rate-control statistics passed through the s265_picture object for an incoming frame are now used by the encoder.
-3. Options to scale, reuse, and refine analysis for incoming analysis shared through the s265_analysis_data field in s265_picture for runs that use :option:`--analysis-reuse-mode` load; use options :option:`--scale`, :option:`--refine-mv`, :option:`--refine-inter`, and :option:`--refine-intra` to explore. 
-4. VBV now has a deterministic mode. Use :option:`--const-vbv` to exercise.
+3. VBV now has a deterministic mode. Use :option:`--const-vbv` to exercise.
 
 Bug fixes
 ---------
@@ -369,8 +363,7 @@ Bug fixes
 2. Fix mingw32 build error.
 3. Seek now enabled for pipe input, in addition to file-based input
 4. Fix issue of statically linking core-utils not working in linux.
-5. Fix visual artifacts with :option:`--multi-pass-opt-distortion` with VBV.
-6. Fix bufferFill stats reported in csv.
+5. Fix bufferFill stats reported in csv.
 
 Version 2.3
 ===========
@@ -380,11 +373,10 @@ Release date - 15th February, 2017.
 Encoder enhancements
 --------------------
 1. New SSIM-based RD-cost computation for improved visual quality, and efficiency; use :option:`--ssim-rd` to exercise.
-2. Multi-pass encoding can now share analysis information from prior passes (in addition to rate-control information) to improve performance and quality of subsequent passes; to your multi-pass command-lines that use the :option:`--pass` option, add :option:`--multi-pass-opt-distortion` to share distortion information, and :option:`--multi-pass-opt-analysis` to share other analysis information.
-3. A dedicated thread pool for lookahead can now be specified with :option:`--lookahead-threads`.
-4. option:`--dynamic-rd` dynamically increase analysis in areas where the bitrate is being capped by VBV; works for both CRF and ABR encodes with VBV settings.
-5. The number of bits used to signal the delta-QP can be optimized with the :option:`--opt-cu-delta-qp` option; found to be useful in some scenarios for lower bitrate targets.
-6. Experimental feature option:`--aq-motion` adds new QP offsets based on relative motion of a block with respect to the movement of the frame.
+2. A dedicated thread pool for lookahead can now be specified with :option:`--lookahead-threads`.
+3. option:`--dynamic-rd` dynamically increase analysis in areas where the bitrate is being capped by VBV; works for both CRF and ABR encodes with VBV settings.
+4. The number of bits used to signal the delta-QP can be optimized with the :option:`--opt-cu-delta-qp` option; found to be useful in some scenarios for lower bitrate targets.
+5. Experimental feature option:`--aq-motion` adds new QP offsets based on relative motion of a block with respect to the movement of the frame.
 
 API changes
 -----------

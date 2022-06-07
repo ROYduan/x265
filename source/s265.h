@@ -615,7 +615,6 @@ static const char * const s265_colmatrix_names[] = { "gbr", "bt709", "unknown", 
 static const char * const s265_sar_names[] = { "unknown", "1:1", "12:11", "10:11", "16:11", "40:33", "24:11", "20:11",
                                                "32:11", "80:33", "18:11", "15:11", "64:33", "160:99", "4:3", "3:2", "2:1", 0 };
 static const char * const s265_interlace_names[] = { "prog", "tff", "bff", 0 };
-static const char * const s265_analysis_names[] = { "off", "save", "load", 0 };
 
 struct s265_zone;
 struct s265_param;
@@ -1262,9 +1261,6 @@ typedef struct s265_param
      * Default disabled. Now deprecated*/
     int       analysisReuseMode;
 
-    /* Filename for multi-pass-opt-analysis/distortion. Default name is "s265_analysis.dat" */
-    const char* analysisReuseFileName;
-
     /*== Rate Control ==*/
 
     /* The lossless flag enables true lossless coding, bypassing scaling,
@@ -1637,11 +1633,6 @@ typedef struct s265_param
      * Default is disabled. Now deprecated.*/
     int       bHDROpt;
 
-    /* A value between 1 and 10 (both inclusive) determines the level of
-    * information stored/reused in analysis save/load. Higher the refine
-    * level higher the information stored/reused. Default is 5. Now deprecated. */
-    int       analysisReuseLevel;
-
      /* Limit Sample Adaptive Offset filter computation by early terminating SAO
      * process based on inter prediction mode, CTU spatial-domain correlations,
      * and relations between luma and chroma */
@@ -1713,8 +1704,6 @@ typedef struct s265_param
     * Specified as a fraction of the total frames. Default 0 */
     double    vbvEndFrameAdjust;
 
-    /* Reuse MV information obtained through API */
-    int       bAnalysisType;
     /* Allow the encoder to have a copy of the planes of s265_picture in Frame */
     int       bCopyPicToFrame;
 
@@ -1764,12 +1753,6 @@ typedef struct s265_param
 
     /* Set concantenation flag for the first keyframe in the HRD buffering period SEI. */
     int bEnableHRDConcatFlag;
-
-
-    /* Store/normalize ctu distortion in analysis-save/load. Ranges from 0 - 1.
-    *  0 - Disabled. 1 - Save/Load ctu distortion to/from the file specified 
-    * analysis-save/load. Default 0. */
-    int       ctuDistortionRefine;
 
     /* Enable SVT HEVC Encoder */
     int bEnableSvtHevc;
@@ -1855,8 +1838,8 @@ typedef struct s265_param
     * signaled in the SPS before output. Default is 0.
     * Recommended to set this during non-file based analysis-load.
     * This is to inform the encoder about the conformace window right offset 
-    * to be added to match the number of CUs across the width for which analysis
-    * info is available from the corresponding analysis-save. */
+    * to be added to match the number of CUs across the width
+    */
 
     int       confWinRightOffset;
 
@@ -1866,8 +1849,8 @@ typedef struct s265_param
     * signaled in the SPS before output. Default is 0. 
     * Recommended to set this during non-file based analysis-load.
     * This is to inform the encoder about the conformace window bottom offset
-    * to be added to match the number of CUs across the height for which analysis
-    * info is available from the corresponding analysis-save. */
+    * to be added to match the number of CUs across the height
+    */
 
     int      confWinBottomOffset;
 
@@ -2034,10 +2017,6 @@ S265_API extern const char *s265_version_str;
 /* s265_build_info:
  *      A static string describing the compiler and target architecture */
 S265_API extern const char *s265_build_info_str;
-
-/*
-*    Free the allocated memory for s265_analysis_data object's internal structures. */
-void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis);
 
 /* Force a link error in the case of linking against an incompatible API version.
  * Glue #defines exist to force correct macro expansion; the final output of the macro

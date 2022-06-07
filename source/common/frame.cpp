@@ -89,11 +89,6 @@ bool Frame::create(s265_param *param, float* quantOffsets)
         }
     }
 
-    if (param->bAnalysisType == AVC_INFO)
-    {
-        m_analysisData.wt = NULL;
-    }
-
     if (param->bDynamicRefine)
     {
         int size = m_param->maxCUDepth * S265_REFINE_INTER_LEVELS;

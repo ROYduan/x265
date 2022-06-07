@@ -757,24 +757,6 @@ int s265_get_ref_frame_list(s265_encoder *enc, s265_picyuv** l0, s265_picyuv** l
     return encoder->getRefFrameList((PicYuv**)l0, (PicYuv**)l1, sliceType, poc, pocL0, pocL1);
 }
 
-void s265_free_analysis_data(s265_param *param, s265_analysis_data* analysis)
-{
-    bool isVbv = param->rc.vbvMaxBitrate > 0 && param->rc.vbvBufferSize > 0;
-
-    //Free memory for Lookahead pointers
-    if (param->bDisableLookahead && isVbv)
-    {
-        S265_FREE(analysis->lookahead.satdForVbv);
-        S265_FREE(analysis->lookahead.intraSatdForVbv);
-        S265_FREE(analysis->lookahead.vbvCost);
-        S265_FREE(analysis->lookahead.intraVbvCost);
-    }
-
-    /* Early exit freeing weights alone if level is 1 (when there is no analysis inter/intra) */
-    if (analysis->wt && !(param->bAnalysisType == AVC_INFO))
-        S265_FREE(analysis->wt);
-}
-
 void s265_cleanup(void)
 {
     BitCost::destroy();
@@ -798,16 +780,6 @@ void s265_picture_init(s265_param *param, s265_picture *pic)
     pic->rpu.payloadSize = 0;
     pic->rpu.payload = NULL;
     pic->picStruct = 0;
-
-    if (param->bAnalysisType == AVC_INFO)
-    {
-        uint32_t widthInCU = (param->sourceWidth + param->maxCUSize - 1) >> param->maxLog2CUSize;
-        uint32_t heightInCU = (param->sourceHeight + param->maxCUSize - 1) >> param->maxLog2CUSize;
-
-        uint32_t numCUsInFrame   = widthInCU * heightInCU;
-        pic->analysisData.numCUsInFrame = numCUsInFrame;
-        pic->analysisData.numPartitions = param->num4x4Partitions;
-    }
 }
 
 void s265_picture_free(s265_picture *p)

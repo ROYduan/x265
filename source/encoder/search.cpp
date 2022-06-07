@@ -2211,60 +2211,7 @@ void Search::predInterSearch(Mode& interMode, const CUGeom& cuGeom, bool bChroma
         bool bDoUnidir = true;
 
         cu.getNeighbourMV(puIdx, pu.puAbsPartIdx, interMode.interNeighbours);
-        /* Uni-directional prediction */
-        if ((m_param->bAnalysisType == AVC_INFO))
-        {
-            for (int list = 0; list < numPredDir; list++)
-            {
-
-                int ref = -1;
-                ref = bestME[list].ref;
-                if (ref < 0)
-                {
-                    continue;
-                }
-                uint32_t bits = m_listSelBits[list] + MVP_IDX_BITS;
-                bits += getTUBits(ref, numRefIdx[list]);
-
-                int numMvc = cu.getPMV(interMode.interNeighbours, list, ref, interMode.amvpCand[list][ref], mvc);
-                const MV* amvp = interMode.amvpCand[list][ref];
-                int mvpIdx = selectMVP(cu, pu, amvp, list, ref);
-                MV mvmin, mvmax, outmv, mvp;
-                mvp = amvp[mvpIdx];
-                if (m_param->searchMethod == S265_SEA)
-                {
-                    int puX = puIdx & 1;
-                    int puY = puIdx >> 1;
-                    for (int planes = 0; planes < INTEGRAL_PLANE_NUM; planes++)
-                        m_me.integral[planes] = interMode.fencYuv->m_integral[list][ref][planes] + puX * pu.width + puY * pu.height * m_slice->m_refFrameList[list][ref]->m_reconPic->m_stride;
-                }
-                setSearchRange(cu, mvp, m_param->searchRange, mvmin, mvmax);
-                MV mvpIn = mvp;
-                int satdCost;
-                satdCost = m_me.motionEstimate(&slice->m_mref[list][ref], mvmin, mvmax, mvpIn, numMvc, mvc, m_param->searchRange, outmv, m_param->maxSlices,
-                    m_param->bSourceReferenceEstimation ? m_slice->m_refFrameList[list][ref]->m_fencPic->getLumaAddr(0) : 0);
-
-                /* Get total cost of partition, but only include MV bit cost once */
-                bits += m_me.bitcost(outmv);
-                uint32_t mvCost = m_me.mvcost(outmv);
-                uint32_t cost = (satdCost - mvCost) + m_rdCost.getCost(bits);
-                /* Refine MVP selection, updates: mvpIdx, bits, cost */
-                mvp = checkBestMVP(amvp, outmv, mvpIdx, bits, cost);
-
-                if (cost < bestME[list].cost)
-                {
-                    bestME[list].mv = outmv;
-                    bestME[list].mvp = mvp;
-                    bestME[list].mvpIdx = mvpIdx;
-                    bestME[list].cost = cost;
-                    bestME[list].bits = bits;
-                    bestME[list].mvCost  = mvCost;
-                    bestME[list].ref = ref;
-                }
-                bDoUnidir = false;
-            }            
-        }
-        else if (m_param->bDistributeMotionEstimation)
+        if (m_param->bDistributeMotionEstimation)
         {
             PME pme(*this, interMode, cuGeom, pu, puIdx);
             pme.m_jobTotal = 0;

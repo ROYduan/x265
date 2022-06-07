@@ -110,11 +110,8 @@ VideoSignalTypePresets vstPresets[] =
 
 /* Threshold for motion vection, based on expermental result.
  * TODO: come up an algorithm for adoptive threshold */
-#define MVTHRESHOLD (10*10)
 #define PU_2Nx2N 1
 #define MAX_CHROMA_QP_OFFSET 12
-#define CONF_OFFSET_BYTES (2 * sizeof(int))
-static const char* defaultAnalysisFileName = "s265_analysis.dat";
 
 using namespace S265_NS;
 
@@ -139,8 +136,6 @@ Encoder::Encoder()
     m_param = NULL;
     m_latestParam = NULL;
     m_threadPool = NULL;
-    m_analysisFileIn = NULL;
-    m_analysisFileOut = NULL;
     m_naluFile = NULL;
     m_offsetEmergency = NULL;
     m_iFrameNum = 0;
@@ -736,28 +731,6 @@ void Encoder::destroy()
 
         PARAM_NS::s265_param_free(m_latestParam);
     }
-    if (m_analysisFileIn)
-        fclose(m_analysisFileIn);
-
-    if (m_analysisFileOut)
-    {
-        int bError = 1;
-        fclose(m_analysisFileOut);
-        const char* name = m_param->analysisReuseFileName;
-        if (!name)
-            name = defaultAnalysisFileName;
-        char* temp = strcatFilename(name, ".temp");
-        if (temp)
-        {
-            s265_unlink(name);
-            bError = s265_rename(temp, name);
-        }
-        if (bError)
-        {
-            s265_log_file(m_param, S265_LOG_ERROR, "failed to rename analysis stats file to \"%s\"\n", name);
-        }
-        S265_FREE(temp);
-     }
     if (m_naluFile)
         fclose(m_naluFile);
 
@@ -772,7 +745,6 @@ void Encoder::destroy()
         free((char*)m_param->rc.lambdaFileName);
         free((char*)m_param->rc.statFileName);
         free((char*)m_param->rc.sharedMemName);
-        free((char*)m_param->analysisReuseFileName);
         free((char*)m_param->scalingLists);
         free((char*)m_param->csvfn);
         free((char*)m_param->numaPools);
@@ -1742,10 +1714,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         {
             Slice *slice = outFrame->m_encData->m_slice;
             s265_frame_stats* frameData = NULL;
-
-            /* Free up inputPic->analysisData since it has already been used */
-            if (((m_param->bAnalysisType == AVC_INFO) && slice->m_sliceType != I_SLICE))
-                s265_free_analysis_data(m_param, &outFrame->m_analysisData);
 
             if (pic_out)
             {
@@ -3208,21 +3176,7 @@ void Encoder::configureVideoSignalTypePreset(s265_param* p)
 void Encoder::configure(s265_param *p)
 {
     this->m_param = p;
-    if (p->bAnalysisType == AVC_INFO)
-        this->m_externalFlush = true;
-    else 
-        this->m_externalFlush = false;
-
-    if (p->bAnalysisType == AVC_INFO && (p->limitTU == 3 || p->limitTU == 4))
-    {
-        s265_log(p, S265_LOG_WARNING, "limit TU = 3 or 4 with MVType AVCINFO produces inconsistent output\n");
-    }
-
-    if (p->bAnalysisType == AVC_INFO && p->minCUSize != 8)
-    {
-        p->minCUSize = 8;
-        s265_log(p, S265_LOG_WARNING, "Setting minCuSize = 8, AVCINFO expects 8x8 blocks\n");
-    }
+    this->m_externalFlush = false;
 
     if (p->keyframeMax < 0)
     {
@@ -3408,16 +3362,10 @@ void Encoder::configure(s265_param *p)
         }
     }
 
-    if (!(p->bAnalysisType == HEVC_INFO) && p->limitTU && (p->interRefine || p->bDynamicRefine))
+    if (p->limitTU && (p->interRefine || p->bDynamicRefine))
     {
         s265_log(p, S265_LOG_WARNING, "Inter refinement does not support limitTU. Disabling limitTU.\n");
         p->limitTU = 0;
-    }
-
-    if (p->ctuDistortionRefine == CTU_DISTORTION_INTERNAL)
-    {
-        s265_log(p, S265_LOG_WARNING, "refine-ctu-distortion 1 requires analysis save/load. Disabling refine-ctu-distortion\n");
-        p->ctuDistortionRefine = 0;
     }
 
     if (p->bDistributeModeAnalysis && (p->limitReferences >> 1) && 1)

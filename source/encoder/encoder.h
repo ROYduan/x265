@@ -202,8 +202,6 @@ public:
     FrameEncoder*      m_frameEncoder[S265_MAX_FRAME_THREADS];
     DPB*               m_dpb;
     Frame*             m_exportedPic;
-    FILE*              m_analysisFileIn;
-    FILE*              m_analysisFileOut;
     FILE*              m_naluFile;
     s265_param*        m_param;
     s265_param*        m_latestParam;     // Holds latest param during a reconfigure
