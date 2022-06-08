@@ -27,7 +27,6 @@ Bug fixes
 1. Incorrect VBV lookahead in :option:`--analysis-load` + :option:`--scale-factor`.
 2. Encoder hang when VBV is used with slices.
 3. QP spikes in the row-level VBV rate-control when WPP enabled.
-4. Encoder crash in :option:`--abr-ladder`.
 
 Version 3.4
 ===========
@@ -37,8 +36,6 @@ Release date - 29th May, 2020.
 New features
 ------------
 1. **Edge-aware quadtree partitioning** to terminate CU depth recursion based on edge information. :option:`--rskip` level 2 enables the feature and  :option:`--rskip-edge-threshold` denotes the minimum expected edge-density percentage within the CU, below which the recursion is skipped. Experimental feature.
-2. Application-level feature :option:`--abr-ladder` for automating efficient ABR ladder generation. Shows ~65% savings in the over-all turn-around time required for the generation of a typical Apple HLS ladder in Intel(R) Xeon(R) Platinum 8280 CPU @ 2.70GHz over a sequential ABR-ladder generation approach that leverages save-load architecture.
-
 Enhancements to existing features
 ---------------------------------
 1. Improved efficiency in 2-pass rate-control algorithm. The savings in the bitrate is ~1.72% with visual improvement in quality in the initial 1-2 secs.
@@ -299,6 +296,7 @@ API changes
 1. Options that modified PPS dynamically (:option:`--opt-qp-pps` and :option:`--opt-ref-list-length-pps`) are now disabled by default to enable users to save bits by not sending headers. If these options are enabled, headers have to be repeated for every GOP.
 2. Rate-control and analysis parameters can dynamically be reconfigured simultaneously via the *s265_encoder_reconfig* API.
 3. New API functions to extract intermediate information such as slice-type, scenecut information, reference frames, etc. are now available. This information may be beneficial to integrating applications that are attempting to perform content-adaptive encoding. Refer to documentation on *s265_get_slicetype_poc_and_scenecut*, and *s265_get_ref_frame_list* for more details and suggested usage.
+
 Bug fixes
 ---------
 1. Bug fixes when :option:`--slices` is used with VBV settings.
@@ -323,7 +321,6 @@ Encoder enhancements
 
 API changes
 -----------
-<<<<<<< HEAD
 1. Rate-control statistics passed through the s265_picture object for an incoming frame are now used by the encoder.
 2. VBV now has a deterministic mode. Use :option:`--const-vbv` to exercise.
 

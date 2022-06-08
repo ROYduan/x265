@@ -116,7 +116,6 @@ public:
     s265_analysis_data     m_analysisData;
     RcStats*               m_rcData;
 
-    Event                  m_copied;
     int64_t                m_encodeStartTime;
 
     /* Average feature values of frames being considered for classification */

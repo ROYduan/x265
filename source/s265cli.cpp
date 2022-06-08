@@ -320,7 +320,6 @@ namespace S265_NS {
         H1("\nReconstructed video options (debugging):\n");
         H1("-r/--recon <filename>            Reconstructed raw image YUV or Y4M output file name\n");
         H1("   --recon-depth <integer>       Bit-depth of reconstructed raw image file. Defaults to input bit depth, or 8 if Y4M\n");
-        H1("   --recon-y4m-exec <string>     pipe reconstructed frames to Y4M viewer, ex:\"ffplay -i pipe:0 -autoexit\"\n");
         H0("   --lowpass-dct                 Use low-pass subband dct approximation. Default %s\n", OPT(param->bLowPassDct));
 #ifdef SVT_HEVC
         H0("   --[no]svt                     Enable SVT HEVC encoder %s\n", OPT(param->bEnableSvtHevc));
@@ -335,8 +334,6 @@ namespace S265_NS {
         H0("   --svt-pred-struct             Select pred structure for SVT HEVC encoder;  Accepts inputs in the range 0-2 \n");
         H0("   --[no-]svt-fps-in-vps         Enable VPS timing info for SVT HEVC encoder  \n");
 #endif
-        H0(" ABR-ladder settings\n");
-        H0("   --abr-ladder <file>           File containing config settings required for the generation of ABR-ladder\n");
         H1("\nExecutable return codes:\n");
         H1("    0 - encode successful\n");
         H1("    1 - unable to parse command line\n");
@@ -354,13 +351,6 @@ namespace S265_NS {
 
     void CLIOptions::destroy()
     {
-        if (isAbrLadderConfig)
-        {
-            for (int idx = 1; idx < argCnt; idx++)
-                free(argString[idx]);
-            free(argString);
-        }
-
         if (input)
             input->release();
         input = NULL;

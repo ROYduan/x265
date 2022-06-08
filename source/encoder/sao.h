@@ -85,7 +85,7 @@ protected:
     pixel*      m_tmpU[3];
     pixel*      m_tmpL1[3];
     pixel*      m_tmpL2[3];
-
+    bool        m_created;
 public:
 
     struct SAOContexts

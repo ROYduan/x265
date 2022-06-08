@@ -145,7 +145,7 @@ int main(int argc, char **argv)
         exit(2);
     }
 
-    char* profileName = cliopt->encName ? cliopt->encName : (char *)"s265";
+    char* profileName = (char *)"s265";
     /* get the encoder parameters post-initialization */
     api->encoder_parameters(encoder, cliopt->param);
 
@@ -301,7 +301,7 @@ fail:
     cliopt->destroy();
     delete cliopt;
     printf("--closed------------------\n");
-    sleep(5);
+    sleep(1);
     }
     SetConsoleTitle(orgConsoleTitle);
     SetThreadExecutionState(ES_CONTINUOUS);

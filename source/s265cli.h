@@ -146,7 +146,6 @@ static const struct option long_options[] =
     { "scenecut-aware-qp", required_argument, NULL, 0 },
     { "masking-strength",  required_argument, NULL, 0 },
     { "radl",           required_argument, NULL, 0 },
-    { "ctu-info",       required_argument, NULL, 0 },
     { "intra-refresh",        no_argument, NULL, 0 },
     { "rc-lookahead",   required_argument, NULL, 0 },
     { "lookahead-slices", required_argument, NULL, 0 },
@@ -307,7 +306,6 @@ static const struct option long_options[] =
     { "temporal-layers",      no_argument, NULL, 0 },
     { "no-temporal-layers",   no_argument, NULL, 0 },
     { "qg-size",        required_argument, NULL, 0 },
-    { "recon-y4m-exec", required_argument, NULL, 0 },
     { "analyze-src-pics", no_argument, NULL, 0 },
     { "no-analyze-src-pics", no_argument, NULL, 0 },
     { "slices",         required_argument, NULL, 0 },
@@ -370,7 +368,6 @@ static const struct option long_options[] =
     { "cll", no_argument, NULL, 0 },
     { "no-cll", no_argument, NULL, 0 },
     { "hme-range", required_argument, NULL, 0 },
-    { "abr-ladder", required_argument, NULL, 0 },
     { "min-vbv-fullness", required_argument, NULL, 0 },
     { "max-vbv-fullness", required_argument, NULL, 0 },
     { 0, 0, 0, 0 },
@@ -403,16 +400,6 @@ static const struct option long_options[] =
         int argCnt;
         char** argString;
 
-        /* ABR ladder settings */
-        bool isAbrLadderConfig;
-        char*    encName;
-        char*    reuseName;
-        uint32_t encId;
-        int      refId;
-        uint32_t loadLevel;
-        uint32_t saveLevel;
-        uint32_t numRefs;
-
         /* in microseconds 相邻两次编码状态输出的最小时间间隔，单位微妙 */
         static const int UPDATE_INTERVAL = 250000;
         CLIOptions()// 构造函数，初始化上述各成员变量
@@ -433,14 +420,6 @@ static const struct option long_options[] =
             startTime = s265_mdate();
             prevUpdateTime = 0;
             bDither = false;
-            isAbrLadderConfig = false;
-            encName = NULL;
-            reuseName = NULL;
-            encId = 0;
-            refId = -1;
-            loadLevel = 0;
-            saveLevel = 0;
-            numRefs = 0;
             argCnt = 0;
         }
 

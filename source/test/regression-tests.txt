@@ -21,8 +21,6 @@ BasketballDrive_1920x1080_50.y4m,--preset medium --keyint -1 --nr-inter 100 -F4 
 BasketballDrive_1920x1080_50.y4m,--preset slow --nr-intra 100 -F4 --aq-strength 3 --qg-size 16 --limit-refs 1
 BasketballDrive_1920x1080_50.y4m,--preset slower --lossless --chromaloc 3 --subme 0 --limit-tu 4
 BasketballDrive_1920x1080_50.y4m,--preset veryslow --crf 4 --cu-lossless --pmode --limit-refs 1 --aq-mode 3 --limit-tu 3
-BasketballDrive_1920x1080_50.y4m,--preset veryslow --recon-y4m-exec "ffplay -i pipe:0 -autoexit"
-Coastguard-4k.y4m,--preset ultrafast --recon-y4m-exec "ffplay -i pipe:0 -autoexit"
 Coastguard-4k.y4m,--preset superfast --tune grain --overscan=crop
 Coastguard-4k.y4m,--preset superfast --tune grain --pme --aq-strength 2 --merange 190
 Coastguard-4k.y4m,--preset slow --tune psnr --cbqpoffs -1 --crqpoffs 1 --limit-refs 1
@@ -51,7 +49,6 @@ DucksAndLegs_1920x1080_60_10bit_444.yuv,--preset slower --no-weightp --rdoq-leve
 FourPeople_1280x720_60.y4m,--preset superfast --no-wpp --lookahead-slices 2
 FourPeople_1280x720_60.y4m,--preset veryfast --aq-mode 2 --aq-strength 1.5 --qg-size 8
 FourPeople_1280x720_60.y4m,--preset medium --qp 38 --no-psy-rd
-FourPeople_1280x720_60.y4m,--preset medium --recon-y4m-exec "ffplay -i pipe:0 -autoexit"
 FourPeople_1280x720_60.y4m,--preset veryslow --numa-pools "none"
 Keiba_832x480_30.y4m,--preset superfast --no-fast-intra --nr-intra 1000 -F4
 Keiba_832x480_30.y4m,--preset medium --pmode --tune grain

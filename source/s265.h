@@ -245,13 +245,6 @@ typedef struct s265_frame_stats
     double           unclippedBufferFillFinal;
 } s265_frame_stats;
 
-/* Arbitrary User SEI
- * Payload size is in bytes and the payload pointer must be non-NULL. 
- * Payload types and syntax can be found in Annex D of the H.265 Specification.
- * SEI Payload Alignment bits as described in Annex D must be included at the 
- * end of the payload if needed. The payload should not be NAL-encapsulated.
- * Payloads are written in the order of input */
-
 typedef enum
 {
     BUFFERING_PERIOD                     = 0,

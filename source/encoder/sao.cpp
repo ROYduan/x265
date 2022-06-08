@@ -89,6 +89,7 @@ SAO::SAO()
     m_tmpL2[1] = NULL;
     m_tmpL2[2] = NULL;
     m_depthSaoRate = NULL;
+    m_created = false;
 }
 
 bool SAO::create(s265_param* param, int initCommon)
@@ -157,7 +158,7 @@ bool SAO::create(s265_param* param, int initCommon)
         m_clipTableBase = NULL;
         m_clipTable = NULL;
     }
-
+    m_created = true;
     return true;
 
 fail:
@@ -181,6 +182,8 @@ void SAO::createFromRootNode(SAO* root)
 
 void SAO::destroy(int destoryCommon)
 {
+    if (!m_created)
+        return;
     for (int i = 0; i < 3; i++)
     {
         if (m_tmpL1[i])
@@ -212,6 +215,8 @@ void SAO::destroy(int destoryCommon)
         S265_FREE_ZERO(m_depthSaoRate);
         S265_FREE_ZERO(m_clipTableBase);
     }
+
+    m_created = false;
 }
 
 /* allocate memory for SAO parameters */

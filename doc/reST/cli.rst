@@ -2480,49 +2480,6 @@ Debugging options
 
 	**CLI ONLY**
 
-.. option:: --recon-y4m-exec <string>
-
-	If you have an application which can play a Y4MPEG stream received
-	on stdin, the s265 CLI can feed it reconstructed pictures in display
-	order.  The pictures will have no timing info, obviously, so the
-	picture timing will be determined primarily by encoding elapsed time
-	and latencies, but it can be useful to preview the pictures being
-	output by the encoder to validate input settings and rate control
-	parameters.
-
-	Example command for ffplay (assuming it is in your PATH):
-
-	--recon-y4m-exec "ffplay -i pipe:0 -autoexit"
-
-	**CLI ONLY**
-	
-ABR-ladder Options
-==================
-
-.. option:: --abr-ladder <filename>
-
-	File containing the encoder configurations to generate ABR ladder.
-	The format of each line is:
-
-	**<encID:reuse-level:refID> <CLI>**
-	
-	where, encID indicates the unique name given to the encode, refID indicates
-	the name of the encode from which analysis info has to be re-used ( set to 'nil'
-	if analysis reuse isn't preferred ), and reuse-level indicates the level ( :option:`--analysis-load-reuse-level`)
-	at which analysis info has to be reused.
-	
-	Sample config file::
-
-	[540p:0:nil] --input 540pSource.y4m --ctu 16 --bitrate 1600 --vbv-maxrate 2400 --vbv-bufsize 4800 -o 540p.hevc --preset veryslow
-	[1080p:10:540p] --input 1080pSource.y4m --ctu 32 --bitrate 5800 --vbv-maxrate 8700 --vbv-bufsize 17400 -o 1080p.hevc --preset veryslow --scale-factor 2
-	[2160p:10:1080p] --input 2160pSource.y4m --bitrate 16800 --vbv-maxrate 25200  --vbv-bufsize 50400 -o 2160p.hevc --preset veryslow  --scale-factor 2
-
-	The above sample config file is available in `the downloads page <https://bitbucket.org/multicoreware/s265_git/downloads/Sample_ABR_ladder_config.txt>`_
-
-	Default: Disabled ( Conventional single encode generation ). Experimental feature.
-	**CLI ONLY**
-
-
 SVT-HEVC Encoder Options
 ========================
 This section lists options which are SVT-HEVC encoder specific.
