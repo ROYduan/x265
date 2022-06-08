@@ -807,7 +807,7 @@ void FrameEncoder::compressFrame()
                     continue; // 注意只能 continue 不能用break, 会漏掉一些行
 
                 // block until all reference frames have reconstructed the rows we need
-                for (int l = 0; l < numPredDir; l++)
+                for (int l = 0; l < numPredDir; l++)//如果B帧，有两个方向的reference P帧:1个 I帧: 0个
                 {
                     for (int ref = 0; ref < slice->m_numRefIdx[l]; ref++)
                     {

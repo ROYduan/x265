@@ -346,9 +346,6 @@ void FrameFilter::ParallelFilter::processSaoCTU(SAOParam *saoParam, int col)
 // NOTE: MUST BE delay a row when Deblock enabled, the Deblock will modify above pixels in Horizon pass
 void FrameFilter::ParallelFilter::processPostCu(int col) const
 {
-    // Update finished CU cursor
-    m_frameFilter->m_frame->m_reconColCount[m_row].set(col);
-
     // shortcut path for non-border area
     if ((col != 0) & (col != m_frameFilter->m_numCols - 1) & (m_row != 0) & (m_row != m_frameFilter->m_numRows - 1))
         return;
@@ -553,10 +550,6 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
                 m_prevRow->processSaoCTU(saoParam, numCols - 1);
                 m_prevRow->processPostCu(numCols - 1);
             }
-
-            // Setting column sync counter
-            if (!ctuPrev->m_bFirstRowInSlice)
-                m_frameFilter->m_frame->m_reconColCount[m_row - 1].set(numCols - 1);
         }
         m_lastDeblocked.set(numCols);
     }
@@ -609,7 +602,6 @@ void FrameFilter::processRow(int row)
             // Process border extension on last row
             for(int col = 0; col < m_numCols; col++)
             {
-                // m_reconColCount will be set in processPostCu()
                 m_parallelFilter[row].processPostCu(col);
             }
         }

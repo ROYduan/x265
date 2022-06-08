@@ -34,7 +34,6 @@ Frame::Frame()
     m_bChromaExtended = false;
     m_lowresInit = false;
     m_reconRowFlag = NULL;
-    m_reconColCount = NULL;
     m_countRefEncoders = 0;
     m_encData = NULL;
     m_reconPic = NULL;
@@ -105,10 +104,8 @@ bool Frame::create(s265_param *param, float* quantOffsets)
     //完成空间allocate
     if (m_fencPic->create(param, !!m_param->bCopyPicToFrame) && m_lowres.create(param, m_fencPic, param->rc.qgSize))
     {
-        S265_CHECK((m_reconColCount == NULL), "m_reconColCount was initialized");
         m_numRows = (m_fencPic->m_picHeight + param->maxCUSize - 1)  / param->maxCUSize;
         m_reconRowFlag = new ThreadSafeInteger[m_numRows];
-        m_reconColCount = new ThreadSafeInteger[m_numRows];
 
         if (quantOffsets)
         {
@@ -210,12 +207,6 @@ void Frame::destroy()
     {
         delete[] m_reconRowFlag;
         m_reconRowFlag = NULL;
-    }
-
-    if (m_reconColCount)
-    {
-        delete[] m_reconColCount;
-        m_reconColCount = NULL;
     }
 
     if (m_quantOffsets)

@@ -76,13 +76,11 @@ void DPB::recycleUnreferenced()
 
             // Reset column counter
             S265_CHECK(curFrame->m_reconRowFlag != NULL, "curFrame->m_reconRowFlag check failure");
-            S265_CHECK(curFrame->m_reconColCount != NULL, "curFrame->m_reconColCount check failure");
             S265_CHECK(curFrame->m_numRows > 0, "curFrame->m_numRows check failure");
 
             for(int32_t row = 0; row < curFrame->m_numRows; row++)
             {
                 curFrame->m_reconRowFlag[row].set(0);
-                curFrame->m_reconColCount[row].set(0);
             }
 
             // iterator is invalidated by remove, restart scan

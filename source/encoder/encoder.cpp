@@ -1305,7 +1305,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
             m_bframeDelayTime = inFrame->m_pts - m_firstPts;
 
         /* Encoder holds a reference count until stats collection is finished */
-        //记录引用了改帧的encoder数
+        //记录引用了该帧的encoder数+1
         ATOMIC_INC(&inFrame->m_countRefEncoders);
 
         if ((m_param->rc.aqMode || m_param->bEnableWeightedPred || m_param->bEnableWeightedBiPred) &&
