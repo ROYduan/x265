@@ -389,7 +389,7 @@ static const struct option long_options[] =
         FILE*       zoneFile;// csv日志文件指针
         FILE*    dolbyVisionRpu;    /* File containing Dolby Vision BL RPU metadata */
         const s265_api* api;
-        s265_param* param; // x265编码器参数集
+        s265_param* param; // s265编码器参数集
         s265_vmaf_data* vmafData;
         bool bProgress; // 是否输出编码进度和其他一些编码状态数据
         bool bForceY4m; // 如果输入文件是Y4M格式，需要强制指定输入格式

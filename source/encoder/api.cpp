@@ -839,7 +839,6 @@ static const s265_api libapi =
 
     sizeof(s265_frame_stats),
     &s265_encoder_intra_refresh,
-    &s265_encoder_ctu_info,
     &s265_get_slicetype_poc_and_scenecut,
     &s265_get_ref_frame_list,
     &s265_csvlog_open,

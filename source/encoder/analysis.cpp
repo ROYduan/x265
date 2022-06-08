@@ -1055,7 +1055,6 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
         bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
         bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
         uint32_t minDepth = topSkipMinDepth(parentCTU, cuGeom);
-        bool bDecidedDepth = parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
         bool skipModes = false; /* Skip any remaining mode analyses at current depth */
         bool skipRecursion = false; /* Skip recursion */
         bool splitIntra = true;
@@ -1608,7 +1607,6 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
     {
         bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
         bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
-        bool bDecidedDepth = parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
         bool skipRecursion = false;
         bool skipModes = false;
         bool splitIntra = true;

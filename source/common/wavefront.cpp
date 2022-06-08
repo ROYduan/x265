@@ -27,8 +27,8 @@
 #include "wavefront.h"
 #include "common.h"
 
-namespace X265_NS {
-// x265 private namespace
+namespace S265_NS {
+// s265 private namespace
 // 这里的参数 numRows 为两倍的 ctu 行数
 bool WaveFront::init(int numRows)
 {

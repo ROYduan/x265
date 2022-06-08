@@ -297,8 +297,8 @@ Encoder enhancements
 API changes
 -----------
 1. Options that modified PPS dynamically (:option:`--opt-qp-pps` and :option:`--opt-ref-list-length-pps`) are now disabled by default to enable users to save bits by not sending headers. If these options are enabled, headers have to be repeated for every GOP.
-2. Rate-control and analysis parameters can dynamically be reconfigured simultaneously via the *x265_encoder_reconfig* API.
-3. New API functions to extract intermediate information such as slice-type, scenecut information, reference frames, etc. are now available. This information may be beneficial to integrating applications that are attempting to perform content-adaptive encoding. Refer to documentation on *x265_get_slicetype_poc_and_scenecut*, and *x265_get_ref_frame_list* for more details and suggested usage.
+2. Rate-control and analysis parameters can dynamically be reconfigured simultaneously via the *s265_encoder_reconfig* API.
+3. New API functions to extract intermediate information such as slice-type, scenecut information, reference frames, etc. are now available. This information may be beneficial to integrating applications that are attempting to perform content-adaptive encoding. Refer to documentation on *s265_get_slicetype_poc_and_scenecut*, and *s265_get_ref_frame_list* for more details and suggested usage.
 Bug fixes
 ---------
 1. Bug fixes when :option:`--slices` is used with VBV settings.

@@ -1486,7 +1486,7 @@ void Lookahead::slicetypeDecide()
 {
     PreLookaheadGroup pre(*this);
     Lowres* frames[S265_LOOKAHEAD_MAX + S265_BFRAME_MAX + 4];
-    //Frame*  list[X265_BFRAME_MAX + 4];
+    //Frame*  list[S265_BFRAME_MAX + 4];
     Frame*  list[S265_LOOKAHEAD_MAX + S265_BFRAME_MAX + 4];
     memset(frames, 0, sizeof(frames));
     memset(list, 0, sizeof(list));

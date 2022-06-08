@@ -247,7 +247,7 @@ void Encoder::create()
     if (!len)
         strcpy(buf, "none");
 
-    s265_log(p, X265_LOG_INFO, "frame threads / pool features       : %d / %s\n", p->frameNumThreads, buf);
+    s265_log(p, S265_LOG_INFO, "frame threads / pool features       : %d / %s\n", p->frameNumThreads, buf);
     // 根据帧级编码线程数量创建若干个帧编码器实例
 
     for (int i = 0; i < m_param->frameNumThreads; i++)
@@ -1102,7 +1102,7 @@ void Encoder::findSceneCuts(s265_picture *pic, bool& bDup, double maxUVSad, doub
  *         negative on malloc error or abort */
 
 //区分大小写 encode 不是类Encoder的构造函数
-int Encoder::encode(const x265_picture* pic_in, x265_picture* pic_out)
+int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 {
 #if CHECKED_BUILD || _DEBUG
     if (g_checkFailures)
