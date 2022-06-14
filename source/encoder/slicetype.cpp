@@ -1441,9 +1441,11 @@ static void set_gop_info_internal(  Lowres *cur_frame, int32_t *gop_id, int32_t 
      else
      {
         cur_frame->i_level = depth;
-        cur_frame->i_bref = (depth < cur_frame->i_max_depth);
+        cur_frame->i_bref = (depth < cur_frame->i_max_depth);// 小于max_depth 时 都用作 ref
         cur_frame->i_gop_id = *gop_id;
 //      cur_frame->i_temporal_id = S264_MAX(0, depth - 1);// note: this seems to be also ok    todo: BD_rate_test
+        // 当当前minigop B帧个数> 3时，最中间的Bref 的 i_temporal_id 设置为0(与i/p 帧属 同一个参考重要程度)
+        // 否则 当当前的minigop 较小,(B帧个数<=3时) 最中间的Bref 的 i_temporal_id 从 1开始计算
         cur_frame->i_temporal_id = cur_frame->i_gop_size > 4 ? S265_MAX(0, depth - 1): S265_MAX(0, depth );
 //      cur_frame->i_temporal_id = S264_MAX(0, depth);//tested   todo:BD_rate_test
         cur_frame->sliceType = cur_frame->i_bref ? S265_TYPE_BREF : S265_TYPE_B;
@@ -3478,20 +3480,17 @@ void Lookahead::slicetypePath(Lowres **frames, int length, char(*best_paths)[S26
     memcpy(best_paths[length % (S265_BFRAME_MAX + 1)], paths[idx ^ 1], length);
 }
 
-static uint64_t addcost( CostEstimateGroup *estGroup, Lowres **frames, int left_ref, int right_ref, uint64_t threshold )
+static void addcost(CostEstimateGroup *estGroup, Lowres **frames, int left_ref, int right_ref, int64_t threshold, int64_t *cost)
 {
-    uint64_t cost = 0;
-    if( right_ref - left_ref > 1 )
+    if (right_ref - left_ref > 1)
 	{
         int middle = left_ref + ( right_ref - left_ref ) / 2;
-        cost += estGroup->singleCost(left_ref, right_ref, middle);
-
-        if( middle > left_ref && cost < threshold )
-            cost += addcost( estGroup, frames, left_ref, middle, threshold - cost );
-        if( right_ref > middle && cost < threshold )
-            cost += addcost( estGroup, frames, middle, right_ref, threshold - cost );
+        *cost += estGroup->singleCost(left_ref, right_ref, middle);
+        if (middle > left_ref && *cost < threshold)
+            addcost(estGroup, frames, left_ref, middle, threshold, cost);
+        if (right_ref > middle && *cost < threshold)
+            addcost(estGroup, frames, middle, right_ref, threshold, cost);
     }
-    return cost;
 }
 
 int64_t Lookahead::slicetypePathCost(Lowres **frames, char *path, int64_t threshold)
@@ -3521,7 +3520,7 @@ int64_t Lookahead::slicetypePathCost(Lowres **frames, char *path, int64_t thresh
         {
             if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
             {
-                cost += addcost( &estGroup, frames, cur_p, next_p, threshold - cost );
+                addcost( &estGroup, frames, cur_p, next_p, threshold, &cost);
             }
             else
             {
@@ -3632,7 +3631,7 @@ void Lookahead::calcMotionAdaptiveQuantFrame(Lowres **frames, int p0, int p1, in
         }
     }
 }
-
+//// b_intra 表明了mb_tree 传递cost时 是在frames[1] 终止(此时frames[0] 已经被编码)还是在frames[0] 终止(此时frames[0]是一个keyframe 还没有被编码)
 void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
 {
     int idx = !bIntra;
@@ -3646,45 +3645,49 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
 
     double averageDuration = totalDuration / (numframes + 1);
 
-    int i = numframes;
+    int i = numframes;//本次前向可分析帧的数量
 
     while (i > 0 && frames[i]->sliceType == S265_TYPE_B)
         i--;
 
-    lastnonb = i;
+    lastnonb = i; //从后往前找，找到第一个非B帧 (寻找最后一个非B帧)
 
     /* Lookaheadless MB-tree is not a theoretically distinct case; the same extrapolation could
      * be applied to the end of a lookahead buffer of any size.  However, it's most needed when
      * lookahead=0, so that's what's currently implemented. */
-    if (!m_param->lookaheadDepth)
+    if (!m_param->lookaheadDepth) //如果lookahead前向分析帧数量为0
     {
-        if (bIntra)
+        if (bIntra)// //当frames[0]是intra时，由于没有lookahead，i_propagate_cost 为 0
         {
             memset(frames[0]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+            //直接应用aq结果到f_qp_offset，此时mbtree没有效果
             if (m_param->rc.qgSize == 8)
                 memcpy(frames[0]->qpCuTreeOffset, frames[0]->qpAqOffset, m_cuCount * 4 * sizeof(double));
             else
                 memcpy(frames[0]->qpCuTreeOffset, frames[0]->qpAqOffset, m_cuCount * sizeof(double));
             return;
         }
-        std::swap(frames[lastnonb]->propagateCost, frames[0]->propagateCost);
+        //非intra情况下：??? 
+        std::swap(frames[lastnonb]->propagateCost, frames[0]->propagateCost);//指针交换
         memset(frames[0]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
     }
     else
     {
         if (lastnonb < idx)
             return;
+        // 在最远处的第一个非B帧位置开始/截断（最后被编码的一帧） propagate_cost 进行 frames[last_nonb] 的清空
         memset(frames[lastnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
     }
 
-    CostEstimateGroup estGroup(*this, frames);
+    CostEstimateGroup estGroup(*this, frames);// 定义一个对象
 
     if( m_param->bBPyramid == S265_B_PYRAMID_HIER )
     {
+        // 首个被编码的非B帧
         int first_nonb = bIntra ? 0 : frames[1]->i_gop_size;
         for( int32_t t = first_nonb + 1; t <= i; t++ )
         {
-            if( frames[t]->sliceType == S265_TYPE_BREF ) // i_bref
+            if( frames[t]->sliceType == S265_TYPE_BREF ) // 所有的BREf 都首先清空
                 memset( frames[t]->propagateCost, 0, m_cuCount * sizeof(uint16_t) );
         }
     }
@@ -3694,17 +3697,18 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
         curnonb = i;
         // while (frames[curnonb]->sliceType == S265_TYPE_B && curnonb > 0)
         //     curnonb--;
+        // //从last_nonb位置的前一个位置(最后一个非B帧位置的之前一个位置) 往前寻找 离last_nonb最近的一个非B帧
         while (IS_S265_TYPE_B(frames[curnonb]->sliceType) && curnonb > 0)
             curnonb--;
 
-        if (curnonb < idx)
+        if (curnonb < idx) //idx 为首个未编码帧的位置 0时，表示未编码的帧为i帧在frames[0]位置，1时表示frames[0] 为p帧且已经被编码
             break;
-
+        // 计算最后一个非B帧(last_nonb)  参考其前一个非B帧的P0(cur_nonb) 的cost
         estGroup.singleCost(curnonb, lastnonb, lastnonb);
-
+        // cur_nonb 的propagateCost 需要先清零
         memset(frames[curnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
-        bframes = lastnonb - curnonb - 1;
-        if (m_param->bBPyramid && bframes > 1)
+        bframes = lastnonb - curnonb - 1;//两个连续非B帧之间的B帧个数
+        if (m_param->bBPyramid && bframes > 1)//如果有参考B帧存在 //此处bframes应该大于2 更好
         {
             if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
             {
@@ -3759,37 +3763,39 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
             }
             else
             {
-                int middle = (bframes + 1) / 2 + curnonb;
-                estGroup.singleCost(curnonb, lastnonb, middle);
+                int middle = (bframes + 1) / 2 + curnonb; // 计算Bref帧的位置
+                estGroup.singleCost(curnonb, lastnonb, middle); //b设为 中间的Bref帧 参考p0(cur_nonb) 以及p1(last_nonb) cost 先行计算
                 memset(frames[middle]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
                 while (i > curnonb)
                 {
                     int p0 = i > middle ? middle : curnonb;
                     int p1 = i < middle ? middle : lastnonb;
-                    if (i != middle)
+                    if (i != middle)// // 先对 last_nonb 到 middle 之间的B帧进行tree_progagate  再对 middle  到 cur_nonb 之间的B帧进行 tree_progagate
                     {
                         estGroup.singleCost(p0, p1, i);
-                        estimateCUPropagate(frames, averageDuration, p0, p1, i, 0);
+                        estimateCUPropagate(frames, averageDuration, p0, p1, i, 0); // 最后的0表示当前frames[i] 为非参考帧
                     }
                     i--;
                 }
-
+                //最后将middle cost 进行propagate 到 cur_nonb与last_nonb
                 estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, middle, 1);
             }
         }
         else
         {
-            while (i > curnonb)
+            while (i > curnonb)//所有B帧从后往前 依次进行cost计算与progagate
             {
                 estGroup.singleCost(curnonb, lastnonb, i);
-                estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, i, 0);
+                estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, i, 0);//所有B帧frames[i]都不会被参考
                 i--;
             }
         }
+        //最后将 last_nonb 的cost propagate到 cur_nonb
         estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, lastnonb, 1);
-        lastnonb = curnonb;
+        lastnonb = curnonb; //update last_nonb 后继续循环对cost 进行propagate
     }
-
+// 到这里，last_nonb 已经更新为frames[]队列里面的第一个未编码的非B帧 如果 frames[0] 为 i 且未编码(即第二次进来) 则 last_nonb 为frames[0]
+// 如果 frames[0] 为 p 则其已经编码，此时 last_nonb 为即将要编码的minigop在poc顺序上的最后一帧
     if (!m_param->lookaheadDepth)
     {
         estGroup.singleCost(0, lastnonb, lastnonb);
@@ -3801,9 +3807,9 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
     //printf("set qp from: %d->%d\n", frames[lastnonb]->frameNum, frames[lastnonb + bframes + 1]->frameNum);
 
 
-    cuTreeFinish(frames[lastnonb], averageDuration, lastnonb);
+    cuTreeFinish(frames[lastnonb], averageDuration, lastnonb);// 计算frames[last_nonb]中的qp-delta信息
     
-
+    // ？？? 为什么没有启用vbv 时 才进行Bref帧的cutree-qp-delta计算。
     if (m_param->bBPyramid && bframes > 1 && !m_param->rc.vbvBufferSize)
     {
         if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
@@ -4287,7 +4293,7 @@ void Lookahead::computeCUTreeQpOffset(Lowres *frame, double averageDuration, int
         }
     }
 }
-
+//ref0_distance 为0表示不需要考虑weighted_p， 不为0 则表示 (b-p0)的距离
 void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Distance)
 {
     if (m_param->rc.hevcAq)
@@ -4304,7 +4310,7 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
             weightdelta = (1.0 - frame->weightedCostDelta[ref0Distance - 1]);
 
         if (m_param->rc.qgSize == 8)
-        {
+        {   // qgSize为8时，一个lookahead 8x8 对应以个orig 的16x16= 4个8x8
             for (int cuY = 0; cuY < m_8x8Height; cuY++)
             {
                 for (int cuX = 0; cuX < m_8x8Width; cuX++)
@@ -4315,6 +4321,7 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
                     {
                         int propagateCost = ((frame->propagateCost[cuXY]) / 4 * fpsFactor + 128) >> 8;
                         double log2_ratio = S265_LOG2(intracost + propagateCost) - S265_LOG2(intracost) + weightdelta;
+                        //在_aq 的基础上，做进一步的调节，并将结果记录在f_qp_offset上面
                         frame->qpCuTreeOffset[cuX * 2 + cuY * m_8x8Width * 4] = frame->qpAqOffset[cuX * 2 + cuY * m_8x8Width * 4] - m_cuTreeStrength * (log2_ratio);
                         frame->qpCuTreeOffset[cuX * 2 + cuY * m_8x8Width * 4 + 1] = frame->qpAqOffset[cuX * 2 + cuY * m_8x8Width * 4 + 1] - m_cuTreeStrength * (log2_ratio);
                         frame->qpCuTreeOffset[cuX * 2 + cuY * m_8x8Width * 4 + frame->maxBlocksInRowFullRes] = frame->qpAqOffset[cuX * 2 + cuY * m_8x8Width * 4 + frame->maxBlocksInRowFullRes] - m_cuTreeStrength * (log2_ratio);
@@ -4324,7 +4331,7 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
             }
         }
         else
-        {
+        {    // qgSize为>8时，一个lookahead 8x8 对应以个orig 的16x16
             for (int cuIndex = 0; cuIndex < m_cuCount; cuIndex++)
             {
                 int intracost = (frame->intraCost[cuIndex] * frame->invQscaleFactor[cuIndex] + 128) >> 8;
@@ -4688,9 +4695,10 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
         }
 
         int numc = 0;
-        MV mvc[5], mvp;
+        MV mvc[8], mvp;
         MV* fencMV = hme ? &fenc->lowerResMvs[i][listDist[i]][cuXY] : &fenc->lowresMvs[i][listDist[i]][cuXY];
         ReferencePlanes* fref = i ? fref1 : wfref0;
+        int mvpcost = MotionEstimate::COST_MAX;
 
         /* Reverse-order MV prediction */
 #define MVC(mv) mvc[numc++] = mv;
@@ -4715,8 +4723,23 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
         else
         {
             ALIGN_VAR_32(pixel, subpelbuf[S265_LOWRES_CU_SIZE * S265_LOWRES_CU_SIZE]);
-            int mvpcost = MotionEstimate::COST_MAX;
-
+            // mv_clipp
+            for (int32_t idx0 = 0; idx0 < numc; idx0++)
+            {
+                mvc[idx0].clipped(mvmin, mvmax);
+            }
+            // Deduplication
+            bool mask[5] = { false };
+            for (int32_t idx0 = 0; idx0 < numc; idx0++)
+            {
+                for (int32_t idx1 = idx0 + 1; idx1 < numc; idx1++)
+                {
+                    if (mvc[idx0].word == mvc[idx1].word)
+                    {
+                        mask[idx1] = true;
+                    }
+                }
+            }
             /* measure SATD cost of each neighbor MV (estimating merge analysis)
              * and use the lowest cost MV as MVP (estimating AMVP). Since all
              * mvc[] candidates are measured here, none are passed to motionEstimate */
@@ -4725,31 +4748,41 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
                 intptr_t stride = S265_LOWRES_CU_SIZE;
                 /*注意 src 返回后又可能是subpelbuf 地址（需要1/4差值时 ） 
                 也有可能是ref帧的小图or 小小图 对应的plane便宜后的地址
-                （无需1/4分像素差值，stride 会被更改为 对应小/小小图的plane 的 Ystride） */ 
-                pixel *src = fref->lowresMC(pelOffset, mvc[idx], subpelbuf, stride, hme);
-                // 计算 fencPUYuv.m_buf[0]与参考数据（src指向的data) 之间的 satd
-                int cost = tld.me.bufSATD(src, stride);
-                COPY2_IF_LT(mvpcost, cost, mvp, mvc[idx]);// 保存最小的cost为 mvpcost 保存对应的mv candidate 为 mvp
-                /* Except for mv0 case, everyting else is likely to have enough residual to not trigger the skip. */
-
-                //if (!mvp.notZero() && bBidir)
-                if (!mvp.notZero() && (bBidir || tld.usePskip))// 如果在bBidir 的条件下，这个过程中mvp有为0的情况 则记录cost 为skipcost
-                    skipCost = cost;
+                （无需1/4分像素差值，stride 会被更改为 对应小/小小图的plane 的 Ystride） */
+                if (!mask[idx])
+                {
+                    pixel *src = fref->lowresMC(pelOffset, mvc[idx], subpelbuf, stride, hme);
+                    // 计算 fencPUYuv.m_buf[0]与参考数据（src指向的data) 之间的 satd
+                    int cost = tld.me.bufSATD(src, stride);
+                    COPY2_IF_LT(mvpcost, cost, mvp, mvc[idx]);// 保存最小的cost为 mvpcost 保存对应的mv candidate 为 mvp
+                    /* Except for mv0 case, everyting else is likely to have enough residual to not trigger the skip. */
+                    if (!mvc[idx].notZero() && (bBidir || tld.usePskip))// 如果在bBidir 的条件下，这个过程中mvc有为0的情况 则记录cost 为skipcost
+                        skipCost = cost;
+                    if( cost< 64 )
+                        break;
+                }
             }
         }
-        // 在非hme下 search 范围固定为16
-        int searchRange = m_lookahead.m_param->bEnableHME ? (hme ? m_lookahead.m_param->hmeRange[0] : m_lookahead.m_param->hmeRange[1]) : s_merange;
-        /* ME will never return a cost larger than the cost @MVP, so we do not
-         * have to check that ME cost is more than the estimated merge cost */
-        if(!hme) //以mvp 为起点在search范围内 搜索最佳匹配点并记录fencMV 和fencCost
-            fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices);
-        else
-            fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices, fref->lowerResPlane[0]);
-        //if (skipCost < 64 && skipCost < fencCost && bBidir)
-        if (skipCost < 64 && skipCost < fencCost && (bBidir || tld.usePskip))
+        if (skipCost < 64 && (bBidir || tld.usePskip))
         {
             fencCost = skipCost;
             *fencMV = 0;
+        }
+        else if (mvpcost < 64)
+        {
+            fencCost = mvpcost;
+            *fencMV = mvp;
+        }
+        else
+        {
+            // 在非hme下 search 范围固定为16
+            int searchRange = m_lookahead.m_param->bEnableHME ? (hme ? m_lookahead.m_param->hmeRange[0] : m_lookahead.m_param->hmeRange[1]) : s_merange;
+            /* ME will never return a cost larger than the cost @MVP, so we do not
+            * have to check that ME cost is more than the estimated merge cost */
+            if(!hme) //以mvp 为起点在search范围内 搜索最佳匹配点并记录fencMV 和fencCost
+                fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices);
+            else
+                fencCost = tld.me.motionEstimate(fref, mvmin, mvmax, mvp, 0, NULL, searchRange, *fencMV, m_lookahead.m_param->maxSlices, fref->lowerResPlane[0]);
         }
         COPY2_IF_LT(bcost, fencCost, listused, i + 1);
     }
@@ -4822,46 +4855,39 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
     /* mv sts only need in case "p0 < b == p1" */
     if( bFrameScoreCU && p0 < b && b == p1 )
     {
-        int32_t large_mv[2]={0};
-        MV tmp_mv = fenc->lowresMvs[0][listDist[0]][cuXY];
-        //if( tmp_mv )
+        MV large_mv = fenc->lowresMvs[0][listDist[0]][cuXY].roundToFPel();
+        if (slice < 0)//当前frame的cost 计算是按照一帧一帧计算的
         {
-            large_mv[0] = FPEL(tmp_mv.x);
-            large_mv[1] = FPEL(tmp_mv.y);
-        }
-        if (slice < 0)
-        {
-            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres2))
+            if ((abs(large_mv.x) + abs(large_mv.y) > m_lookahead.i_large_mv_thres2))
             {
                 fenc->largeMvs[b - p0] += 1;
             }
-            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres3))
+            if ((abs(large_mv.x) + abs(large_mv.y) > m_lookahead.i_large_mv_thres3))
             {
                 fenc->veryLargeMvs[b - p0] += 1;
             }
-            if (abs(large_mv[0]) + abs(large_mv[1]) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
+            if (abs(large_mv.x) + abs(large_mv.y) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
                 m_lookahead.m_param->rc.rateControlMode)
             {
                 fenc->hasSmallMvs[b - p0] += 1;
             }
         }
-        else
+        else// slice 级 并行
         {
-            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres2))
+            if ((abs(large_mv.x) + abs(large_mv.y) > m_lookahead.i_large_mv_thres2))
             {
                 m_slice[slice].largeMvs += 1;
             }
-            if ((abs(large_mv[0]) + abs(large_mv[1]) > m_lookahead.i_large_mv_thres3))
+            if ((abs(large_mv.x) + abs(large_mv.y) > m_lookahead.i_large_mv_thres3))
             {
                 m_slice[slice].veryLargeMvs += 1;
             }
-            if (abs(large_mv[0]) + abs(large_mv[1]) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
+            if (abs(large_mv.x) + abs(large_mv.y) > S265_MAX(1, m_lookahead.i_large_mv_thres / 6) &&
                 m_lookahead.m_param->rc.rateControlMode)
             {
                 m_slice[slice].hasSmallMvs += 1;
             }
         }
-
     }
 
     fenc->rowSatds[b - p0][p1 - b][cuY] += bcostAq;

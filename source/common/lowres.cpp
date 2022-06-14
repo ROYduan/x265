@@ -271,6 +271,9 @@ void Lowres::init(PicYuv *origPic, int poc)
     leadingBframes = 0;
     indB = 0;
     memset(costEst, -1, sizeof(costEst));
+    memset(largeMvs, 0, sizeof(largeMvs));
+    memset(veryLargeMvs, 0, sizeof(veryLargeMvs));
+    memset(hasSmallMvs, 0, sizeof(hasSmallMvs));
     memset(weightedCostDelta, 0, sizeof(weightedCostDelta));
     interPCostPercDiff = 0.0;
     intraCostPercDiff = 0.0;

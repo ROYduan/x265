@@ -816,9 +816,9 @@ void FrameEncoder::compressFrame()
                         // NOTE: we unnecessary wait row that beyond current slice boundary
                         //m_refLagRows: fpp 帧级并行时 参考帧依赖
                         const int rowIdx = S265_MIN(sliceEndRow, (row + m_refLagRows));
-                        //等待依赖的参考帧部分完成
-                        while (refpic->m_reconRowFlag[rowIdx].get() == 0)
-                            refpic->m_reconRowFlag[rowIdx].waitForChange(0);
+                        //等待依赖的参考帧部分完成重建
+                        while (refpic->m_reconRowFlag[rowIdx].get() == 0)//==0:表示还没有完成，==1:表示重建完成
+                            refpic->m_reconRowFlag[rowIdx].waitForChange(0);// 0-->1 重建完成
 
                         if ((bUseWeightP || bUseWeightB) && m_mref[l][ref].isWeighted)
                             m_mref[l][ref].applyWeight(rowIdx, m_numRows, sliceEndRow, sliceId);
