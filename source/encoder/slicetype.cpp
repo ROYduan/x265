@@ -449,14 +449,14 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
     int blockCount, loopIncr;
     float modeOneConst, modeTwoConst;
     if (param->rc.qgSize == 8)
-    {
+    {   // 相当于对应lowres 中 4x4 的个数了
         blockCount = curFrame->m_lowres.maxBlocksInRowFullRes * curFrame->m_lowres.maxBlocksInColFullRes;
         modeOneConst = 11.427f;
         modeTwoConst = 8.f;
         loopIncr = 8;
     }
     else
-    {
+    {  // 相当于对应lowres 中 8x8 的个数了
         blockCount = widthInCU * heightInCU;
         modeOneConst = 14.427f;
         modeTwoConst = 11.f;
@@ -466,7 +466,7 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
     float* quantOffsets = curFrame->m_quantOffsets;
     for (int y = 0; y < 3; y++)
     {
-        curFrame->m_lowres.wp_ssd[y] = 0;
+        curFrame->m_lowres.wp_ssd[y] = 0;// accumulate init
         curFrame->m_lowres.wp_sum[y] = 0;
     }
 
@@ -636,6 +636,7 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
 
         if (param->rc.qgSize == 8)
         {
+            // 一个 8x8的cu 对应4个x4 的block
             for (int cuY = 0; cuY < heightInCU; cuY++)
             {
                 for (int cuX = 0; cuX < widthInCU; cuX++)
@@ -706,33 +707,33 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
 
     const int cuSize  = S265_LOWRES_CU_SIZE;
     const int cuSize2 = cuSize << 1;
-    const int sizeIdx = S265_LOWRES_CU_BITS - 2;
+    const int sizeIdx = S265_LOWRES_CU_BITS - 2; // 8x8 对应的index 为 1
 
     pixelcmp_t satd = primitives.pu[sizeIdx].satd;
-    int planar = !!(cuSize >= 8);
+    int planar = !!(cuSize >= 8);// 如果 lowre 的cu size >=8 则采用planar 预测 否则不用
 
     int costEst = 0, costEstAq = 0;
 
     for (int cuY = 0; cuY < heightInCU; cuY++)
     {
-        fenc.rowSatds[0][0][cuY] = 0;
+        fenc.rowSatds[0][0][cuY] = 0;// 每一行的累加器初始化
 
         for (int cuX = 0; cuX < widthInCU; cuX++)
         {
             const int cuXY = cuX + cuY * widthInCU;
             const intptr_t pelOffset = cuSize * cuX + cuSize * cuY * fenc.lumaStride;
-            pixel *pixCur = fenc.lowresPlane[0] + pelOffset;
+            pixel *pixCur = fenc.lowresPlane[0] + pelOffset;// 寻址
 
-            /* copy fenc pixels */
+            /* copy fenc pixels *///拷贝 8x8的orig data 到栈区存储区间
             primitives.cu[sizeIdx].copy_pp(fencIntra, cuSize, pixCur, fenc.lumaStride);
 
             /* collect reference sample pixels */
-            pixCur -= fenc.lumaStride + 1;
-            memcpy(samples, pixCur, (2 * cuSize + 1) * sizeof(pixel)); /* top */
+            pixCur -= fenc.lumaStride + 1;//指针移动到左上角处
+            memcpy(samples, pixCur, (2 * cuSize + 1) * sizeof(pixel)); /* top */ //top 行 1+8+8
             for (int i = 1; i <= 2 * cuSize; i++)
-                samples[cuSize2 + i] = pixCur[i * fenc.lumaStride];    /* left */
+                samples[cuSize2 + i] = pixCur[i * fenc.lumaStride];    /* left */ 8 + 8
 
-            primitives.cu[sizeIdx].intra_filter(samples, filtered);
+            primitives.cu[sizeIdx].intra_filter(samples, filtered);// 参考像素滤波 应该可以不用的
 
             int cost, icost = me.COST_MAX;
             uint32_t ilowmode = 0;
@@ -749,35 +750,35 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
             /* scan angular predictions */
             int filter, acost = me.COST_MAX;
             uint32_t mode, alowmode = 4;
-            for (mode = 5; mode < 35; mode += 5)
+            for (mode = 5; mode < 35; mode += 5)// 6个大方向
             {
                 filter = !!(g_intraFilterFlags[mode] & cuSize);
                 primitives.cu[sizeIdx].intra_pred[mode](prediction, cuSize, neighbours[filter], mode, cuSize <= 16);
                 cost = satd(fencIntra, cuSize, prediction, cuSize);
                 COPY2_IF_LT(acost, cost, alowmode, mode);
             }
-            for (uint32_t dist = 2; dist >= 1; dist--)
+            for (uint32_t dist = 2; dist >= 1; dist--)//在6中大方向中的某个方向上继续做精细化pred，完了之后再 进一步缩小步长再做一次
             {
                 int minusmode = alowmode - dist;
                 int plusmode = alowmode + dist;
 
-                mode = minusmode;
+                mode = minusmode;// 负方向
                 filter = !!(g_intraFilterFlags[mode] & cuSize);
                 primitives.cu[sizeIdx].intra_pred[mode](prediction, cuSize, neighbours[filter], mode, cuSize <= 16);
                 cost = satd(fencIntra, cuSize, prediction, cuSize);
                 COPY2_IF_LT(acost, cost, alowmode, mode);
 
-                mode = plusmode;
+                mode = plusmode;//正方向
                 filter = !!(g_intraFilterFlags[mode] & cuSize);
                 primitives.cu[sizeIdx].intra_pred[mode](prediction, cuSize, neighbours[filter], mode, cuSize <= 16);
                 cost = satd(fencIntra, cuSize, prediction, cuSize);
-                COPY2_IF_LT(acost, cost, alowmode, mode);
+                COPY2_IF_LT(acost, cost, alowmode, mode);// 一次循环后 决策处 负/正方向上的最优者
             }
-            COPY2_IF_LT(icost, acost, ilowmode, alowmode);
+            COPY2_IF_LT(icost, acost, ilowmode, alowmode);// 最优的cost 与最优的ilowmode 
 
-            icost += intraPenalty + lowresPenalty; /* estimate intra signal cost */
+            icost += intraPenalty + lowresPenalty; /* estimate intra signal cost */ //intra惩罚与低分辨率惩罚
 
-            fenc.lowresCosts[0][0][cuXY] = (uint16_t)(S265_MIN(icost, LOWRES_COST_MASK) | (0 << LOWRES_COST_SHIFT));
+            fenc.lowresCosts[0][0][cuXY] = (uint16_t)(S265_MIN(icost, LOWRES_COST_MASK) | (0 << LOWRES_COST_SHIFT));// 0表示 不用list0/1 作参考
             fenc.intraCost[cuXY] = icost;
             fenc.intraMode[cuXY] = (uint8_t)ilowmode;
             /* do not include edge blocks in the 
@@ -1040,11 +1041,11 @@ Lookahead::Lookahead(s265_param *param, ThreadPool* pool)
 
     if (m_param->lookaheadSlices > 1)
     {
-        m_numRowsPerSlice = m_8x8Height / m_param->lookaheadSlices;
+        m_numRowsPerSlice = m_8x8Height / m_param->lookaheadSlices;//每个slice 占有多少行8x8
         m_numRowsPerSlice = S265_MAX(m_numRowsPerSlice, 10);            // at least 10 rows per slice
         m_numRowsPerSlice = S265_MIN(m_numRowsPerSlice, m_8x8Height);   // but no more than the full picture
         m_numCoopSlices = m_8x8Height / m_numRowsPerSlice;
-        m_param->lookaheadSlices = m_numCoopSlices;                     // report actual final slice count
+        m_param->lookaheadSlices = m_numCoopSlices; //实际的条带数         // report actual final slice count
     }
     else
     {
@@ -1396,11 +1397,11 @@ void PreLookaheadGroup::processTasks(int workerThreadID)
     m_lock.acquire();
     while (m_jobAcquired < m_jobTotal)
     {
-        Frame* preFrame = m_preframes[m_jobAcquired++];
+        Frame* preFrame = m_preframes[m_jobAcquired++];// 一帧一帧 /一个一个任务取出来
         ProfileLookaheadTime(m_lookahead.m_preLookaheadElapsedTime, m_lookahead.m_countPreLookahead);
         ProfileScopeEvent(prelookahead);
         m_lock.release();
-        preFrame->m_lowres.init(preFrame->m_fencPic, preFrame->m_poc);
+        preFrame->m_lowres.init(preFrame->m_fencPic, preFrame->m_poc);// 做一些初始化的工作
         if (m_lookahead.m_bAdaptiveQuant)
             tld.calcAdaptiveQuantFrame(preFrame, m_lookahead.m_param);
         tld.lowresIntraEstimate(preFrame->m_lowres, m_lookahead.m_param->rc.qgSize);
@@ -1510,7 +1511,7 @@ void Lookahead::slicetypeDecide()
 
         curFrame = m_inputQueue.first();
         frames[0] = m_lastNonB;
-        //构建frames 数组将分析需要的帧放到frames[1...maxSearch]
+        //构建frames数组 将需要分析的帧放到frames[1...maxSearch]
         for (j = 0; j < maxSearch; j++)//最多分析这么多帧
         {
             if (!curFrame) break;//遇到null了，后面没有帧了
@@ -4241,11 +4242,11 @@ void Lookahead::computeCUTreeQpOffset(Lowres *frame, double averageDuration, int
     }
     else
     {
+        int ctuSizeIdx = 6 - g_log2Size[m_param->maxCUSize];
+        int aqDepth = g_log2Size[m_param->maxCUSize] - g_log2Size[m_param->rc.qgSize];
         for (uint32_t d = 0; d < 4; d++)
         {
-            int ctuSizeIdx = 6 - g_log2Size[m_param->maxCUSize];
-            int aqDepth = g_log2Size[m_param->maxCUSize] - g_log2Size[m_param->rc.qgSize];
-            if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])
+            if (!aqLayerDepth[ctuSizeIdx][aqDepth][d]) // 1, 1, 1, 0
                 continue;
 
             PicQPAdaptationLayer* pQPLayer = &frame->pAQLayer[d];
@@ -4255,8 +4256,8 @@ void Lookahead::computeCUTreeQpOffset(Lowres *frame, double averageDuration, int
             const uint32_t numAQPartInWidth = pQPLayer->numAQPartInWidth;
             const uint32_t numAQPartInHeight = pQPLayer->numAQPartInHeight;
 
-            double* pcQP = pQPLayer->dQpOffset;
-            double* pcCuTree = pQPLayer->dCuTreeOffset;
+            double* pcQP = pQPLayer->dQpOffset;// 指针初始化
+            double* pcCuTree = pQPLayer->dCuTreeOffset;// 指针初始化
 
             uint32_t maxCols = frame->maxBlocksInRow;
 
@@ -4280,11 +4281,11 @@ void Lookahead::computeCUTreeQpOffset(Lowres *frame, double averageDuration, int
 
                             log2_ratio += (S265_LOG2(intraCost + propagateCost) - S265_LOG2(intraCost) + weightdelta);
 
-                            blockXY++;
+                            blockXY++;// block 统计
                         }
                     }
 
-                    double qp_offset = (m_cuTreeStrength * log2_ratio) / blockXY;
+                    double qp_offset = (m_cuTreeStrength * log2_ratio) / blockXY;// 求平均
 
                     *pcCuTree = *pcQP - qp_offset;
 
@@ -4575,7 +4576,7 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
             m_coop.b = b;
             m_coop.bDoSearch[0] = bDoSearch[0];
             m_coop.bDoSearch[1] = bDoSearch[1];
-            m_jobTotal = m_lookahead.m_numCoopSlices;
+            m_jobTotal = m_lookahead.m_numCoopSlices;// 有多少个条带就有多少个任务要做
             m_jobAcquired = 0;
             m_lock.release();
 
@@ -4642,8 +4643,6 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
 }
 
 
-
-#define FPEL(mv) (((mv)+2)>>2) /* Convert subpel MV to fullpel with rounding... */
 
 void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int p0, int p1, int b, bool bDoSearch[2], bool lastRow, int slice, bool hme)
 {
@@ -4728,7 +4727,7 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             {
                 mvc[idx0].clipped(mvmin, mvmax);
             }
-            // Deduplication
+            // De_duplication 去重
             bool mask[5] = { false };
             for (int32_t idx0 = 0; idx0 < numc; idx0++)
             {
@@ -4746,7 +4745,7 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             for (int idx = 0; idx < numc; idx++)// iterate candidate mv find the best one
             {
                 intptr_t stride = S265_LOWRES_CU_SIZE;
-                /*注意 src 返回后又可能是subpelbuf 地址（需要1/4差值时 ） 
+                /*注意 src 返回后有可能是subpelbuf 地址（需要1/4差值时 ） 
                 也有可能是ref帧的小图or 小小图 对应的plane便宜后的地址
                 （无需1/4分像素差值，stride 会被更改为 对应小/小小图的plane 的 Ystride） */
                 if (!mask[idx])
@@ -4805,20 +4804,22 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
         int bicost = tld.me.bufSATD(ref, S265_LOWRES_CU_SIZE);
         COPY2_IF_LT(bcost, bicost, listused, 3);
         /* coloc candidate */
-        // 如果这里要计算的话应该是 fenc->lowresMvs[0/1][listDist[0/]][cuXY] 不同时为0,否则重复计算了
-        src0 = fref0->lowresPlane[0] + pelOffset;
-        src1 = fref1->lowresPlane[0] + pelOffset;
-        primitives.pu[LUMA_8x8].pixelavg_pp[NONALIGNED](ref, S265_LOWRES_CU_SIZE, src0, fref0->lumaStride, src1, fref1->lumaStride, 32);
-        bicost = tld.me.bufSATD(ref, S265_LOWRES_CU_SIZE);
-        COPY2_IF_LT(bcost, bicost, listused, 3);
-
+        // 如果这里要计算的话应该是 fenc->lowresMvs[0/1][listDist[0/1]][cuXY] 不同时为0,否则重复计算了
+        if (fenc->lowresMvs[0][listDist[0]][cuXY].word || fenc->lowresMvs[1][listDist[1]][cuXY].word)
+        {
+            src0 = fref0->lowresPlane[0] + pelOffset;
+            src1 = fref1->lowresPlane[0] + pelOffset;
+            primitives.pu[LUMA_8x8].pixelavg_pp[NONALIGNED](ref, S265_LOWRES_CU_SIZE, src0, fref0->lumaStride, src1, fref1->lumaStride, 32);
+            bicost = tld.me.bufSATD(ref, S265_LOWRES_CU_SIZE);
+            COPY2_IF_LT(bcost, bicost, listused, 3);
+        }
         bcost += lowresPenalty;
     }
     else /* P, also consider intra */
     {
         bcost += lowresPenalty;
 
-        if (fenc->intraCost[cuXY] < bcost)
+        if (fenc->intraCost[cuXY] < bcost)// intra cost 的代价更小
         {
             bcost = fenc->intraCost[cuXY];
             listused = 0;

@@ -689,7 +689,7 @@ int ThreadPool::getCpuCount()
     return 2; // default to 2 threads, everywhere else
 #endif
 }
-
+// 计算fpp 帧级并行的线程个数
 void ThreadPool::getFrameThreadsCount(s265_param* p, int cpuCount)
 {
     int rows = (p->sourceHeight + p->maxCUSize - 1) >> g_log2Size[p->maxCUSize];

@@ -1215,12 +1215,6 @@ typedef struct s265_param
      * Default disabled */
     int       bEnableRdRefine;
 
-    /* If save, write per-frame analysis information into analysis buffers.
-     * If load, read analysis information into analysis buffer and use this
-     * analysis information to reduce the amount of work the encoder must perform.
-     * Default disabled. Now deprecated*/
-    int       analysisReuseMode;
-
     /*== Rate Control ==*/
 
     /* The lossless flag enables true lossless coding, bypassing scaling,

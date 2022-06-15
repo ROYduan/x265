@@ -192,7 +192,7 @@ void Encoder::create()
     }
 
     // Do not allow WPP if only one row or fewer than 3 columns, it is pointless and unstable
-    if (rows == 1 || cols < 3)
+    if (rows == 1 || cols < 3)// 只有一行ctu 或者宽度少于3列CTU时 wpp 没意义了
     {
         s265_log(p, S265_LOG_WARNING, "Too few rows/columns, --wpp disabled\n");
         p->bEnableWavefront = 0;
@@ -218,7 +218,7 @@ void Encoder::create()
         }
     }
 
-    if (!m_numPools)
+    if (!m_numPools) //无线程池的情况下 关闭各种并行机制
     {
         // issue warnings if any of these features were requested
         if (p->bEnableWavefront)

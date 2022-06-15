@@ -780,7 +780,7 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
     /* re-measure full pel rounded MVP with SAD as search start point */
     MV bmv = pmv.roundToFPel();
     int bcost = bprecost;
-    if (pmv.isSubpel())
+    if (pmv.isSubpel())// 如果pmv 含有分像素分量,则bprecost 代表的 分像素位置的cost,这里重算其整像素处的cost
         bcost = sad(fenc, FENC_STRIDE, fref + bmv.x + bmv.y * stride, stride) + mvcost(bmv << 2);
 
     // measure SAD cost at MV(0) if MVP is not zero

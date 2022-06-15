@@ -173,7 +173,7 @@ void s265_param_default(s265_param* param)
     param->edgeTransitionThreshold = 0.03;
     param->bHistBasedSceneCut = 0;
     param->bEnableTradScdInHscd = 1;
-    param->lookaheadSlices = 8;
+    param->lookaheadSlices = 8;// 默认 在lookahead 中 一个fenc 分8个slice 并行计算inter_cost
     param->lookaheadThreads = 0;
     param->scenecutBias = 5.0;
     param->radl = 0;
@@ -241,7 +241,6 @@ void s265_param_default(s265_param* param)
     param->rdPenalty = 0;
     param->psyRd = 2.0;
     param->psyRdoq = 0.0;
-    param->analysisReuseMode = 0; /*DEPRECATED*/
     param->bIntraInBFrames = 1;
     param->bLossless = 0;
     param->bCULossless = 0;
@@ -2442,7 +2441,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->psyRd = src->psyRd;
     dst->psyRdoq = src->psyRdoq;
     dst->bEnableRdRefine = src->bEnableRdRefine;
-    dst->analysisReuseMode = src->analysisReuseMode;
     dst->bLossless = src->bLossless;
     dst->cbQpOffset = src->cbQpOffset;
     dst->crQpOffset = src->crQpOffset;

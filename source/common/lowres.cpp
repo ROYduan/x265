@@ -102,11 +102,13 @@ bool Lowres::create(s265_param* param, PicYuv *origPic, uint32_t qgSize)
 
         pAQLayer = new PicQPAdaptationLayer[4];
         maxAQDepth = 0;
+        int ctuSizeIdx = 6 - g_log2Size[param->maxCUSize];// 64x64:0  32x32:1 16x16:2
+        int aqDepth = g_log2Size[param->maxCUSize] - g_log2Size[qgSize];// for qgSize==8, 64x64:6-3  32x32:5-3  16x16:4-3
+                                                                        // for qgSize==16, 64x64:6-4  32x32:5-4  16x16:4-4
         for (uint32_t d = 0; d < 4; d++)
         {
-            int ctuSizeIdx = 6 - g_log2Size[param->maxCUSize];// 0: 64x64 1: 32x32  2:16x16
-            int aqDepth = g_log2Size[param->maxCUSize] - g_log2Size[qgSize];// for qgSize==8, 0:64x64  1:32x32  2:16x16  3:8x8
-            if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])
+
+            if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])//qgSize==8 : 1, 1, 1, 1  // qgSize==16: 1, 1, 1, 0
                 continue;
 
             pAQLayer->minAQDepth = d;
@@ -243,10 +245,10 @@ void Lowres::destroy()
     S265_FREE(blockVariance);
     if (maxAQDepth > 0)
     {
+        int ctuSizeIdx = 6 - g_log2Size[m_maxCUSize];
+        int aqDepth = g_log2Size[m_maxCUSize] - g_log2Size[m_qgSize];
         for (uint32_t d = 0; d < 4; d++)
         {
-            int ctuSizeIdx = 6 - g_log2Size[m_maxCUSize];
-            int aqDepth = g_log2Size[m_maxCUSize] - g_log2Size[m_qgSize];
             if (!aqLayerDepth[ctuSizeIdx][aqDepth][d])
                 continue;
 
@@ -271,6 +273,7 @@ void Lowres::init(PicYuv *origPic, int poc)
     leadingBframes = 0;
     indB = 0;
     memset(costEst, -1, sizeof(costEst));
+    memset(intraMbs, 0, sizeof(intraMbs));
     memset(largeMvs, 0, sizeof(largeMvs));
     memset(veryLargeMvs, 0, sizeof(veryLargeMvs));
     memset(hasSmallMvs, 0, sizeof(hasSmallMvs));
