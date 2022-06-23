@@ -28,7 +28,7 @@
 #include "slice.h"
 #include "mv.h"
 
-#define NUM_TU_DEPTH 21
+#define NUM_TU_DEPTH 21 //depth0: 1  depth1: 4 depth2: 16
 
 namespace S265_NS {
 // private namespace

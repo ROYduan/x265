@@ -68,7 +68,7 @@ public:
     public:
         uint32_t            m_rowHeight;
         int                 m_row;
-        uint32_t            m_rowAddr;//对应filter 行的 首个cut地址
+        uint32_t            m_rowAddr;//对应filter 行的 首个ctu地址
         FrameFilter*        m_frameFilter;
         FrameData*          m_encData;
         ParallelFilter*     m_prevRow;
@@ -119,7 +119,7 @@ public:
     }
 
     uint32_t getCUWidth(int colNum) const
-    {
+    {   //出了最右侧一列ctu的宽度可能不足一个ctu宽度，其他都为64
         return (colNum == (int)m_numCols - 1) ? m_lastWidth : m_param->maxCUSize;
     }
 

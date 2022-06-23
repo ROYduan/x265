@@ -347,12 +347,13 @@ void FrameFilter::ParallelFilter::processSaoCTU(SAOParam *saoParam, int col)
 void FrameFilter::ParallelFilter::processPostCu(int col) const
 {
     // shortcut path for non-border area
+    // 非首列非首行非尾列非尾行（非边界区域的ctu）
     if ((col != 0) & (col != m_frameFilter->m_numCols - 1) & (m_row != 0) & (m_row != m_frameFilter->m_numRows - 1))
         return;
 
     PicYuv *reconPic = m_frameFilter->m_frame->m_reconPic;
     const uint32_t lineStartCUAddr = m_rowAddr + col;
-    const int realH = getCUHeight();
+    const int realH = getCUHeight();//每一个行filter在初始化时就已经计算好了该行的高度
     const int realW = m_frameFilter->getCUWidth(col);
 
     const uint32_t lumaMarginX = reconPic->m_lumaMarginX;

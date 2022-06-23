@@ -117,8 +117,8 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_rows = new CTURow[m_numRows];
     bool ok = !!m_numRows;
 
-    m_sliceBaseRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);
-    m_bAllRowsStop = S265_MALLOC(bool, m_param->maxSlices);
+    m_sliceBaseRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);//加多了一个1
+    m_bAllRowsStop = S265_MALLOC(bool, m_param->maxSlices);// 每个slice 都需要有个标志为，来表示是否其所有的行需要stop
     m_vbvResetTriggerRow = S265_MALLOC(int, m_param->maxSlices);
     ok &= !!m_sliceBaseRow;
     // 多slice 编码时，均分cut row 行
@@ -139,11 +139,11 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     m_sliceBaseRow[0] = 0;
     m_sliceBaseRow[m_param->maxSlices] = m_numRows;
 
-    m_sliceMaxBlockRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);
+    m_sliceMaxBlockRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);//加多了一个1
     ok &= !!m_sliceMaxBlockRow;
     // 多slice 编码时，均分block row 行
     uint32_t maxBlockRows = (m_param->sourceHeight + (16 - 1)) / 16;
-    sliceGroupSizeAccu = (maxBlockRows << 8) / m_param->maxSlices;
+    sliceGroupSizeAccu = (maxBlockRows << 8) / m_param->maxSlices;// 为了提高精度，放大256倍
     rowSum = sliceGroupSizeAccu;
     sidx = 0;
     for (uint32_t i = 0; i < maxBlockRows; i++)
@@ -431,7 +431,7 @@ void FrameEncoder::writeTrailingSEIMessages()
     m_seiReconPictureDigest.setSize(payloadSize);
     m_seiReconPictureDigest.writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_SUFFIX_SEI, m_nalList, false);
 }
-
+// 开始一帧的编码
 void FrameEncoder::compressFrame()
 {
     ProfileScopeEvent(frameThread);
@@ -446,7 +446,7 @@ void FrameEncoder::compressFrame()
     m_stallStartTime = 0;
 
     m_completionCount = 0;
-    memset((void*)m_bAllRowsStop, 0, sizeof(bool) * m_param->maxSlices);
+    memset((void*)m_bAllRowsStop, 0, sizeof(bool) * m_param->maxSlices);// 改帧中 所有slice 的该标志清零
     memset((void*)m_vbvResetTriggerRow, -1, sizeof(int) * m_param->maxSlices);
     m_rowSliceTotalBits[0] = 0;
     m_rowSliceTotalBits[1] = 0;
@@ -1310,13 +1310,13 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     const uint32_t row = (uint32_t)intRow;
     CTURow& curRow = m_rows[row];
 
-    if (m_param->bEnableWavefront)
+    if (m_param->bEnableWavefront)// wpp  下 需要先拿到锁
     {
         ScopedLock self(curRow.lock);
-        if (!curRow.active)
+        if (!curRow.active) //
             /* VBV restart is in progress, exit out */
             return;
-        if (curRow.busy)
+        if (curRow.busy)// 改行表示已经有其他的线程正在处理，出错
         {
             /* On multi-socket Windows servers, we have seen problems with
              * ATOMIC_CAS which resulted in multiple worker threads processing
@@ -1327,7 +1327,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                      "internal error - simultaneous row access detected. Please report HW to s265-devel@videolan.org\n");
             return;
         }
-        curRow.busy = true;
+        curRow.busy = true;// 接下来要进行该row的编码了，设置标志为 busy状态
     }
 
     /* When WPP is enabled, every row has its own row coder instance. Otherwise
@@ -1336,73 +1336,75 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     FrameData& curEncData = *m_frame->m_encData;
     Slice *slice = curEncData.m_slice;
 
-    const uint32_t numCols = m_numCols;
-    const uint32_t lineStartCUAddr = row * numCols;
+    const uint32_t numCols = m_numCols;//一行有多少个CTU
+    const uint32_t lineStartCUAddr = row * numCols;//该编码ctu行的起始CTU 的addr
     bool bIsVbv = m_param->rc.vbvBufferSize > 0 && m_param->rc.vbvMaxBitrate > 0;
 
     const uint32_t sliceId = curRow.sliceId;
-    uint32_t maxBlockCols = (m_frame->m_fencPic->m_picWidth + (16 - 1)) / 16;
-    uint32_t noOfBlocks = m_param->maxCUSize / 16;
-    const uint32_t bFirstRowInSlice = ((row == 0) || (m_rows[row - 1].sliceId != curRow.sliceId)) ? 1 : 0;
-    const uint32_t bLastRowInSlice = ((row == m_numRows - 1) || (m_rows[row + 1].sliceId != curRow.sliceId)) ? 1 : 0;
+    uint32_t maxBlockCols = (m_frame->m_fencPic->m_picWidth + (16 - 1)) / 16;// 以16为宽度的帧级_block宽度
+    uint32_t noOfBlocks = m_param->maxCUSize / 16;// 对于一个ctu 有几个16的宽度
+    const uint32_t bFirstRowInSlice = ((row == 0) || (m_rows[row - 1].sliceId != curRow.sliceId)) ? 1 : 0;//slice 的首行标志
+    const uint32_t bLastRowInSlice = ((row == m_numRows - 1) || (m_rows[row + 1].sliceId != curRow.sliceId)) ? 1 : 0;// slice的尾行
     const uint32_t endRowInSlicePlus1 = m_sliceBaseRow[sliceId + 1];
-    const uint32_t rowInSlice = row - m_sliceBaseRow[sliceId];
+    const uint32_t rowInSlice = row - m_sliceBaseRow[sliceId];// 该row 位于该slice的第几行
 
     // Load SBAC coder context from previous row and initialize row state.
-    if (bFirstRowInSlice && !curRow.completed)        
-        rowCoder.load(m_initSliceContext);     
+    if (bFirstRowInSlice && !curRow.completed)//slice的首行 并且首个ctu 时
+        rowCoder.load(m_initSliceContext);
 
     // calculate mean QP for consistent deltaQP signalling calculation
+    //计算一个CTU行内的menQp
     if (m_param->bOptCUDeltaQP)
     {
         ScopedLock self(curRow.lock);
-        if (!curRow.avgQPComputed)
+        if (!curRow.avgQPComputed)//如果该行的avgQP 还没有被计算
         {
-            if (m_param->bEnableWavefront || !row)
+            if (m_param->bEnableWavefront || !row)// wpp下每一行都计算,非wpp下只有第0行才计算
             {
                 double meanQPOff = 0;
                 bool isReferenced = IS_REFERENCED(m_frame);
+                //如果被参考则qp_offsets 使用 cutree和aq 共同作用后的offset, 否则使用aq作用后的offset
                 double *qpoffs = (isReferenced && m_param->rc.cuTree) ? m_frame->m_lowres.qpCuTreeOffset : m_frame->m_lowres.qpAqOffset;
-                if (qpoffs)
+                if (qpoffs)// qp offset 不为空时
                 {
-                    uint32_t loopIncr = (m_param->rc.qgSize == 8) ? 8 : 16;
+                    uint32_t loopIncr = (m_param->rc.qgSize == 8) ? 8 : 16;// 只有在qgsize 为 8时，才按照那个8x8的unit 进行统计，否则一律按照16x16 的unit 进行统计
 
-                    uint32_t cuYStart = 0, height = m_frame->m_fencPic->m_picHeight;
-                    if (m_param->bEnableWavefront)
+                    uint32_t cuYStart = 0, height = m_frame->m_fencPic->m_picHeight;// 初始化为 统计一整帧的aq_offset
+                    if (m_param->bEnableWavefront)//wpp 下，每一行只统计该行ctu内的 aq_offset
                     {
-                        cuYStart = intRow * m_param->maxCUSize;
-                        height = cuYStart + m_param->maxCUSize;
+                        cuYStart = intRow * m_param->maxCUSize;//row行*一个ctu的高度
+                        height = cuYStart + m_param->maxCUSize;// wpp下 高度只有一个ctu行的高度
                     }
 
                     uint32_t qgSize = m_param->rc.qgSize, width = m_frame->m_fencPic->m_picWidth;
-                    uint32_t maxOffsetCols = (m_frame->m_fencPic->m_picWidth + (loopIncr - 1)) / loopIncr;
+                    uint32_t maxOffsetCols = (m_frame->m_fencPic->m_picWidth + (loopIncr - 1)) / loopIncr;//一帧中以 aqunit 为单位的宽度
                     uint32_t count = 0;
-                    for (uint32_t cuY = cuYStart; cuY < height && (cuY < m_frame->m_fencPic->m_picHeight); cuY += qgSize)
+                    for (uint32_t cuY = cuYStart; cuY < height && (cuY < m_frame->m_fencPic->m_picHeight); cuY += qgSize)//外围按照qgsize 的高度进行统计
                     {
-                        for (uint32_t cuX = 0; cuX < width; cuX += qgSize)
+                        for (uint32_t cuX = 0; cuX < width; cuX += qgSize)//宽度也是qgsize
                         {
                             double qp_offset = 0;
                             uint32_t cnt = 0;
-
+                            //一个qgsize 内按照 8x8（qgsize=8时）或者 16x16的unit 进行统计
                             for (uint32_t block_yy = cuY; block_yy < cuY + qgSize && block_yy < m_frame->m_fencPic->m_picHeight; block_yy += loopIncr)
                             {
                                 for (uint32_t block_xx = cuX; block_xx < cuX + qgSize && block_xx < width; block_xx += loopIncr)
                                 {
-                                    int idx = ((block_yy / loopIncr) * (maxOffsetCols)) + (block_xx / loopIncr);
-                                    qp_offset += qpoffs[idx];
-                                    cnt++;
+                                    int idx = ((block_yy / loopIncr) * (maxOffsetCols)) + (block_xx / loopIncr);// 按照 8x8 or 16x16的单位 进行 寻址
+                                    qp_offset += qpoffs[idx];// 累加qpoffset
+                                    cnt++;// qpoffset的数量计数累加
                                 }
                             }
-                            qp_offset /= cnt;
+                            qp_offset /= cnt;//求得一个qgsize内的平均qpoffset
                             meanQPOff += qp_offset;
-                            count++;
+                            count++;//qpsize 计数累加
                         }
                     }
-                    meanQPOff /= count;
+                    meanQPOff /= count;//求得一个frame or 一行CTU内的平均meanQPoff
                 }
-                rowCoder.m_meanQP = slice->m_sliceQp + meanQPOff;
+                rowCoder.m_meanQP = slice->m_sliceQp + meanQPOff;// 该rowCoder 使用的meanQp
             }
-            else
+            else//非wpp&&也不是第0行, 则每一行的meanqp 使用帧级统计得倒的meanqp
             {
                 rowCoder.m_meanQP = m_rows[0].rowGoOnCoder.m_meanQP;
             }
@@ -1411,53 +1413,56 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     }
 
     // Initialize restrict on MV range in slices
-    // mv 边界限制
+    // slice mv 的 边界 （这里 应该是 slice 只能参考参考帧中的同一个slice区域？？？？）
     tld.analysis.m_sliceMinY = -(int32_t)(rowInSlice * m_param->maxCUSize * 4) + 3 * 4;
     tld.analysis.m_sliceMaxY = (int32_t)((endRowInSlicePlus1 - 1 - row) * (m_param->maxCUSize * 4) - 4 * 4);
 
     // Handle single row slice
     if (tld.analysis.m_sliceMaxY < tld.analysis.m_sliceMinY)
-        tld.analysis.m_sliceMaxY = tld.analysis.m_sliceMinY = 0;
+        tld.analysis.m_sliceMaxY = tld.analysis.m_sliceMinY = 0;// 当slice只有一个CTU row的时候
 
 
-    while (curRow.completed < numCols)
+    while (curRow.completed < numCols)//一行中 ctu 还没有编码完成
     {
         ProfileScopeEvent(encodeCTU);
 
-        const uint32_t col = curRow.completed;
-        const uint32_t cuAddr = lineStartCUAddr + col;
+        const uint32_t col = curRow.completed;// 列地址
+        const uint32_t cuAddr = lineStartCUAddr + col;//该row 行ctu的起始地址+列地址
         CUData* ctu = curEncData.getPicCTU(cuAddr);
-        const uint32_t bLastCuInSlice = (bLastRowInSlice & (col == numCols - 1)) ? 1 : 0;
+        const uint32_t bLastCuInSlice = (bLastRowInSlice & (col == numCols - 1)) ? 1 : 0;// slice 最后一行同时最后一列
+        // ctu的一些周边信息的初始化
         ctu->initCTU(*m_frame, cuAddr, slice->m_sliceQp, bFirstRowInSlice, bLastRowInSlice, bLastCuInSlice);
 
-        if (bIsVbv)
+        if (bIsVbv)//如果开启了vbv
         {
-            if (col == 0 && !m_param->bEnableWavefront)
-            {
+            if (col == 0 && !m_param->bEnableWavefront)// 非wpp且 是一行row的首列时
+            {   // backup 一行的初始状态，谨防需要重新编码
                 m_backupStreams[0].copyBits(&m_outStreams[0]);
                 curRow.bufferedEntropy.copyState(rowCoder);
                 curRow.bufferedEntropy.loadContexts(rowCoder);
             }
             if (bFirstRowInSlice && m_vbvResetTriggerRow[curRow.sliceId] != intRow)
-            {
+            {   //该slice的首行并且该row 所在slice没有被标记为从首行开始重新编码,取该首行row的qp为m_avgQpRc
                 curEncData.m_rowStat[row].rowQp = curEncData.m_avgQpRc;
-                curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(curEncData.m_avgQpRc);
+                curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(curEncData.m_avgQpRc);//同时设置qpscale
             }
 
             FrameData::RCStatCU& cuStat = curEncData.m_cuStat[cuAddr];
             if (m_param->bEnableWavefront && rowInSlice >= col && !bFirstRowInSlice && m_vbvResetTriggerRow[curRow.sliceId] != intRow)
-                cuStat.baseQp = curEncData.m_cuStat[cuAddr - numCols + 1].baseQp;
+                //wpp下，在非slice首行ctu行的斜对角线上的的ctu上，如果该row 所在slice没有被标记为从该row行开始重新编码
+                cuStat.baseQp = curEncData.m_cuStat[cuAddr - numCols + 1].baseQp;//取右上角ctu的baseQp作为当前ctu的初始baseqp
             else if (!m_param->bEnableWavefront && !bFirstRowInSlice && m_vbvResetTriggerRow[curRow.sliceId] != intRow)
-                cuStat.baseQp = curEncData.m_rowStat[row - 1].rowQp;
+                //非wpp下，非slice首行ctu且该row 所在slice没有被标记为从该row行开始重新编码
+                cuStat.baseQp = curEncData.m_rowStat[row - 1].rowQp;// 取上一行的rowQp作为当前ctu的初始baseqp
             else
-                cuStat.baseQp = curEncData.m_rowStat[row].rowQp;
+                cuStat.baseQp = curEncData.m_rowStat[row].rowQp;// 否则使用当前row的rowQp作为当前ctu的初始baseqp
 
             /* TODO: use defines from slicetype.h for lowres block size */
-            uint32_t block_y = (ctu->m_cuPelY >> m_param->maxLog2CUSize) * noOfBlocks;
-            uint32_t block_x = (ctu->m_cuPelX >> m_param->maxLog2CUSize) * noOfBlocks;
+            uint32_t block_y = (ctu->m_cuPelY >> m_param->maxLog2CUSize) * noOfBlocks;//ctu的pix坐标y转换为16x16为单位的坐标
+            uint32_t block_x = (ctu->m_cuPelX >> m_param->maxLog2CUSize) * noOfBlocks;//ctu的pix坐标x转换为16x16为单位的坐标
             cuStat.vbvCost = 0;
             cuStat.intraVbvCost = 0;
-
+            // 计算当前ctu 所覆盖的16x16的block区域的 cost 和intracost
             for (uint32_t h = 0; h < noOfBlocks && block_y < m_sliceMaxBlockRow[sliceId + 1]; h++, block_y++)
             {
                 uint32_t idx = block_x + (block_y * maxBlockCols);
@@ -1469,15 +1474,16 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 }
             }
         }
-        else
+        else//如果没有开启vbv,则当前ctu使用的baseQp 使用帧级m_avgQpRc为初始值
             curEncData.m_cuStat[cuAddr].baseQp = curEncData.m_avgQpRc;
 
         if (m_param->bEnableWavefront && !col && !bFirstRowInSlice)
-        {
+        {//wpp下，对于非首行ctu的首列ctu，使用上一行中buffered商编码状态作为当前row的初始初始状态
             // Load SBAC coder context from previous row and initialize row state.
             rowCoder.copyState(m_initSliceContext);
             rowCoder.loadContexts(m_rows[row - 1].bufferedEntropy);
         }
+        // ？？？dynamicRd 先不看
         if (m_param->dynamicRd && (int32_t)(m_rce.qpaRc - m_rce.qpNoVbv) > 0)
             ctu->m_vbvAffected = true;
 
@@ -1488,6 +1494,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         /* startPoint > encodeOrder is true when the start point changes for
         a new GOP but few frames from the previous GOP is still incomplete.
         The data of frames in this interval will not be used by any future frames. */
+        // ？？？
         if (m_param->bDynamicRefine && m_top->m_startPoint <= m_frame->m_encodeOrder)
             collectDynDataRow(*ctu, &curRow.rowStats);
 
@@ -1497,10 +1504,11 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
         /* advance top-level row coder to include the context of this CTU.
          * if SAO is disabled, rowCoder writes the final CTU bitstream */
-        rowCoder.encodeCTU(*ctu, m_cuGeoms[m_ctuGeomMap[cuAddr]]);//enctory and bitstream output
+        rowCoder.encodeCTU(*ctu, m_cuGeoms[m_ctuGeomMap[cuAddr]]);//entropy and bitstream output
 
         if (m_param->bEnableWavefront && col == 1)
             // Save CABAC state for next row
+            // col = 1 时，需要保存entropycontext 状态 同步给下一行row作为其初始状态
             curRow.bufferedEntropy.loadContexts(rowCoder);
 
         /* SAO parameter estimation using non-deblocked pixels for CTU bottom and right boundary areas */
@@ -1511,34 +1519,39 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         if (m_param->bEnableLoopFilter | slice->m_bUseSao)
         {
             // NOTE: in VBV mode, we may reencode anytime, so we can't do Deblock stage-Horizon and SAO
+            //在vbv的时候，可能需要重新编码某些行，所以
             if (!bIsVbv)
-            {
+            {// 非vbv 下 不会有重新编码，可以让deblock and sao 进行工作了
                 // Delay one row to avoid intra prediction conflict
                 if (m_pool && !bFirstRowInSlice)
-                {                    
+                {// 线程池 并且非slice首行时
                     int allowCol = col;
 
                     // avoid race condition on last column
-                    if (rowInSlice >= 2)
-                    {
+                    if (rowInSlice >= 2)//从slice的第3行开始
+                    {   // 如果改ctu 是row的最后一列，则允许上一行从其更上一行的已经完成了所有deblock的ctu相同位置的ctu开始进行deblock
+                        // 否则不是最后一列，则允许上一行从其更上一行中准备处理的ctu的相同位置ctu进行滤波处理
                         allowCol = S265_MIN(((col == numCols - 1) ? m_frameFilter.m_parallelFilter[row - 2].m_lastDeblocked.get()
                                                                   : m_frameFilter.m_parallelFilter[row - 2].m_lastCol.get()), (int)col);
                     }
+                    //设置当前行的上一行所允许的滤波col 位置
                     m_frameFilter.m_parallelFilter[row - 1].m_allowedCol.set(allowCol);
                 }
 
                 // Last Row may start early
                 if (m_pool && bLastRowInSlice)
-                {
+                {//开启了线程池，且当前行为slice的最后一行
                     // Deblocking last row
                     int allowCol = col;
 
                     // avoid race condition on last column
                     if (rowInSlice >= 2)
-                    {
+                    {   // 如果该ctu 是该最后一行row的最后一列，则允许本身行从其上一行已经完成了所有deblock的ctu相同位置的ctu开始进行deblock
+                        // 否则不是最后一列，则允许当前行从上一行中准备处理的ctu的相同位置ctu进行滤波处理
                         allowCol = S265_MIN(((col == numCols - 1) ? m_frameFilter.m_parallelFilter[row - 1].m_lastDeblocked.get()
                                                                   : m_frameFilter.m_parallelFilter[row - 1].m_lastCol.get()), (int)col);
                     }
+                    //设置当前行的所允许的滤波col 位置
                     m_frameFilter.m_parallelFilter[row].m_allowedCol.set(allowCol);
                 }
             } // end of !bIsVbv
@@ -1550,8 +1563,9 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         }
 
         // Completed CU processing
-        curRow.completed++;
+        curRow.completed++;//已完成编码的ctu数量++ （注意不需要管 deblock 和sao)
 
+        // 统计
         FrameStats frameLog;
         curEncData.m_rowStat[row].sumQpAq += collectCTUStatistics(*ctu, &frameLog);
 
@@ -1601,35 +1615,36 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             // Update encoded bits, satdCost, baseQP for each CU if tune grain is disabled
             FrameData::RCStatCU& cuStat = curEncData.m_cuStat[cuAddr];    
             if ((m_param->bEnableWavefront && ((cuAddr == m_sliceBaseRow[sliceId] * numCols) || !m_param->rc.bEnableConstVbv)) || !m_param->bEnableWavefront)
-            {
+            {  //非wpp下 或者wpp下的(非constvbv||该ctu为当前slice的首个ctu时
                 curEncData.m_rowStat[row].rowSatd += cuStat.vbvCost;
                 curEncData.m_rowStat[row].rowIntraSatd += cuStat.intraVbvCost;
                 curEncData.m_rowStat[row].encodedBits += cuStat.totalBits;
                 curEncData.m_rowStat[row].sumQpRc += cuStat.baseQp;
-                curEncData.m_rowStat[row].numEncodedCUs = cuAddr;
+                curEncData.m_rowStat[row].numEncodedCUs = cuAddr; // 标记当前行统计的信息已经统计到了当前ctu位置
             }
             
             // If current block is at row end checkpoint, call vbv ratecontrol.
             if (!m_param->bEnableWavefront && col == numCols - 1)
-            {
+            { //非wpp下，ctu行最后一个ctu编码完成
                 double qpBase = curEncData.m_cuStat[cuAddr].baseQp;
+                //检查是否需要重新编码
                 curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId);
                 qpBase = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, qpBase);
                 curEncData.m_rowStat[row].rowQp = qpBase;
                 curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(qpBase);
                 if (curRow.reEncode < 0)
-                {
+                {// 需要重新编码
                     s265_log(m_param, S265_LOG_DEBUG, "POC %d row %d - encode restart required for VBV, to %.2f from %.2f\n",
                         m_frame->m_poc, row, qpBase, curEncData.m_cuStat[cuAddr].baseQp);
 
-                    m_vbvResetTriggerRow[curRow.sliceId] = row;
-                    m_outStreams[0].copyBits(&m_backupStreams[0]);
+                    m_vbvResetTriggerRow[curRow.sliceId] = row;//设置当前ctu所属slice需要从当前行开始重新编码
+                    m_outStreams[0].copyBits(&m_backupStreams[0]);//恢复输出bit 状态为初始状态
 
-                    rowCoder.copyState(curRow.bufferedEntropy);
-                    rowCoder.loadContexts(curRow.bufferedEntropy);
+                    rowCoder.copyState(curRow.bufferedEntropy);//恢复state
+                    rowCoder.loadContexts(curRow.bufferedEntropy);//恢复context
 
-                    curRow.completed = 0;
-                    memset(&curRow.rowStats, 0, sizeof(curRow.rowStats));
+                    curRow.completed = 0;//completed 重置0
+                    memset(&curRow.rowStats, 0, sizeof(curRow.rowStats));//统计数据重新清零
                     curEncData.m_rowStat[row].numEncodedCUs = 0;
                     curEncData.m_rowStat[row].encodedBits = 0;
                     curEncData.m_rowStat[row].rowSatd = 0;
@@ -1639,14 +1654,17 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 }
             }
             // If current block is at row diagonal checkpoint, call vbv ratecontrol.
+            // wpp下 处在对角线上的ctu
             else if (m_param->bEnableWavefront && rowInSlice == col && !bFirstRowInSlice)
             {
                 if (m_param->rc.bEnableConstVbv)
                 {
-                    uint32_t startCuAddr = numCols * row;
-                    uint32_t EndCuAddr = startCuAddr + col;
+                    uint32_t startCuAddr = numCols * row;//当前行起始ctu位于frame中的地址
+                    uint32_t EndCuAddr = startCuAddr + col;// 已经completed了ctu的位于frame中的地址为止
 
-                    for (int32_t r = row; r >= (int32_t)m_sliceBaseRow[sliceId]; r--)
+                    // 当前行统计当前行已经编码的ctu
+                    // 往上走 剩余的行如果还没完成编码，则每行统计两个ctu，否则，不再统计
+                    for (int32_t r = row; r >= (int32_t)m_sliceBaseRow[sliceId]; r--)//从当前slice的当前行往后推到slice的起始行为止
                     {
                         for (uint32_t c = startCuAddr; c <= EndCuAddr && c <= numCols * (r + 1) - 1; c++)
                         {
@@ -1654,66 +1672,68 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                             curEncData.m_rowStat[r].rowIntraSatd += curEncData.m_cuStat[c].intraVbvCost;
                             curEncData.m_rowStat[r].encodedBits += curEncData.m_cuStat[c].totalBits;
                             curEncData.m_rowStat[r].sumQpRc += curEncData.m_cuStat[c].baseQp;
-                            curEncData.m_rowStat[r].numEncodedCUs = c;
+                            curEncData.m_rowStat[r].numEncodedCUs = c;//更新每一行的已经统计到了c位置为止的ctu 信息
                         }
                         if (curRow.reEncode < 0)
                             break;
                         startCuAddr = EndCuAddr - numCols;
                         EndCuAddr = startCuAddr + 1;
+                        if( EndCuAddr > numCols * r ) break; //到第r行截止就是好了，再往后推是那些行已经全部编码完毕了
                     }
                 }
                 double qpBase = curEncData.m_cuStat[cuAddr].baseQp;
+                //wpp下 在对角线上策ctu上检查是否满足vbv
                 curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId);
                 qpBase = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, qpBase);
                 curEncData.m_rowStat[row].rowQp = qpBase;
                 curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(qpBase);
 
                 if (curRow.reEncode < 0)
-                {
+                {// 如果需要重编码
                     s265_log(m_param, S265_LOG_DEBUG, "POC %d row %d - encode restart required for VBV, to %.2f from %.2f\n",
                              m_frame->m_poc, row, qpBase, curEncData.m_cuStat[cuAddr].baseQp);
 
                     // prevent the WaveFront::findJob() method from providing new jobs
-                    m_vbvResetTriggerRow[curRow.sliceId] = row;
-                    m_bAllRowsStop[curRow.sliceId] = true;
+                    m_vbvResetTriggerRow[curRow.sliceId] = row;//记录该slice需要从该row行开始重新编码
+                    m_bAllRowsStop[curRow.sliceId] = true;// 该lice 的 curRow 需要重新编码，则curRow后面的所有row 都需要重新编码标志该slice的所有row 需要stop
 
-                    for (uint32_t r = m_sliceBaseRow[sliceId + 1] - 1; r >= row; r--)
+                    for (uint32_t r = m_sliceBaseRow[sliceId + 1] - 1; r >= row; r--)// 从该slice 的最后一行开始回退到当前row 为止
                     {
                         CTURow& stopRow = m_rows[r];
 
-                        if (r != row)
+                        if (r != row)//如果是在当前 row 之后的行，wpp下 有可能其他的row 已经被其他的线程在编码的状态
                         {
                             /* if row was active (ready to be run) clear active bit and bitmap bit for this row */
-                            stopRow.lock.acquire();
-                            while (stopRow.active)
+                            stopRow.lock.acquire();//获取该行的锁
+                            while (stopRow.active)// 该行已经准要要编码了
                             {
-                                if (dequeueRow(m_row_to_idx[r] * 2))
-                                    stopRow.active = false;
+                                if (dequeueRow(m_row_to_idx[r] * 2))//重置dependency 标志 （*2 表示的编码的任务，+1 表示对应row的滤波任务）
+                                    stopRow.active = false;//成功清除了dependency标记后，设置active 为false
                                 else
                                 {
                                     /* we must release the row lock to allow the thread to exit */
-                                    stopRow.lock.release();
+                                    stopRow.lock.release();//没能够成功清除标记，则需要先释放锁，等待其他线程重新持有锁后根据m_bAllRowsStop 为ture 来退出
                                     GIVE_UP_TIME();
-                                    stopRow.lock.acquire();
+                                    stopRow.lock.acquire();// 再重新持有锁,去判断 active 是否已经被设置为false了
                                 }
                             }
-                            stopRow.lock.release();
+                            stopRow.lock.release(); //释放锁
 
                             bool bRowBusy = true;
                             do
                             {
-                                stopRow.lock.acquire();
-                                bRowBusy = stopRow.busy;
+                                stopRow.lock.acquire();// 重新获取该行的锁
+                                bRowBusy = stopRow.busy;//获取对应的该行的状态
                                 stopRow.lock.release();
 
-                                if (bRowBusy)
+                                if (bRowBusy)//如果该行为Busy状态，则继续等待其推出busy状态
                                 {
                                     GIVE_UP_TIME();
                                 }
                             }
                             while (bRowBusy);
                         }
-
+                        // 重置该行的所有状态
                         m_outStreams[r].resetBits();
                         stopRow.completed = 0;
                         memset(&stopRow.rowStats, 0, sizeof(stopRow.rowStats));
@@ -1725,19 +1745,19 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                         curEncData.m_rowStat[r].sumQpAq = 0;
                     }
 
-                    m_bAllRowsStop[curRow.sliceId] = false;
+                    m_bAllRowsStop[curRow.sliceId] = false;// 可以放开条件，让其他线程继续去执行该slice的row的编码任务了
                 }
             }
         }
 
         if (m_param->bEnableWavefront && curRow.completed >= 2 && !bLastRowInSlice &&
             (!m_bAllRowsStop[curRow.sliceId] || intRow + 1 < m_vbvResetTriggerRow[curRow.sliceId]))
-        {
+        {   //wpp下 该行已经编码了2个ctu，该行不是slice最后一行 并且 该slice没有被标记为需要stop 或者 虽有标记了但是下一行还没有到达重新编码的的起始行
             /* activate next row */
             ScopedLock below(m_rows[row + 1].lock);
 
             if (m_rows[row + 1].active == false &&
-                m_rows[row + 1].completed + 2 <= curRow.completed)
+                m_rows[row + 1].completed + 2 <= curRow.completed)//wpp 条件满足了
             {
                 m_rows[row + 1].active = true;
                 // 编码下一行所需的内部依赖解决了,清除内部依赖
@@ -1750,9 +1770,10 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         ScopedLock self(curRow.lock);
         if ((m_bAllRowsStop[curRow.sliceId] && intRow > m_vbvResetTriggerRow[curRow.sliceId]) ||
             (!bFirstRowInSlice && ((curRow.completed < numCols - 1) || (m_rows[row - 1].completed < numCols)) && m_rows[row - 1].completed < curRow.completed + 2))
-        {
-            curRow.active = false;
-            curRow.busy = false;
+        { // 如果该slice 被标记为需要从某一行开始（m_vbvResetTriggerRow）重新编码 && 且当前行刚好位于该行之后 或者
+          // 该行不为slice的首行&&并且(当前编码的ctu不为该行最后一个ctu || 或者上一行还没有完成所有ctu编码)并且其依赖的wpp条件前一行没有领先该行2个ctu编码时,
+            curRow.active = false; //当前任务被阻塞需要停止
+            curRow.busy = false; //标记当前行不在busy 状态
             ATOMIC_INC(&m_countRowBlocks);
             return;
         }
@@ -1760,11 +1781,11 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
-    {
-        if (bLastRowInSlice)       
-        {
+    {//wpp下
+        if (bLastRowInSlice)// 整个slice 已经在编码最后一行了     
+        {   //从slice的起始行到最后一行
             for (uint32_t r = m_sliceBaseRow[sliceId]; r < m_sliceBaseRow[sliceId + 1]; r++)
-            {
+            {   // 统计每一行中还没有completed的ctu的信息累加
                 for (uint32_t c = curEncData.m_rowStat[r].numEncodedCUs + 1; c < numCols * (r + 1); c++)
                 {
                     curEncData.m_rowStat[r].rowSatd += curEncData.m_cuStat[c].vbvCost;
@@ -1870,7 +1891,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             tryWakeOne();// --> WaveFront::findJob
         }
     }
-
+    // 标记 curRow 已经处理完了 
     curRow.busy = false;
 
     // CHECK_ME: Does it always FALSE condition?

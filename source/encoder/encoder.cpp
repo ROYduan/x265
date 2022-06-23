@@ -1380,7 +1380,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         if (!m_bZeroLatency || pass)// 在输入下一帧前,先取走一个output
             outFrame = curEncoder->getEncodedPicture(m_nalList);// 如果先前有帧编码，则需要等待其编码完成, 这里面会block 或者说等待
         if (outFrame)
-        {//如果成功取到输出
+        {//如果成功取到输出的 frame
             Slice *slice = outFrame->m_encData->m_slice;
             s265_frame_stats* frameData = NULL;
 
@@ -3114,10 +3114,10 @@ void Encoder::configure(s265_param *p)
         }
     }
 
-    p->maxLog2CUSize = g_log2Size[p->maxCUSize];
-    p->maxCUDepth    = p->maxLog2CUSize - g_log2Size[p->minCUSize];
+    p->maxLog2CUSize = g_log2Size[p->maxCUSize];// 64: 6 32:5 16:4 8:3 4:2  2:1
+    p->maxCUDepth    = p->maxLog2CUSize - g_log2Size[p->minCUSize];//64->8 : 3  64->16:2 64->32:1
     p->unitSizeDepth = p->maxLog2CUSize - LOG2_UNIT_SIZE;
-    p->num4x4Partitions = (1U << (p->unitSizeDepth << 1));
+    p->num4x4Partitions = (1U << (p->unitSizeDepth << 1));// 一个ctu 64x64 含有 256个4x4
 
     if (p->radl && p->bOpenGOP)
     {
