@@ -1365,7 +1365,7 @@ typedef struct s265_param
          * the minimum CU size at which QP can be adjusted, i.e. Quantization Group
          * (QG) size. Allowed values are 64, 32, 16, 8 provided it falls within the
          * inclusuve range [maxCUSize, minCUSize]. Experimental, default: maxCUSize */
-        uint32_t qgSize;
+        uint32_t qgSize; // defualt: 32   (if 16  gain losss 4%~5%) if （64  gain  2%~4%)
 
         /* internally enable if tune grain is set */
         int      bEnableGrain;

@@ -523,11 +523,11 @@ void FrameEncoder::compressFrame()
         m_cuStats.countWeightAnalyze++;
         ScopedElapsedTime time(m_cuStats.weightAnalyzeTime);
 #endif
-        WeightAnalysis wa(*this);
-        if (m_pool && wa.tryBondPeers(*this, 1))//唤醒线程池里面的1个线程去执行processTask 从而执行 weightAnalyse
-            /* use an idle worker for weight analysis */
-            wa.waitForExit();// 等待线程执行完, ??? 这里只有一个任务 为啥需要让别的线程去做？自己在这里等？？？
-        else
+        //WeightAnalysis wa(*this);
+        //if (m_pool && wa.tryBondPeers(*this, 1))//唤醒线程池里面的1个线程去执行processTask 从而执行 weightAnalyse
+        //    /* use an idle worker for weight analysis */
+        //    wa.waitForExit();// 等待线程执行完, ??? 这里只有一个任务 为啥需要让别的线程去做？自己在这里等？？？
+        //else
             weightAnalyse(*slice, *m_frame, *m_param);// 本线程直接调用
     }
     else
@@ -618,14 +618,15 @@ void FrameEncoder::compressFrame()
 
     /* reset entropy coders and compute slice id */
     m_entropyCoder.load(m_initSliceContext);
-    for (uint32_t sliceId = 0; sliceId < m_param->maxSlices; sliceId++)   
-        for (uint32_t row = m_sliceBaseRow[sliceId]; row < m_sliceBaseRow[sliceId + 1]; row++)
+    for (uint32_t sliceId = 0; sliceId < m_param->maxSlices; sliceId++)// slice 循环
+        for (uint32_t row = m_sliceBaseRow[sliceId]; row < m_sliceBaseRow[sliceId + 1]; row++)//每次slice里面的行数循环
             m_rows[row].init(m_initSliceContext, sliceId);   
 
     // reset slice counter for rate control update
     m_sliceCnt = 0;
 
     uint32_t numSubstreams = m_param->bEnableWavefront ? slice->m_sps->numCuInHeight : m_param->maxSlices;
+    // 多slice 下 一定得wpp
     S265_CHECK(m_param->bEnableWavefront || (m_param->maxSlices == 1), "Multiple slices without WPP unsupport now!");
     if (!m_outStreams)
     {

@@ -710,7 +710,7 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
     const int sizeIdx = S265_LOWRES_CU_BITS - 2; // 8x8 对应的index 为 1
 
     pixelcmp_t satd = primitives.pu[sizeIdx].satd;
-    int planar = !!(cuSize >= 8);// 如果 lowre 的cu size >=8 则采用planar 预测 否则不用
+    int planar = !!(cuSize >= 8);// 如果 lowre 的cu size >=8 则采用planar 预测 否则不用 这里始终为 1
 
     int costEst = 0, costEstAq = 0;
 
@@ -729,9 +729,9 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
 
             /* collect reference sample pixels */
             pixCur -= fenc.lumaStride + 1;//指针移动到左上角处
-            memcpy(samples, pixCur, (2 * cuSize + 1) * sizeof(pixel)); /* top */ //top 行 1+8+8
+            memcpy(samples, pixCur, (2 * cuSize + 1) * sizeof(pixel)); /* top */ //top上边一行参考像素 1+8+8
             for (int i = 1; i <= 2 * cuSize; i++)
-                samples[cuSize2 + i] = pixCur[i * fenc.lumaStride];    /* left */ 8 + 8
+                samples[cuSize2 + i] = pixCur[i * fenc.lumaStride];    /* left */ // 左列参考像素 8 + 8
 
             primitives.cu[sizeIdx].intra_filter(samples, filtered);// 参考像素滤波 应该可以不用的
 
@@ -756,6 +756,7 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
                 primitives.cu[sizeIdx].intra_pred[mode](prediction, cuSize, neighbours[filter], mode, cuSize <= 16);
                 cost = satd(fencIntra, cuSize, prediction, cuSize);
                 COPY2_IF_LT(acost, cost, alowmode, mode);
+                // fast 算法
             }
             for (uint32_t dist = 2; dist >= 1; dist--)//在6中大方向中的某个方向上继续做精细化pred，完了之后再 进一步缩小步长再做一次
             {
@@ -773,6 +774,7 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
                 primitives.cu[sizeIdx].intra_pred[mode](prediction, cuSize, neighbours[filter], mode, cuSize <= 16);
                 cost = satd(fencIntra, cuSize, prediction, cuSize);
                 COPY2_IF_LT(acost, cost, alowmode, mode);// 一次循环后 决策处 负/正方向上的最优者
+                // fast 算法
             }
             COPY2_IF_LT(icost, acost, ilowmode, alowmode);// 最优的cost 与最优的ilowmode 
 

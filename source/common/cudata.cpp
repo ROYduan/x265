@@ -2107,21 +2107,50 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
 
     // Initialize the coding blocks inside the CTB
     for (uint32_t log2CUSize = g_log2Size[maxCUSize], rangeCUIdx = 0; log2CUSize >= g_log2Size[minCUSize]; log2CUSize--)
-    {
-        uint32_t blockSize = 1 << log2CUSize;
-        uint32_t sbWidth   = 1 << (g_log2Size[maxCUSize] - log2CUSize);
-        int32_t lastLevelFlag = log2CUSize == g_log2Size[minCUSize];
+    {// 6 5 4 3
+        uint32_t blockSize = 1 << log2CUSize;// 64 32 16 8
+        uint32_t sbWidth   = 1 << (g_log2Size[maxCUSize] - log2CUSize);// 1 2 4 8
+        int32_t lastLevelFlag = log2CUSize == g_log2Size[minCUSize];// 0 0 0 1
 
         for (uint32_t sbY = 0; sbY < sbWidth; sbY++)
         {
             for (uint32_t sbX = 0; sbX < sbWidth; sbX++)
             {
                 uint32_t depthIdx = g_depthScanIdx[sbY][sbX];
+//64x64:  totol cu 1
+//    {   0, 
+//32x32:  total cu 4
+//    {   0,   1,
+//    {   2,   3,
+
+//16x16:  total cu 16
+//    {   0,   1,   4,   5,
+//    {   2,   3,   6,   7, 
+//    {   8,   9,  12,  13, 
+//    {  10,  11,  14,  15, 
+
+//8x8: total cu 64
+//    {   0,   1,   4,   5,  16,  17,  20,  21,  },
+//    {   2,   3,   6,   7,  18,  19,  22,  23,  },
+//    {   8,   9,  12,  13,  24,  25,  28,  29,  },
+//    {  10,  11,  14,  15,  26,  27,  30,  31,  },
+//    {  32,  33,  36,  37,  48,  49,  52,  53,  },
+//    {  34,  35,  38,  39,  50,  51,  54,  55,  },
+//    {  40,  41,  44,  45,  56,  57,  60,  61,  },
+//    {  42,  43,  46,  47,  58,  59,  62,  63,  }
+
                 uint32_t cuIdx = rangeCUIdx + depthIdx;
+// cuIdx: total 1 + 4 + 16 + 64 共85个cu
+// 64x64: 0           -->   childIdx = 1
+// 32x32: 1 + 0~3     -->   childIdx = 5 + (0～3)*4     5/9/13/17
+// 16x16: 5 + 0～15    -->   childIdx = 21 + (0～15)*4  21/25/29/~/81
+// 8x8:   21 + 0~63   -->    chidIdx =  85 + (0～63)*4  85/89/73/~/
                 uint32_t childIdx = rangeCUIdx + sbWidth * sbWidth + (depthIdx << 2);
-                uint32_t px = sbX * blockSize;
+                uint32_t px = sbX * blockSize; // pix坐标
                 uint32_t py = sbY * blockSize;
+                //起始坐标点位于图片内
                 int32_t presentFlag = px < ctuWidth && py < ctuHeight;
+                //需要被强制分割
                 int32_t splitMandatoryFlag = presentFlag && !lastLevelFlag && (px + blockSize > ctuWidth || py + blockSize > ctuHeight);
                 
                 /* Offset of the luma CU in the X, Y direction in terms of pixels from the CTU origin */
@@ -2129,11 +2158,39 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
                 uint32_t yOffset = (sbY * blockSize) >> 3;
                 S265_CHECK(cuIdx < CUGeom::MAX_GEOMS, "CU geom index bug\n");
 
-                CUGeom *cu = cuDataArray + cuIdx;
-                cu->log2CUSize = log2CUSize;
-                cu->childOffset = childIdx - cuIdx;
-                cu->absPartIdx = g_depthScanIdx[yOffset][xOffset] * 4;
+                CUGeom *cu = cuDataArray + cuIdx; // current cu 对应的CUGeom 指针位置
+                cu->log2CUSize = log2CUSize;// 当前cu的log2 size
+                cu->childOffset = childIdx - cuIdx; // 四叉树结构,当cuIdx为 0 childIdx 刚好是 childOffset
+                                                    // 当 cuIdx为 1 时，childIdx 不变 其childoffset相对位置 需要 -1;
+                                                    // 同理 cuidx 为 2时 childIdx 不变 其childoffset相对位置  需要 -2;
+
+                cu->absPartIdx = g_depthScanIdx[yOffset][xOffset] * 4; // 这里乘以4 因为_depthScanIdx[yOffset][xOffset] 表示的 8x8 而每个8x8 有 4个4x4
+
+//64x64:
+//0
+//32x32
+//0   64
+//128 192
+//16x16
+//0   16  64  80
+//32  48  96  112
+//128 144 192  208
+//160 176 224  240
+
+//8x8
+//0  4   16   20｜ 64
+//8  12  24   28｜   
+//32 36  48   52｜
+//40 44  56   60｜
+//--------------------------------
+// 128          ｜192  196  208  212
+//              ｜200  204  216  220
+//              ｜224  228  240  244
+//              ｜232  236  248  252
+                // 64x64:256 32x32:64  16x16: 16  8x8: 4
+                //当前cu有多少个4x4
                 cu->numPartitions = (num4x4Partition >> ((g_log2Size[maxCUSize] - cu->log2CUSize) * 2));
+                //当前cu的深度信息
                 cu->depth = g_log2Size[maxCUSize] - log2CUSize;
                 cu->geomRecurId = cuIdx;
 

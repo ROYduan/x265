@@ -146,7 +146,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 #endif
 
     int qp = setLambdaFromQP(ctu, m_slice->m_pps->bUseDQP ? calculateQpforCuSize(ctu, cuGeom) : m_slice->m_sliceQp);
-    ctu.setQPSubParts((int8_t)qp, 0, 0);
+    ctu.setQPSubParts((int8_t)qp, 0, 0);//从第0个4x4 开始 设置 depth0(256)个4x4 的qp
     //0深度四叉树加载context
     m_rqt[0].cur.load(initialContext);
     ctu.m_meanQP = initialContext.m_meanQP;
@@ -168,7 +168,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
         if (m_param->bIntraRefresh && m_slice->m_sliceType == P_SLICE &&
             ctu.m_cuPelX / m_param->maxCUSize >= frame.m_encData->m_pir.pirStartCol
             && ctu.m_cuPelX / m_param->maxCUSize < frame.m_encData->m_pir.pirEndCol)
-            compressIntraCU(ctu, cuGeom, qp);
+            compressIntraCU(ctu, cuGeom, qp);//帧内刷新波
         else if (!m_param->rdLevel)
         {
             /* In RD Level 0/1, copy source pixels into the reconstructed block so

@@ -83,13 +83,13 @@ struct CUGeom
     // (1 + 4 + 16 + 64) = 85.
     enum { MAX_GEOMS = 85 };// 1x64x64 4x32x32 16x16x16 64x8x8
 
-    uint32_t log2CUSize;    // Log of the CU size.
+    uint32_t log2CUSize;    // Log2 of the CU size.
     uint32_t childOffset;   // offset of the first child CU from current CU
     uint32_t absPartIdx;    // Part index of this CU in terms of 4x4 blocks.
     uint32_t numPartitions; // Number of 4x4 blocks in the CU
     uint32_t flags;         // CU flags.
     uint32_t depth;         // depth of this CU relative from CTU
-    uint32_t geomRecurId;   // Unique geom id from 0 to MAX_GEOMS - 1 for every depth
+    uint32_t geomRecurId;   // Unique geom id from 0 to MAX_GEOMS - 1(0～84) for every depth
 };
 
 struct MVField
