@@ -197,7 +197,7 @@ public:
     uint32_t*                m_substreamSizes;
 
     CUGeom*                  m_cuGeoms;
-    uint32_t*                m_ctuGeomMap;
+    uint32_t*                m_ctuGeomMap; //每个ctu 所属类型  最多 4类（宽高均不对齐lcu）   最少 1类（宽高全部lcu对齐） 或者2类（有一边不对齐）
 
     Bitstream                m_bs;
     MotionReference          m_mref[2][MAX_NUM_REF + 1];

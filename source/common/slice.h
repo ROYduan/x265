@@ -213,8 +213,8 @@ struct SPS
     uint32_t numCuInWidth;
     uint32_t numCuInHeight;
     uint32_t numCUsInFrame; //一帧里面ctu的个数
-    uint32_t numPartitions;
-    uint32_t numPartInCUSize;
+    uint32_t numPartitions; 
+    uint32_t numPartInCUSize; //CTU中一边有多少4x4块 默认为16（64有16个4）
 
     int      log2MinCodingBlockSize;
     int      log2DiffMaxMinCodingBlockSize;

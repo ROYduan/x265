@@ -161,12 +161,13 @@ class CUData
 {
 public:
 
-    cubcast_t s_partSet[NUM_FULL_DEPTH]; // pointer to broadcast set functions per absolute depth
-    uint32_t  s_numPartInCUSize;
+    cubcast_t s_partSet[NUM_FULL_DEPTH]; // pointer to broadcast set functions per absolute depth 用于给不同depth set value的函数指针
+    uint32_t  s_numPartInCUSize;//CTU中一边有多少4x4块 默认为16（64有16个4） 代码中固定 64
 
-    bool          m_vbvAffected;
 
-    FrameData*    m_encData;
+    bool          m_vbvAffected; //动态rd 影响vbv
+
+    FrameData*    m_encData;   //帧级encData 指针
     const Slice*  m_slice;
 
     cucopy_t      m_partCopy;         // pointer to function that copies m_numPartitions elements
@@ -175,7 +176,7 @@ public:
     cubcast_t     m_subPartSet;       // pointer to function that sets m_numPartitions/4 elements, may be NULL
 
     uint32_t      m_cuAddr;           // address of CTU within the picture in raster order
-    uint32_t      m_absIdxInCTU;      // address of CU within its CTU in Z scan order
+    uint32_t      m_absIdxInCTU;      // address of CU within its CTU in Z scan order  // Part index of this CU in terms of 4x4 blocks.
     uint32_t      m_cuPelX;           // CU position within the picture, in pixels (X)
     uint32_t      m_cuPelY;           // CU position within the picture, in pixels (Y)
     uint32_t      m_numPartitions;    // maximum number of 4x4 partitions within this CU
@@ -189,7 +190,7 @@ public:
     uint8_t      m_bLastRowInSlice;
     uint8_t      m_bLastCuInSlice;
 
-    /* Per-part data, stored contiguously */
+    /* Per-part data, stored contiguously */// 以下每个参量都以256的长度（对应每个4x4 一个）存储
     int8_t*       m_qp;               // array of QP values
     int8_t*       m_qpAnalysis;       // array of QP values for analysis reuse
     uint8_t*      m_log2CUSize;       // array of cu log2Size TODO: seems redundant to depth

@@ -211,21 +211,21 @@ bool FrameEncoder::initializeGeoms()
     int minCUSize = m_param->minCUSize;
     int heightRem = m_param->sourceHeight & (maxCUSize - 1);
     int widthRem = m_param->sourceWidth & (maxCUSize - 1);
-    int allocGeoms = 1; // body
+    int allocGeoms = 1; // body 初始化为一类
     if (heightRem && widthRem)
-        allocGeoms = 4; // body, right, bottom, corner
+        allocGeoms = 4; // body, right, bottom, corner 4类型 宽高都不为LCU 对齐
     else if (heightRem || widthRem)
-        allocGeoms = 2; // body, right or bottom
+        allocGeoms = 2; // body, right or bottom // 2类型 宽高有一边不为LCU 对齐
 
     m_ctuGeomMap = S265_MALLOC(uint32_t, m_numRows * m_numCols);
-    m_cuGeoms = S265_MALLOC(CUGeom, allocGeoms * CUGeom::MAX_GEOMS);
+    m_cuGeoms = S265_MALLOC(CUGeom, allocGeoms * CUGeom::MAX_GEOMS);// MAX_GEOMS: 85
     if (!m_cuGeoms || !m_ctuGeomMap)
         return false;
 
     // body
     CUData::calcCTUGeoms(maxCUSize, maxCUSize, maxCUSize, minCUSize, m_cuGeoms);
     //首先全部初始化为第0个 CUGeom
-    memset(m_ctuGeomMap, 0, sizeof(uint32_t) * m_numRows * m_numCols);
+    memset(m_ctuGeomMap, 0, sizeof(uint32_t) * m_numRows * m_numCols);// 第一类
 
     if (allocGeoms == 1)
         return true;
@@ -239,7 +239,7 @@ bool FrameEncoder::initializeGeoms()
         {
             uint32_t ctuAddr = m_numCols * (i + 1) - 1;
             //右边的ctu 指向 第一个CUGeom
-            m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
+            m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;// 第2类
         }
         countGeoms++;
     }
@@ -251,7 +251,7 @@ bool FrameEncoder::initializeGeoms()
         {
             uint32_t ctuAddr = m_numCols * (m_numRows - 1) + i;
             //底边的ctu 指向 第2个CUGeom
-            m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
+            m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;// 第3类
         }
         countGeoms++;
 
@@ -265,7 +265,7 @@ bool FrameEncoder::initializeGeoms()
             m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;
             countGeoms++;
         }
-        S265_CHECK(countGeoms == allocGeoms, "geometry match check failure\n");
+        S265_CHECK(countGeoms == allocGeoms, "geometry match check failure\n");//第4类
     }
 
     return true;

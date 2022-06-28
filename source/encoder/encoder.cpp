@@ -2495,6 +2495,7 @@ void Encoder::initSPS(SPS *sps)
     sps->numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
     sps->numCUsInFrame = sps->numCuInWidth * sps->numCuInHeight;
     sps->numPartitions = m_param->num4x4Partitions;
+    //CTU中一边有多少4x4块 默认为16（64有16个4）  64x64的depth为0  4x4unitsize的depth为4 故这里为16
     sps->numPartInCUSize = 1 << m_param->unitSizeDepth;
 
     sps->log2MinCodingBlockSize = m_param->maxLog2CUSize - m_param->maxCUDepth;
@@ -3107,9 +3108,9 @@ void Encoder::configure(s265_param *p)
     }
 
     p->maxLog2CUSize = g_log2Size[p->maxCUSize];// 64: 6 32:5 16:4 8:3 4:2  2:1
-    p->maxCUDepth    = p->maxLog2CUSize - g_log2Size[p->minCUSize];//64->8 : 3  64->16:2 64->32:1
-    p->unitSizeDepth = p->maxLog2CUSize - LOG2_UNIT_SIZE;
-    p->num4x4Partitions = (1U << (p->unitSizeDepth << 1));// 一个ctu 64x64 含有 256个4x4
+    p->maxCUDepth    = p->maxLog2CUSize - g_log2Size[p->minCUSize];//64->8:3 64->16:2 64->32:1   32->8:2 32->16:1   16->8:1
+    p->unitSizeDepth = p->maxLog2CUSize - LOG2_UNIT_SIZE;//从maxcu大小到4x4的深度 64x64: 4   32x32: 3   16x16: 2
+    p->num4x4Partitions = (1U << (p->unitSizeDepth << 1));// 一个ctu 64x64 含有 256个4x4  一个 ctu 32x32含有 64
 
     if (p->radl && p->bOpenGOP)
     {

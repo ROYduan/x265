@@ -122,11 +122,11 @@ void CUData::initialize(const CUDataMemPool& dataPool, uint32_t depth, const s26
     m_chromaFormat  = csp;
     m_hChromaShift  = CHROMA_H_SHIFT(csp);
     m_vChromaShift  = CHROMA_V_SHIFT(csp);
-    m_numPartitions = param.num4x4Partitions >> (depth * 2);
+    m_numPartitions = param.num4x4Partitions >> (depth * 2);// depth0对应64x64 有256个4x4  depth1对应32x32 有64个4x4
 
     if (!s_partSet[0])
     {
-        s_numPartInCUSize = 1 << param.unitSizeDepth;
+        s_numPartInCUSize = 1 << param.unitSizeDepth;////CTU中一边有多少4x4块 默认为16（64有16个4）
         switch (param.maxLog2CUSize)
         {
         case 6:
@@ -286,7 +286,7 @@ void CUData::initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t first
     m_cuPelX        = (cuAddr % m_slice->m_sps->numCuInWidth) << m_slice->m_param->maxLog2CUSize;
     m_cuPelY        = (cuAddr / m_slice->m_sps->numCuInWidth) << m_slice->m_param->maxLog2CUSize;
     m_absIdxInCTU   = 0;
-    m_numPartitions = m_encData->m_param->num4x4Partitions;
+    m_numPartitions = m_encData->m_param->num4x4Partitions;// 64x64ctu: 256
     m_bFirstRowInSlice = (uint8_t)firstRowInSlice;
     m_bLastRowInSlice  = (uint8_t)lastRowInSlice;
     m_bLastCuInSlice   = (uint8_t)lastCuInSlice;
@@ -295,7 +295,7 @@ void CUData::initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t first
     m_partSet((uint8_t*)m_qp, (uint8_t)qp);
     m_partSet((uint8_t*)m_qpAnalysis, (uint8_t)qp);
     m_partSet(m_log2CUSize,   (uint8_t)m_slice->m_param->maxLog2CUSize);
-    m_partSet(m_lumaIntraDir, (uint8_t)ALL_IDX);
+    m_partSet(m_lumaIntraDir, (uint8_t)ALL_IDX);// 初始化为 -1 不可用
     m_partSet(m_chromaIntraDir, (uint8_t)ALL_IDX);
     m_partSet(m_tqBypass,     (uint8_t)frame.m_encData->m_param->bLossless);
     if (m_slice->m_sliceType != I_SLICE)
@@ -1602,7 +1602,7 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
             m_encData->getPicCTU(m_cuAddr)->m_cuPelY + g_zscanToPelY[partIdxRB] + UNIT_SIZE < m_slice->m_sps->picHeightInLumaSamples)
         {
             uint32_t absPartIdxRB = g_zscanToRaster[partIdxRB];
-            uint32_t numUnits = s_numPartInCUSize;
+            uint32_t numUnits = s_numPartInCUSize;//CTU中一边有多少4x4块 默认为16（64有16个4）
             bool bNotLastCol = lessThanCol(absPartIdxRB, numUnits - 1); // is not at the last column of CTU
             bool bNotLastRow = lessThanRow(absPartIdxRB, numUnits - 1); // is not at the last row    of CTU
 
@@ -1835,7 +1835,7 @@ void CUData::getNeighbourMV(uint32_t puIdx, uint32_t absPartIdx, InterNeighbourM
             m_encData->getPicCTU(m_cuAddr)->m_cuPelY + g_zscanToPelY[partIdxRB] + UNIT_SIZE < m_slice->m_sps->picHeightInLumaSamples)
         {
             uint32_t absPartIdxRB = g_zscanToRaster[partIdxRB];
-            uint32_t numUnits = s_numPartInCUSize;
+            uint32_t numUnits = s_numPartInCUSize;//CTU中一边有多少4x4块 默认为16（64有16个4）
             bool bNotLastCol = lessThanCol(absPartIdxRB, numUnits - 1); // is not at the last column of CTU
             bool bNotLastRow = lessThanRow(absPartIdxRB, numUnits - 1); // is not at the last row    of CTU
 
@@ -2192,7 +2192,7 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
                 cu->numPartitions = (num4x4Partition >> ((g_log2Size[maxCUSize] - cu->log2CUSize) * 2));
                 //当前cu的深度信息
                 cu->depth = g_log2Size[maxCUSize] - log2CUSize;
-                cu->geomRecurId = cuIdx;
+                cu->geomRecurId = cuIdx;//每个cu 在当前ctu中的索引 （0~84)
 
                 cu->flags = 0;
                 CU_SET_FLAG(cu->flags, CUGeom::PRESENT, presentFlag);

@@ -1600,8 +1600,8 @@ typedef struct s265_param
     /* Actual CU depth with respect to config depth */
     uint32_t  maxCUDepth;//eg:maxcu 64x64 mincu 8x8 --> 3; maxcu 64x64 mincu 16x16 -->2
 
-    /* CU depth with respect to maximum transform size */
-    uint32_t  unitSizeDepth;
+    /* CU depth with respect to minimum transform size */
+    uint32_t  unitSizeDepth; //从maxcu大小到4x4的深度 64x64: 4   32x32: 3   16x16: 2
 
     /* Number of 4x4 units in maximum CU size */
     uint32_t  num4x4Partitions;

@@ -393,14 +393,15 @@ void Analysis::qprdRefine(const CUData& parentCTU, const CUGeom& cuGeom, int32_t
 // intraCU rdo
 uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t qp)
 {
-    uint32_t depth = cuGeom.depth;
-    ModeDepth& md = m_modeDepth[depth];
+    uint32_t depth = cuGeom.depth;// 当前cu的depth
+    ModeDepth& md = m_modeDepth[depth];//在当前depth下的模式信息
     md.bestMode = NULL;
 
     bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);// 0: 叶子结点，不能split 1:  非叶子结点可以split
     bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);// 0:强制split了 1:可以不split
-
+    // 是否已经决策了
     bool bAlreadyDecided = m_param->intraRefine != 4 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] != (uint8_t)ALL_IDX;
+    // 
     bool bDecidedDepth = m_param->intraRefine != 4 && parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
     int split = 0;
     if (m_param->intraRefine && m_param->intraRefine != 4)
@@ -434,7 +435,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         }
     }
     else if (cuGeom.log2CUSize != MAX_LOG2_CU_SIZE && mightNotSplit)
-    {
+    {// 当前cu 不为lcu,且可以不用分割
         md.pred[PRED_INTRA].cu.initSubCU(parentCTU, cuGeom, qp);
         checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);
         checkBestMode(md.pred[PRED_INTRA], depth);
@@ -456,7 +457,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
     // stop recursion if we reach the depth of previous analysis decision
     mightSplit &= !(bAlreadyDecided && bDecidedDepth) || split;
 
-    if (mightSplit)
+    if (mightSplit)//通常来说第一次进来从这里入口
     {
         Mode* splitPred = &md.pred[PRED_SPLIT];
         splitPred->initCosts();
@@ -2109,10 +2110,7 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
 
                 int lamdaQP = lqp;
 
-                if (split)
-                    m_param->rdLevel > 4 ? compressInterCU_rd5_6(parentCTU, childGeom, nextQP) : compressInterCU_rd0_4(parentCTU, childGeom, nextQP);
-                else
-                    qprdRefine(parentCTU, childGeom, nextQP, lamdaQP);
+                qprdRefine(parentCTU, childGeom, nextQP, lamdaQP);
 
                 // Save best CU and pred data for this sub CU
                 splitCU->copyPartFrom(nd.bestMode->cu, childGeom, subPartIdx);

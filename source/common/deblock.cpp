@@ -453,8 +453,9 @@ void Deblock::edgeFilterChroma(const CUData* cuQ, uint32_t absPartIdx, uint32_t 
     pixel* srcChroma[2];
     srcChroma[0] = reconPic->m_picOrg[1] + srcOffset;
     srcChroma[1] = reconPic->m_picOrg[2] + srcOffset;
-
+    //CU中一边有多少4x4块 depth0 时 默认为16（64有16个4）
     uint32_t numUnits = cuQ->m_slice->m_sps->numPartInCUSize >> (depth + chromaShift);
+     //对于一条边界，按照4个pix 为单位进行滤波
     for (uint32_t idx = 0; idx < numUnits; idx++)
     {
         uint32_t partQ = calcBsIdx(absPartIdx, dir, edge, idx << chromaShift);

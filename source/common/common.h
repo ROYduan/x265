@@ -253,8 +253,8 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define NUM_FULL_DEPTH          5                           // maximum number of full depths
 #define MIN_LOG2_CU_SIZE        3                           // log2(minCUSize)
 #define MAX_LOG2_CU_SIZE        6                           // log2(maxCUSize)
-#define MIN_CU_SIZE             (1 << MIN_LOG2_CU_SIZE)     // minimum allowable size of CU
-#define MAX_CU_SIZE             (1 << MAX_LOG2_CU_SIZE)     // maximum allowable size of CU
+#define MIN_CU_SIZE             (1 << MIN_LOG2_CU_SIZE)     // minimum allowable size of CU 8x8
+#define MAX_CU_SIZE             (1 << MAX_LOG2_CU_SIZE)     // maximum allowable size of CU 64x64
 
 #define LOG2_UNIT_SIZE          2                           // log2(unitSize)
 #define UNIT_SIZE               (1 << LOG2_UNIT_SIZE)       // unit size of CU partition 4x4 为单位
