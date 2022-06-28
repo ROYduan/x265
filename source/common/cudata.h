@@ -162,7 +162,7 @@ class CUData
 public:
 
     cubcast_t s_partSet[NUM_FULL_DEPTH]; // pointer to broadcast set functions per absolute depth 用于给不同depth set value的函数指针
-    uint32_t  s_numPartInCUSize;//CTU中一边有多少4x4块 默认为16（64有16个4） 代码中固定 64
+    uint32_t  s_numPartInCUSize;//CTU中一边有多少4x4块 默认为16（64有16个4） 代码中固定 16
 
 
     bool          m_vbvAffected; //动态rd 影响vbv

@@ -220,11 +220,11 @@ struct SPS
     int      log2DiffMaxMinCodingBlockSize;
     int      log2MaxPocLsb;
 
-    uint32_t quadtreeTULog2MaxSize;
-    uint32_t quadtreeTULog2MinSize;
+    uint32_t quadtreeTULog2MaxSize;// 限制最大TU size default 32x32
+    uint32_t quadtreeTULog2MinSize;// 限制最小TU size default 4x4
 
     uint32_t quadtreeTUMaxDepthInter; // use param
-    uint32_t quadtreeTUMaxDepthIntra; // use param
+    uint32_t quadtreeTUMaxDepthIntra; // use param 用于intra cu 中tu的递归四叉树划分的深度控制 取值范围 1～4
 
     uint32_t maxAMPDepth;
 

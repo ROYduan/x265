@@ -667,33 +667,34 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
     int log2UnitWidth = LOG2_UNIT_SIZE;
     int log2UnitHeight = LOG2_UNIT_SIZE;
 
-    if (!isLuma)
+    if (!isLuma)// 如果是chroma 对应的size 需要调整
     {
         log2TrSize -= cu.m_hChromaShift;
         log2UnitWidth -= cu.m_hChromaShift;
         log2UnitHeight -= cu.m_vChromaShift;
     }
 
-    int numIntraNeighbor;
-    bool* bNeighborFlags = intraNeighbors->bNeighborFlags;
+    int numIntraNeighbor;//用于统计可用neighbor的个数
+    bool* bNeighborFlags = intraNeighbors->bNeighborFlags; // 用于收集 neighbor的可用性
 
     uint32_t tuSize = 1 << log2TrSize;
-    int  tuWidthInUnits = tuSize >> log2UnitWidth;
-    int  tuHeightInUnits = tuSize >> log2UnitHeight;
-    int  aboveUnits = tuWidthInUnits << 1;
-    int  leftUnits = tuHeightInUnits << 1;
-    uint32_t partIdxLT = cu.m_absIdxInCTU + absPartIdx;
-    uint32_t partIdxRT = g_rasterToZscan[g_zscanToRaster[partIdxLT] + tuWidthInUnits - 1];
-    uint32_t partIdxLB = g_rasterToZscan[g_zscanToRaster[partIdxLT] + ((tuHeightInUnits - 1) << LOG2_RASTER_SIZE)];
+    int  tuWidthInUnits = tuSize >> log2UnitWidth;// tusize 有几个4x4宽
+    int  tuHeightInUnits = tuSize >> log2UnitHeight;//tusize 有几个4x4高
+    int  aboveUnits = tuWidthInUnits << 1;//上边一行参考像素(intra 预测 需要乘以 2)的宽度为几个4x4宽度
+    int  leftUnits = tuHeightInUnits << 1;//左边一列参考像素(intra 预测 需要乘以 2)的高度度为几个4x4宽度
+    uint32_t partIdxLT = cu.m_absIdxInCTU + absPartIdx;// 当前cu 内第 0/1/2/3个pu内部左上角4x4 unit 位置
+    uint32_t partIdxRT = g_rasterToZscan[g_zscanToRaster[partIdxLT] + tuWidthInUnits - 1];//当前cu 右上角位置4x4 unit位置
+    uint32_t partIdxLB = g_rasterToZscan[g_zscanToRaster[partIdxLT] + ((tuHeightInUnits - 1) << LOG2_RASTER_SIZE)];//当前cu左下角位置4x4 unit 位置 一行有 16（<<4）个4x4
 
     if (cu.m_slice->isIntra() || !cu.m_slice->m_pps->bConstrainedIntraPred)
     {
+        // 0～ leftunits -1 放 left avaible，[leftUnits]位置处存放 above left
         bNeighborFlags[leftUnits] = isAboveLeftAvailable<false>(cu, partIdxLT);
-        numIntraNeighbor  = (int)(bNeighborFlags[leftUnits]);
-        numIntraNeighbor += isAboveAvailable<false>(cu, partIdxLT, partIdxRT, bNeighborFlags + leftUnits + 1);
-        numIntraNeighbor += isAboveRightAvailable<false>(cu, partIdxRT, bNeighborFlags + leftUnits + 1 + tuWidthInUnits, tuWidthInUnits);
-        numIntraNeighbor += isLeftAvailable<false>(cu, partIdxLT, partIdxLB, bNeighborFlags + leftUnits - 1);
-        numIntraNeighbor += isBelowLeftAvailable<false>(cu, partIdxLB, bNeighborFlags + tuHeightInUnits - 1, tuHeightInUnits);
+        numIntraNeighbor  = (int)(bNeighborFlags[leftUnits]);// aboveleft available
+        numIntraNeighbor += isAboveAvailable<false>(cu, partIdxLT, partIdxRT, bNeighborFlags + leftUnits + 1); // above available
+        numIntraNeighbor += isAboveRightAvailable<false>(cu, partIdxRT, bNeighborFlags + leftUnits + 1 + tuWidthInUnits, tuWidthInUnits);// above Right available
+        numIntraNeighbor += isLeftAvailable<false>(cu, partIdxLT, partIdxLB, bNeighborFlags + leftUnits - 1);// left available
+        numIntraNeighbor += isBelowLeftAvailable<false>(cu, partIdxLB, bNeighborFlags + tuHeightInUnits - 1, tuHeightInUnits); //below left available
     }
     else
     {
@@ -705,7 +706,7 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
         numIntraNeighbor += isBelowLeftAvailable<true>(cu, partIdxLB, bNeighborFlags + tuHeightInUnits - 1, tuHeightInUnits);
     }
 
-    intraNeighbors->numIntraNeighbor = numIntraNeighbor;
+    intraNeighbors->numIntraNeighbor = numIntraNeighbor;// 左上/上/右上/左/左下 共有几个avaible
     intraNeighbors->totalUnits = aboveUnits + leftUnits + 1;
     intraNeighbors->aboveUnits = aboveUnits;
     intraNeighbors->leftUnits = leftUnits;
@@ -720,10 +721,10 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
     int numIntraNeighbor = intraNeighbors.numIntraNeighbor;
     int totalUnits = intraNeighbors.totalUnits;
     uint32_t tuSize = 1 << intraNeighbors.log2TrSize;
-    uint32_t refSize = tuSize * 2 + 1;
+    uint32_t refSize = tuSize * 2 + 1;// 上边一行
 
     // Nothing is available, perform DC prediction.
-    if (numIntraNeighbor == 0)
+    if (numIntraNeighbor == 0) // 左列/上边行 没有一个可用
     {
         // Fill top border with DC value
         for (uint32_t i = 0; i < refSize; i++)
@@ -733,7 +734,7 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
         for (uint32_t i = 0; i < refSize - 1; i++)
             dst[i + refSize] = dcValue;
     }
-    else if (numIntraNeighbor == totalUnits)
+    else if (numIntraNeighbor == totalUnits)//全部可用
     {
         // Fill top border with rec. samples
         const pixel* adiTemp = adiOrigin - picStride - 1;
@@ -747,7 +748,7 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
             adiTemp += picStride;
         }
     }
-    else // reference samples are partially available
+    else // reference samples are partially available //部分边界可用
     {
         const bool *bNeighborFlags = intraNeighbors.bNeighborFlags;
         const bool *pNeighborFlags;

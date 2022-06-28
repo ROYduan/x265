@@ -252,12 +252,12 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define NUM_CU_DEPTH            4                           // maximum number of CU depths
 #define NUM_FULL_DEPTH          5                           // maximum number of full depths
 #define MIN_LOG2_CU_SIZE        3                           // log2(minCUSize)
-#define MAX_LOG2_CU_SIZE        6                           // log2(maxCUSize)
-#define MIN_CU_SIZE             (1 << MIN_LOG2_CU_SIZE)     // minimum allowable size of CU 8x8
-#define MAX_CU_SIZE             (1 << MAX_LOG2_CU_SIZE)     // maximum allowable size of CU 64x64
+#define MAX_LOG2_CU_SIZE        6                           // log2(maxCUSize) 
+#define MIN_CU_SIZE             (1 << MIN_LOG2_CU_SIZE)     // minimum allowable size of CU 8x8 (8)
+#define MAX_CU_SIZE             (1 << MAX_LOG2_CU_SIZE)     // maximum allowable size of CU 64x64 (64)
 
-#define LOG2_UNIT_SIZE          2                           // log2(unitSize)
-#define UNIT_SIZE               (1 << LOG2_UNIT_SIZE)       // unit size of CU partition 4x4 为单位
+#define LOG2_UNIT_SIZE          2                           // log2(unitSize) (2)
+#define UNIT_SIZE               (1 << LOG2_UNIT_SIZE)       // unit size of CU partition 4x4 为单位 (4)
 
 #define LOG2_RASTER_SIZE        (MAX_LOG2_CU_SIZE - LOG2_UNIT_SIZE)// 4
 #define RASTER_SIZE             (1 << LOG2_RASTER_SIZE)      // 16
@@ -265,7 +265,7 @@ typedef int16_t  coeff_t;      // transform coefficient
 
 #define MIN_PU_SIZE             4
 #define MIN_TU_SIZE             4
-#define MAX_NUM_SPU_W           (MAX_CU_SIZE / MIN_PU_SIZE) // maximum number of SPU in horizontal line
+#define MAX_NUM_SPU_W           (MAX_CU_SIZE / MIN_PU_SIZE) // maximum number of SPU in horizontal line 16
 
 #define MAX_LOG2_TR_SIZE 5
 #define MAX_LOG2_TS_SIZE 2 // TODO: RExt

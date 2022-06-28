@@ -69,7 +69,7 @@ public:
         int      unitWidth;
         int      unitHeight;
         int      log2TrSize;
-        bool     bNeighborFlags[4 * MAX_NUM_SPU_W + 1];
+        bool     bNeighborFlags[4 * MAX_NUM_SPU_W + 1]; // 4x16 +1 65
     };
 
     ShortYuv  m_predShortYuv[2]; /* temporary storage for weighted prediction */

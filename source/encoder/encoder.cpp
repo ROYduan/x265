@@ -2500,11 +2500,11 @@ void Encoder::initSPS(SPS *sps)
 
     sps->log2MinCodingBlockSize = m_param->maxLog2CUSize - m_param->maxCUDepth;
     sps->log2DiffMaxMinCodingBlockSize = m_param->maxCUDepth;
-    uint32_t maxLog2TUSize = (uint32_t)g_log2Size[m_param->maxTUSize];
+    uint32_t maxLog2TUSize = (uint32_t)g_log2Size[m_param->maxTUSize];// 32x32: 5  16x16:4 8x8:3 4x4:2
     sps->quadtreeTULog2MaxSize = S265_MIN((uint32_t)m_param->maxLog2CUSize, maxLog2TUSize);
     sps->quadtreeTULog2MinSize = 2;
     sps->quadtreeTUMaxDepthInter = m_param->tuQTMaxInterDepth;
-    sps->quadtreeTUMaxDepthIntra = m_param->tuQTMaxIntraDepth;
+    sps->quadtreeTUMaxDepthIntra = m_param->tuQTMaxIntraDepth;// 1～4 tu深度控制
 
     sps->bUseSAO = m_param->bEnableSAO;
 

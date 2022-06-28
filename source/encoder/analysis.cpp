@@ -390,7 +390,8 @@ void Analysis::qprdRefine(const CUData& parentCTU, const CUGeom& cuGeom, int32_t
     md.bestMode->cu.copyToPic(depth);
     md.bestMode->reconYuv.copyToPicYuv(*m_frame->m_reconPic, parentCTU.m_cuAddr, cuGeom.absPartIdx);
 }
-// intraCU rdo
+
+// intraCTU rdo
 uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t qp)
 {
     uint32_t depth = cuGeom.depth;// 当前cu的depth
@@ -435,7 +436,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         }
     }
     else if (cuGeom.log2CUSize != MAX_LOG2_CU_SIZE && mightNotSplit)
-    {// 当前cu 不为lcu,且可以不用分割
+    {// 当前cu 不为lcu,且可以不用分割 如果是64x64 则intra 一定要分割，如果32x32了 则可以不用分割了
         md.pred[PRED_INTRA].cu.initSubCU(parentCTU, cuGeom, qp);
         checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);
         checkBestMode(md.pred[PRED_INTRA], depth);

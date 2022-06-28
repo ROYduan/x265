@@ -1237,13 +1237,13 @@ void Search::checkIntra(Mode& intraMode, const CUGeom& cuGeom, PartSize partSize
 {
     CUData& cu = intraMode.cu;
 
-    cu.setPartSizeSubParts(partSize);
-    cu.setPredModeSubParts(MODE_INTRA);
+    cu.setPartSizeSubParts(partSize);//将当前cu 大小区域的的4x4 unit 设置其m_partSize 为 partSize
+    cu.setPredModeSubParts(MODE_INTRA);//将当前cu 大小区域的的4x4 unit 设置其m_predMode 为 MODE_INTRA
 
-    uint32_t tuDepthRange[2];
+    uint32_t tuDepthRange[2];// get tu 递归范围
     cu.getIntraTUQtDepthRange(tuDepthRange, 0);
 
-    intraMode.initCosts();
+    intraMode.initCosts();//初始化所有cost 为0
     intraMode.lumaDistortion += estIntraPredQT(intraMode, cuGeom, tuDepthRange);
     if (m_csp != S265_CSP_I400)
     {
@@ -1514,18 +1514,19 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
     const Yuv* fencYuv = intraMode.fencYuv;
 
     uint32_t depth        = cuGeom.depth;
-    uint32_t initTuDepth  = cu.m_partSize[0] != SIZE_2Nx2N;
-    uint32_t numPU        = 1 << (2 * initTuDepth);
-    uint32_t log2TrSize   = cuGeom.log2CUSize - initTuDepth;
-    uint32_t tuSize       = 1 << log2TrSize;
-    uint32_t qNumParts    = cuGeom.numPartitions >> 2;
-    uint32_t sizeIdx      = log2TrSize - 2;
-    uint32_t absPartIdx   = 0;
+    uint32_t initTuDepth  = cu.m_partSize[0] != SIZE_2Nx2N;// 如果partsize 不为SIZE_2Nx2N 则TUDepth 从 1开始 否则从0开始
+    uint32_t numPU        = 1 << (2 * initTuDepth);// partsize 不为SIZE_2Nx2N 则表示有4个 pu
+    uint32_t log2TrSize   = cuGeom.log2CUSize - initTuDepth;// transformSize 从cusize开始（partsize 不为SIZE_2Nx2N） 否则从 cusize/2 开始
+    uint32_t tuSize       = 1 << log2TrSize;// 从log2size 换算到 tusize
+    uint32_t qNumParts    = cuGeom.numPartitions >> 2; //当前cu下1/4的4x4 units个数
+    uint32_t sizeIdx      = log2TrSize - 2;// 因为tu最小4x4 对应 log2 
+    uint32_t absPartIdx   = 0;//从偏移0个4x4 开始
     sse_t totalDistortion = 0;
 
+    // 检查是否需要check 跳过transform
     int checkTransformSkip = m_slice->m_pps->bTransformSkipEnabled && !cu.m_tqBypass[0] && cu.m_partSize[0] != SIZE_2Nx2N;
 
-    // loop over partitions 1个或者4个
+    // loop over partitions 1个或者4个，每次循环absPartIdx 增长1/4 部分cu大小
     for (uint32_t puIdx = 0; puIdx < numPU; puIdx++, absPartIdx += qNumParts)
     {
         uint32_t bmode = 0;
@@ -1559,12 +1560,12 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
                 m_entropyCoder.loadIntraDirModeLuma(m_rqt[depth].cur);
 
                 /* there are three cost tiers for intra modes:
-                *  pred[0]          - mode probable, least cost
+                *  pred[0]          - mode probable, least cost // 最有可能的pred模式
                 *  pred[1], pred[2] - less probable, slightly more cost
                 *  non-mpm modes    - all cost the same (rbits) */
                 uint64_t mpms;
                 uint32_t mpmModes[3];
-                uint32_t rbits = getIntraRemModeBits(cu, absPartIdx, mpmModes, mpms);
+                uint32_t rbits = getIntraRemModeBits(cu, absPartIdx, mpmModes, mpms);//余下的 不属于mpm 里面的模式需要用多少bits
 
                 pixelcmp_t sa8d = primitives.cu[sizeIdx].sa8d;
                 uint64_t modeCosts[35];
