@@ -297,7 +297,6 @@ static const struct option long_options[] =
     { "multi-pass-opt-rps",   no_argument, NULL, 0 },
     { "no-multi-pass-opt-rps", no_argument, NULL, 0 },
     { "analysis-load",  required_argument, NULL, 0 },
-    { "scale-factor",   required_argument, NULL, 0 },
     { "refine-intra",   required_argument, NULL, 0 },
     { "refine-inter",   required_argument, NULL, 0 },
     { "dynamic-refine",       no_argument, NULL, 0 },

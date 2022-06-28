@@ -405,8 +405,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
     int split = 0;
     if (m_param->intraRefine && m_param->intraRefine != 4)
     {
-        split = m_param->scaleFactor && bDecidedDepth && (!mightNotSplit || 
-            ((cuGeom.log2CUSize == (uint32_t)(g_log2Size[m_param->minCUSize] + 1))));
+        split = 0;
         if (cuGeom.log2CUSize == (uint32_t)(g_log2Size[m_param->minCUSize]) && !bDecidedDepth)
             bAlreadyDecided = false;
     }
@@ -2004,7 +2003,6 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
     bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
     bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
     bool bDecidedDepth = parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
-    int split = 0;
 
     TrainingData td;
     td.init(parentCTU, cuGeom);
@@ -2014,13 +2012,7 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
     else
         m_refineLevel = m_frame->m_classifyFrame ? 1 : 3;
 
-    if (m_param->interRefine == 1)
-        split = (m_param->scaleFactor && bDecidedDepth && parentCTU.m_predMode[cuGeom.absPartIdx] == MODE_SKIP && (!mightNotSplit ||
-                (m_refineLevel && cuGeom.log2CUSize == (uint32_t)(g_log2Size[m_param->minCUSize] + 1))));
-    else
-        split = (m_param->scaleFactor && bDecidedDepth && (!mightNotSplit ||
-                (m_refineLevel && cuGeom.log2CUSize == (uint32_t)(g_log2Size[m_param->minCUSize] + 1))));
-    td.split = split;
+    td.split = 0;
 
     if ((bDecidedDepth && mightNotSplit))
     {
@@ -2091,11 +2083,9 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
             m_evaluateInter = 0;
         }
     }
-    if (!bDecidedDepth || split)
+    if (!bDecidedDepth)
     {
         Mode* splitPred = &md.pred[PRED_SPLIT];
-        if (!split)
-            md.bestMode = splitPred;
         splitPred->initCosts();
         CUData* splitCU = &splitPred->cu;
         splitCU->initSubCU(parentCTU, cuGeom, qp);

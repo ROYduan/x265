@@ -1585,9 +1585,6 @@ typedef struct s265_param
     /* Use ratecontrol statistics from pic_in, if available*/
     int       bUseRcStats;
 
-    /* Factor by which input video is scaled down for analysis save mode. Default is 0 */
-    int       scaleFactor;
-
     /* Enable intra refinement in load mode*/
     int       intraRefine;
 

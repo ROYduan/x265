@@ -24,9 +24,8 @@ API changes
 
 Bug fixes
 ---------
-1. Incorrect VBV lookahead in :option:`--analysis-load` + :option:`--scale-factor`.
-2. Encoder hang when VBV is used with slices.
-3. QP spikes in the row-level VBV rate-control when WPP enabled.
+1. Encoder hang when VBV is used with slices.
+2. QP spikes in the row-level VBV rate-control when WPP enabled.
 
 Version 3.4
 ===========

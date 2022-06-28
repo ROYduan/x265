@@ -2847,14 +2847,6 @@ void Encoder::configure(s265_param *p)
         p->rc.rfConstantMin = 0;
     }
 
-    if (p->scaleFactor)
-    {
-        if (p->scaleFactor == 1)
-        {
-            p->scaleFactor = 0;
-        }
-    }
-
     if (p->limitTU && (p->interRefine || p->bDynamicRefine))
     {
         s265_log(p, S265_LOG_WARNING, "Inter refinement does not support limitTU. Disabling limitTU.\n");

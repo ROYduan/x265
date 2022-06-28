@@ -351,7 +351,6 @@ void s265_param_default(s265_param* param)
     param->bDhdr10opt = 0;
     param->dolbyProfile = 0;
     param->bUseRcStats = 0;
-    param->scaleFactor = 0;
     param->intraRefine = 0;
     param->interRefine = 0;
     param->bDynamicRefine = 0;
@@ -1265,7 +1264,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         OPT("dhdr10-opt") p->bDhdr10opt = atobool(value);
         OPT("idr-recovery-sei") p->bEmitIDRRecoverySEI = atobool(value);
         OPT("const-vbv") p->rc.bEnableConstVbv = atobool(value);
-        OPT("scale-factor") p->scaleFactor = atoi(value);
         OPT("refine-intra")p->intraRefine = atoi(value);
         OPT("refine-inter")p->interRefine = atoi(value);
         OPT("refine-mv")p->mvRefine = atoi(value);
@@ -1772,7 +1770,6 @@ int s265_check_params(s265_param* param)
           "Constant QP is incompatible with 2pass");
     CHECK(param->rc.bStrictCbr && (param->rc.bitrate <= 0 || param->rc.vbvBufferSize <=0),
           "Strict-cbr cannot be applied without specifying target bitrate or vbv bufsize");
-    CHECK(param->scaleFactor > 2, "Invalid scale-factor. Supports factor <= 2");
     CHECK(param->rc.qpMax < QP_MIN || param->rc.qpMax > QP_MAX_MAX,
         "qpmax exceeds supported range (0 to 69)");
     CHECK(param->rc.qpMin < QP_MIN || param->rc.qpMin > QP_MAX_MAX,
@@ -2242,7 +2239,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bHDR10Opt, "hdr10-opt");
     BOOL(p->bDhdr10opt, "dhdr10-opt");
     BOOL(p->bEmitIDRRecoverySEI, "idr-recovery-sei");
-    s += sprintf(s, " scale-factor=%d", p->scaleFactor);
     s += sprintf(s, " refine-intra=%d", p->intraRefine);
     s += sprintf(s, " refine-inter=%d", p->interRefine);
     s += sprintf(s, " refine-mv=%d", p->mvRefine);
@@ -2607,7 +2603,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->chunkEnd = src->chunkEnd;
     if (src->naluFile) dst->naluFile=strdup(src->naluFile);
     else dst->naluFile = NULL;
-    dst->scaleFactor = src->scaleFactor;
     dst->bEnableHRDConcatFlag = src->bEnableHRDConcatFlag;
     dst->dolbyProfile = src->dolbyProfile;
     dst->bEnableSvtHevc = src->bEnableSvtHevc;
