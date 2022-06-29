@@ -625,19 +625,19 @@ const CUData* CUData::getPULeft(uint32_t& lPartUnitIdx, uint32_t curPartUnitIdx)
 
 const CUData* CUData::getPUAbove(uint32_t& aPartUnitIdx, uint32_t curPartUnitIdx) const
 {
-    uint32_t absPartIdx = g_zscanToRaster[curPartUnitIdx];
+    uint32_t absPartIdx = g_zscanToRaster[curPartUnitIdx];//当前4x4的位置
 
-    if (!isZeroRow(absPartIdx))
+    if (!isZeroRow(absPartIdx))//如果不是ctu的0行
     {
-        uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU];
-        aPartUnitIdx = g_rasterToZscan[absPartIdx - RASTER_SIZE];
-        if (isEqualRow(absPartIdx, absZorderCUIdx))
-            return m_encData->getPicCTU(m_cuAddr);
-        else
+        uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU];//获取当前pu所在cu的首个4x4位置
+        aPartUnitIdx = g_rasterToZscan[absPartIdx - RASTER_SIZE];//当前4x4位置上移一行
+        if (isEqualRow(absPartIdx, absZorderCUIdx))//当前4x4的位置和其所在cu的首个4x4的位置为同一行
+            return m_encData->getPicCTU(m_cuAddr);//这是他的above 所在的cu 不是本身cu 但是属于同一个ctu,所以返回当前ctu 以及ctu内的偏移
+        else// 否则，如果不属于同一行，则当前4x4的above cu 和本身的cu属于同一cu，调整ctu内的偏移为当前cu内的偏移，然后返回当前cu的地址就好
             aPartUnitIdx -= m_absIdxInCTU;
         return this;
     }
-
+    //如果是ctu的第0行，调整ctu内的偏移地址为当前4x4地址所在ctu的最后一行，返回当前ctu的above ctu
     aPartUnitIdx = g_rasterToZscan[absPartIdx + ((s_numPartInCUSize - 1) << LOG2_RASTER_SIZE)];
     return m_cuAbove;
 }
@@ -694,7 +694,7 @@ const CUData* CUData::getPUAboveRight(uint32_t& arPartUnitIdx, uint32_t curPartU
         {   // 这里在zigzag顺序上, 当前pu的4x4 位置的顺序要大于右上角位置的zigzag顺序, 则表示右上角可用
             if (curPartUnitIdx > g_rasterToZscan[absPartIdxRT - RASTER_SIZE + 1])
             {
-                //
+                //get当前cu的内部的右上角4x4的索引
                 uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU] + (1 << (m_log2CUSize[0] - LOG2_UNIT_SIZE)) - 1;
                 arPartUnitIdx = g_rasterToZscan[absPartIdxRT - RASTER_SIZE + 1];// 设置返回值 为上移一行 右移一列
                 if (isEqualRowOrCol(absPartIdxRT, absZorderCUIdx))//
@@ -781,39 +781,42 @@ const CUData* CUData::getPUBelowLeftAdi(uint32_t& blPartUnitIdx,  uint32_t curPa
 
     return NULL;
 }
-// 用于找到 当前pu的右上角的neighbor的位置（包含两部分，一部分是 neighbor 所在的ctu，另一部分是 该neighbor4x4 在该ctu中的4x4 偏移alPartUnitIdx）
+// 用于找到 当前pu的右上角4x4的above right neighbors的cus（包含两部分，一部分是 neighbor 所在的ctu/cu，另一部分是 该neighbor4x4 在该ctu/cu中的4x4 偏移alPartUnitIdx）
 const CUData* CUData::getPUAboveRightAdi(uint32_t& arPartUnitIdx, uint32_t curPartUnitIdx, uint32_t partUnitOffset) const
 {
     if ((m_encData->getPicCTU(m_cuAddr)->m_cuPelX + g_zscanToPelX[curPartUnitIdx] + (partUnitOffset << LOG2_UNIT_SIZE)) >= m_slice->m_sps->picWidthInLumaSamples)
-        return NULL;//右边的4x4超出图片边界了
+        return NULL;//右移了partUnitOffset右的4x4超出图片边界了
 
     uint32_t absPartIdxRT = g_zscanToRaster[curPartUnitIdx];//当前pu的自身右上角的4x4的abspartIdx
 
-    if (lessThanCol(absPartIdxRT, s_numPartInCUSize - partUnitOffset))
+    if (lessThanCol(absPartIdxRT, s_numPartInCUSize - partUnitOffset))// 如果 absPartIdxRT+partUnitOffset < s_numPartInCUSize(16）则aboveright没有位于右侧的ctu
     {
-        if (!isZeroRow(absPartIdxRT))
-        {
+        if (!isZeroRow(absPartIdxRT))//如果不是第0行
+        {   //如果 在顺序上当前4x4 （curPartUnitIdx) 的索引顺序比右上角的第partUnitOffset个4x4的顺序要大，则该右上角存在
             if (curPartUnitIdx > g_rasterToZscan[absPartIdxRT - RASTER_SIZE + partUnitOffset])
-            {
-                uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU] + (1 << (m_log2CUSize[0] - LOG2_UNIT_SIZE)) - 1;
-                arPartUnitIdx = g_rasterToZscan[absPartIdxRT - RASTER_SIZE + partUnitOffset];
-                if (isEqualRowOrCol(absPartIdxRT, absZorderCUIdx))
-                    return m_encData->getPicCTU(m_cuAddr);
+            {   //调整返回的右上角4x4的位置偏移为当前ctu内该当前cu里面该pu内右上角位置4x4的位置
+                uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU] + (1 << (m_log2CUSize[0] - LOG2_UNIT_SIZE)) - 1;// 获取当前pu所在cu内的右上角位置的4x4 索引
+                arPartUnitIdx = g_rasterToZscan[absPartIdxRT - RASTER_SIZE + partUnitOffset];//上移一行 右移partUnitOffset
+                //？？？ 这里似乎 只需要判断 isEqualRow 就可以
+                if (isEqualRowOrCol(absPartIdxRT, absZorderCUIdx))//如果当前pu的右上角4x4和其所在cu的右上角4x4 属于同一行or列
+                    return m_encData->getPicCTU(m_cuAddr); // 返回当前ctu 和对应右上角4x4的偏移地址
                 else
                 {
-                    arPartUnitIdx -= m_absIdxInCTU;
+                    arPartUnitIdx -= m_absIdxInCTU;//否则位于同一个cu内，ctu内偏移地址转换为cu内的偏移地址 返回this 指针
                     return this;
                 }
             }
+            //否则，顺序上小于右上角4x4的顺讯，该右上角不可用
             return NULL;
         }
+        //如果是第0行，则当前4x4的右上角偏移了offset的4x4位于当前ctu的abovectu中的最后一行相同clo 在偏移partUnitOffset 的位置
         arPartUnitIdx = g_rasterToZscan[absPartIdxRT + ((s_numPartInCUSize - 1) << LOG2_RASTER_SIZE) + partUnitOffset];
         return m_cuAbove;
     }
-
+    //否则当前右上角4x4位于右侧的ctu
     if (!isZeroRow(absPartIdxRT))
-        return NULL;
-
+        return NULL;//如果当前4x4不是当前ctu的第0行，则其右上角的4x4 位于右侧的ctu 还没有重构/被编码 不可用
+    // 否则当前pu的右上角4x4为当前ctu的第0行,则其右上角的第offset个4x4位于已经编码了的右上角ctu里面的最后一行偏移了partUnitOffset的位置
     arPartUnitIdx = g_rasterToZscan[((s_numPartInCUSize - 1) << LOG2_RASTER_SIZE) + partUnitOffset - 1];
     return m_cuAboveRight;
 }
@@ -2151,7 +2154,7 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
 // cuIdx: total 1 + 4 + 16 + 64 共85个cu
 // 64x64: 0           -->   childIdx = 1
 // 32x32: 1 + 0~3     -->   childIdx = 5 + (0～3)*4     5/9/13/17
-// 16x16: 5 + 0～15    -->   childIdx = 21 + (0～15)*4  21/25/29/~/81
+// 16x16: 5 + 0～15   -->   childIdx = 21 + (0～15)*4  21/25/29/~/81
 // 8x8:   21 + 0~63   -->    chidIdx =  85 + (0～63)*4  85/89/73/~/
                 uint32_t childIdx = rangeCUIdx + sbWidth * sbWidth + (depthIdx << 2);
                 uint32_t px = sbX * blockSize; // pix坐标
@@ -2160,7 +2163,7 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
                 int32_t presentFlag = px < ctuWidth && py < ctuHeight;
                 //需要被强制分割
                 int32_t splitMandatoryFlag = presentFlag && !lastLevelFlag && (px + blockSize > ctuWidth || py + blockSize > ctuHeight);
-                
+
                 /* Offset of the luma CU in the X, Y direction in terms of pixels from the CTU origin */
                 uint32_t xOffset = (sbX * blockSize) >> 3;
                 uint32_t yOffset = (sbY * blockSize) >> 3;

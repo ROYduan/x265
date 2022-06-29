@@ -510,8 +510,8 @@ void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth,
 void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth, uint32_t absPartIdx, Cost& outCost)
 {
     uint32_t fullDepth = cuGeom.depth + tuDepth;
-    uint32_t log2TrSize = cuGeom.log2CUSize - tuDepth;
-    uint32_t tuSize = 1 << log2TrSize;
+    uint32_t log2TrSize = cuGeom.log2CUSize - tuDepth;// transform size of log2
+    uint32_t tuSize = 1 << log2TrSize;// transform size 
     bool bEnableRDOQ = !!m_param->rdoqLevel;
 
     S265_CHECK(tuSize <= MAX_TS_SIZE, "transform skip is only possible at 4x4 TUs\n");
@@ -527,25 +527,27 @@ void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDep
 
     const pixel* fenc = fencYuv->getLumaAddr(absPartIdx);
     pixel*   pred = predYuv->getLumaAddr(absPartIdx);
-    int16_t* residual = m_rqt[cuGeom.depth].tmpResiYuv.getLumaAddr(absPartIdx);
+    int16_t* residual = m_rqt[cuGeom.depth].tmpResiYuv.getLumaAddr(absPartIdx);// 16bits data 残差
     uint32_t stride = fencYuv->m_size;
-    uint32_t sizeIdx = log2TrSize - 2;
+    uint32_t sizeIdx = log2TrSize - 2;// 4x4 --> 0  8x8-->1
 
     // init availability pattern
-    uint32_t lumaPredMode = cu.m_lumaIntraDir[absPartIdx];
+    uint32_t lumaPredMode = cu.m_lumaIntraDir[absPartIdx];// get lumaPreMode
     IntraNeighbors intraNeighbors;
+    //初始化当前cu里面以absPartIdx 为 首个4x4地址的pu 的 neighbors的可用性，预测的宽高等
     initIntraNeighbors(cu, absPartIdx, tuDepth, true, &intraNeighbors);
+    // 左侧列于上边行的参考像素构建与参考像素滤波
     initAdiPattern(cu, cuGeom, absPartIdx, intraNeighbors, lumaPredMode);
 
-    // get prediction signal
+    // get prediction signal  按照 lumaPredMode 进行pred pred数据写入pred
     predIntraLumaAng(lumaPredMode, pred, stride, log2TrSize);
-
+    // 设置整个pu/tu 范围内4x4的m_tuDepth 为 tuDepth ,其中覆盖范围大小由fullDepth 指定
     cu.setTUDepthSubParts(tuDepth, absPartIdx, fullDepth);
 
     uint32_t qtLayer = log2TrSize - 2;
     uint32_t coeffOffsetY = absPartIdx << (LOG2_UNIT_SIZE * 2);
-    coeff_t* coeffY = m_rqt[qtLayer].coeffRQT[0] + coeffOffsetY;
-    pixel*   reconQt = m_rqt[qtLayer].reconQtYuv.getLumaAddr(absPartIdx);
+    coeff_t* coeffY = m_rqt[qtLayer].coeffRQT[0] + coeffOffsetY;// 指针寻址
+    pixel*   reconQt = m_rqt[qtLayer].reconQtYuv.getLumaAddr(absPartIdx);//指针寻址
     uint32_t reconQtStride = m_rqt[qtLayer].reconQtYuv.m_size;
 
     // store original entropy coding status
@@ -564,16 +566,18 @@ void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDep
         pixel*   tmpRecon = (useTSkip ? m_tsRecon : reconQt);
         bool tmpReconAlign = (useTSkip ? 1 : (m_rqt[qtLayer].reconQtYuv.getAddrOffset(absPartIdx, m_rqt[qtLayer].reconQtYuv.m_size) % 64 == 0));
         uint32_t tmpReconStride = (useTSkip ? MAX_TS_SIZE : reconQtStride);
-
+        //计算得到 residual
         primitives.cu[sizeIdx].calcresidual[stride % 64 == 0](fenc, pred, residual, stride);
-
+        //对residual 进行dct变化然后在进行量化 量化结果写入coeff
         uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeff, log2TrSize, TEXT_LUMA, absPartIdx, useTSkip);
-        if (numSig)
-        {
+        if (numSig)//如果有非零量化系数
+        {   
+            //反量化再反变换，结果写入residual(覆盖原来的residual)
             m_quant.invtransformNxN(cu, residual, stride, coeff, log2TrSize, TEXT_LUMA, true, useTSkip, numSig);
             bool residualAlign = m_rqt[cuGeom.depth].tmpResiYuv.getAddrOffset(absPartIdx, m_rqt[cuGeom.depth].tmpResiYuv.m_size) % 64 == 0;
             bool predAlign = predYuv->getAddrOffset(absPartIdx, predYuv->m_size) % 64 == 0;
             bool bufferAlignCheck = (stride % 64 == 0) && (tmpReconStride % 64 == 0) && tmpReconAlign && residualAlign && predAlign;
+            // 将pred 数据 + 重构后的residual 数据 结果写入tempRecon
             primitives.cu[sizeIdx].add_ps[bufferAlignCheck](tmpRecon, tmpReconStride, pred, residual, stride, stride);
         }
         else if (useTSkip)
@@ -583,19 +587,20 @@ void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDep
             break;
         }
         else
-            // no residual coded, recon = pred
+            // no residual coded, recon = pred //无残差时
             primitives.cu[sizeIdx].copy_pp(tmpRecon, tmpReconStride, pred, stride);
-
+        // 计算重构数据与src fenc 之间的 distortion
         sse_t tmpDist = primitives.cu[sizeIdx].sse_pp(tmpRecon, tmpReconStride, fenc, stride);
-
+         // 设置整个pu/tu 范围内4x4的m_transformSkip 为 useTSkip ,其中覆盖范围大小由fullDepth 指定
         cu.setTransformSkipSubParts(useTSkip, TEXT_LUMA, absPartIdx, fullDepth);
+        // 设置整个pu/tu 范围内4x4的m_cbf 为 (!!numSig) << tuDepth ,其中覆盖范围大小由fullDepth 指定
         cu.setCbfSubParts((!!numSig) << tuDepth, TEXT_LUMA, absPartIdx, fullDepth);
 
         if (useTSkip)
             m_entropyCoder.load(m_rqt[fullDepth].rqtRoot);
 
         m_entropyCoder.resetBits();
-        if (!absPartIdx)
+        if (!absPartIdx)//如果当前pu 时ctu的首个pu
         {
             if (!cu.m_slice->isIntra())
             {
@@ -1540,18 +1545,20 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
             uint64_t bcost;
             //                 2 + [1...6]          + (([0...3]+ [0...1]))
             int maxCandCount = 2 + m_param->rdLevel + ((depth + initTuDepth) >> 1);
-
+            //不同的 rdlevel 不同 depth (对应不同的tu/pusize) candcount的个数不同
             {
                 ProfileCUScope(intraMode.cu, intraAnalysisElapsedTime, countIntraAnalysis);
 
                 // Reference sample smoothing
                 IntraNeighbors intraNeighbors;
+                //初始化neighbors的可用性，计算tu的size 
                 initIntraNeighbors(cu, absPartIdx, initTuDepth, true, &intraNeighbors);
+                // 准备参考像素以及参考像素滤波
                 initAdiPattern(cu, cuGeom, absPartIdx, intraNeighbors, ALL_IDX);
 
                 // determine set of modes to be tested (using prediction signal only)
-                const pixel* fenc = fencYuv->getLumaAddr(absPartIdx);
-                uint32_t stride = predYuv->m_size;
+                const pixel* fenc = fencYuv->getLumaAddr(absPartIdx);// 从ctu buffer 中get 对应pu的收地址
+                uint32_t stride = predYuv->m_size;// 64 ctu宽度
 
                 int scaleTuSize = tuSize;
                 int scaleStride = stride;
@@ -1559,27 +1566,31 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
 
                 m_entropyCoder.loadIntraDirModeLuma(m_rqt[depth].cur);
 
-                /* there are three cost tiers for intra modes:
+                /* there are three cost tiers for intra modes: // 三种类型
                 *  pred[0]          - mode probable, least cost // 最有可能的pred模式
                 *  pred[1], pred[2] - less probable, slightly more cost
                 *  non-mpm modes    - all cost the same (rbits) */
                 uint64_t mpms;
                 uint32_t mpmModes[3];
+                //计算mpm
                 uint32_t rbits = getIntraRemModeBits(cu, absPartIdx, mpmModes, mpms);//余下的 不属于mpm 里面的模式需要用多少bits
 
-                pixelcmp_t sa8d = primitives.cu[sizeIdx].sa8d;
+                pixelcmp_t sa8d = primitives.cu[sizeIdx].sa8d;//primitive 函数指针
                 uint64_t modeCosts[35];
 
-                // DC
+                // DC pred
                 primitives.cu[sizeIdx].intra_pred[DC_IDX](m_intraPred, scaleStride, intraNeighbourBuf[0], 0, (scaleTuSize <= 16));
+                // 编码DC mode 使用的bits
                 uint32_t bits = (mpms & ((uint64_t)1 << DC_IDX)) ? m_entropyCoder.bitsIntraModeMPM(mpmModes, DC_IDX) : rbits;
+                //计算pred 与 fenc 之间的sad
                 uint32_t sad = sa8d(fenc, scaleStride, m_intraPred, scaleStride) << costShift;
+                // 计算 cost = dist + lambda*bits
                 modeCosts[DC_IDX] = bcost = m_rdCost.calcRdSADCost(sad, bits);
 
-                // PLANAR
+                // PLANAR 预测
                 pixel* planar = intraNeighbourBuf[0];
                 if (tuSize >= 8 && tuSize <= 32)
-                    planar = intraNeighbourBuf[1];
+                    planar = intraNeighbourBuf[1];// 使用滤波后的参考像素
 
                 primitives.cu[sizeIdx].intra_pred[PLANAR_IDX](m_intraPred, scaleStride, planar, 0, 0);
                 bits = (mpms & ((uint64_t)1 << PLANAR_IDX)) ? m_entropyCoder.bitsIntraModeMPM(mpmModes, PLANAR_IDX) : rbits;
@@ -1589,26 +1600,28 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
 
                 // angular predictions
                 if (primitives.cu[sizeIdx].intra_pred_allangs)
-                {
+                {   // 转置
                     primitives.cu[sizeIdx].transpose(m_fencTransposed, fenc, scaleStride);
+                    // 一次执行所有的 intra 角度预测
                     primitives.cu[sizeIdx].intra_pred_allangs(m_intraPredAngs, intraNeighbourBuf[0], intraNeighbourBuf[1], (scaleTuSize <= 16));
                     for (int mode = 2; mode < 35; mode++)
-                    {
+                    {   // coding mode 需要的bits
                         bits = (mpms & ((uint64_t)1 << mode)) ? m_entropyCoder.bitsIntraModeMPM(mpmModes, mode) : rbits;
                         if (mode < 18)
+                            // mode <18 时，使用 转置后的fenc 与pred 计算sad
                             sad = sa8d(m_fencTransposed, scaleTuSize, &m_intraPredAngs[(mode - 2) * (scaleTuSize * scaleTuSize)], scaleTuSize) << costShift;
-                        else
+                        else // 否则，使用 fenc源 与pred 结果计算sad
                             sad = sa8d(fenc, scaleStride, &m_intraPredAngs[(mode - 2) * (scaleTuSize * scaleTuSize)], scaleTuSize) << costShift;
-                        modeCosts[mode] = m_rdCost.calcRdSADCost(sad, bits);
-                        COPY1_IF_LT(bcost, modeCosts[mode]);
+                        modeCosts[mode] = m_rdCost.calcRdSADCost(sad, bits);// 计算mode 对应的总的cost
+                        COPY1_IF_LT(bcost, modeCosts[mode]);//比较保存最佳的cost
                     }
                 }
                 else
-                {
+                {// 否则一个一个pred
                     for (int mode = 2; mode < 35; mode++)
                     {
                         bits = (mpms & ((uint64_t)1 << mode)) ? m_entropyCoder.bitsIntraModeMPM(mpmModes, mode) : rbits;
-                        int filter = !!(g_intraFilterFlags[mode] & scaleTuSize);
+                        int filter = !!(g_intraFilterFlags[mode] & scaleTuSize);//是否使用滤波后的参考像素进行预测
                         primitives.cu[sizeIdx].intra_pred[mode](m_intraPred, scaleTuSize, intraNeighbourBuf[filter], mode, scaleTuSize <= 16);
                         sad = sa8d(fenc, scaleStride, m_intraPred, scaleTuSize) << costShift;
                         modeCosts[mode] = m_rdCost.calcRdSADCost(sad, bits);
@@ -1621,10 +1634,10 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
                 * rdLevel and depth. In general we want to try more modes at slower RD
                 * levels and at higher depths */
                 for (int i = 0; i < maxCandCount; i++)
-                    candCostList[i] = MAX_INT64;
+                    candCostList[i] = MAX_INT64;// 初始化为最大值
 
-                uint64_t paddedBcost = bcost + (bcost >> 2); // 1.25%
-                for (int mode = 0; mode < 35; mode++)
+                uint64_t paddedBcost = bcost + (bcost >> 2); // 1.25% 使用 最佳cost的1.25倍
+                for (int mode = 0; mode < 35; mode++)//
                     if ((modeCosts[mode] < paddedBcost) || ((uint32_t)mode == mpmModes[0])) 
                         /* choose for R-D analysis only if this mode passes cost threshold or matches MPM[0] */
                         updateCandList(mode, modeCosts[mode], maxCandCount, rdModeList, candCostList);
@@ -1640,6 +1653,7 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
                 ProfileCUScope(intraMode.cu, intraRDOElapsedTime[cuGeom.depth], countIntraRDO[cuGeom.depth]);
 
                 m_entropyCoder.load(m_rqt[depth].cur);
+                // 设置当前pu内所有4x4 的 m_lumaIntraDir 为 rdModeList[i]
                 cu.setLumaIntraDirSubParts(rdModeList[i], absPartIdx, depth + initTuDepth);
 
                 Cost icosts;
@@ -3832,7 +3846,7 @@ void Search::updateCandList(uint32_t mode, uint64_t cost, int maxCandCount, uint
             maxIndex = i;
         }
     }
-
+    // 因为 candCostList 一开始初始化为了 最大值 ，所以这里每次来一个cost 如果比list里面的最大的cost 要小 就替换就好
     if (cost < maxValue)
     {
         candCostList[maxIndex] = cost;
@@ -3874,7 +3888,7 @@ void Search::checkDQP(Mode& mode, const CUGeom& cuGeom)
 void Search::checkDQPForSplitPred(Mode& mode, const CUGeom& cuGeom)
 {
     CUData& cu = mode.cu;
-
+    // 这里是否应该是 <= ??????
     if ((cuGeom.depth == cu.m_slice->m_pps->maxCuDQPDepth) && cu.m_slice->m_pps->bUseDQP)
     {
         bool hasResidual = false;

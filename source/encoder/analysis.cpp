@@ -150,7 +150,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
     //0深度四叉树加载context
     m_rqt[0].cur.load(initialContext);
     ctu.m_meanQP = initialContext.m_meanQP;
-    //复制YUV数据到0深度的modeDepth中
+    //从m_fencPic中复制YUV数据到0深度的modeDepth中fencYuv
     m_modeDepth[0].fencYuv.copyFromPicYuv(*m_frame->m_fencPic, ctu.m_cuAddr, 0);
 
     if (m_param->bSsimRd) ////若使用ssim rdo
@@ -160,7 +160,7 @@ Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, con
 
     if (m_slice->m_sliceType == I_SLICE)
     {
-        // intra 分析
+        // intra ctu 分析
         compressIntraCU(ctu, cuGeom, qp);
     }
     else
@@ -439,10 +439,10 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
     {// 当前cu 不为lcu,且可以不用分割 如果是64x64 则intra 一定要分割，如果32x32了 则可以不用分割了
         md.pred[PRED_INTRA].cu.initSubCU(parentCTU, cuGeom, qp);
         checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);
-        checkBestMode(md.pred[PRED_INTRA], depth);
+        checkBestMode(md.pred[PRED_INTRA], depth); //与bestmode 比较 如果优 则替换
 
         if (cuGeom.log2CUSize == 3 && m_slice->m_sps->quadtreeTULog2MinSize < 3)
-        {
+        {   /* 4x4 intra PU blocks for 8x8 CU */
             md.pred[PRED_INTRA_NxN].cu.initSubCU(parentCTU, cuGeom, qp);
             checkIntra(md.pred[PRED_INTRA_NxN], cuGeom, SIZE_NxN);
             checkBestMode(md.pred[PRED_INTRA_NxN], depth);
@@ -465,19 +465,20 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         CUData* splitCU = &splitPred->cu;
         splitCU->initSubCU(parentCTU, cuGeom, qp);
 
-        uint32_t nextDepth = depth + 1;
+        uint32_t nextDepth = depth + 1;// 深度加1
         ModeDepth& nd = m_modeDepth[nextDepth];
         invalidateContexts(nextDepth);
         Entropy* nextContext = &m_rqt[depth].cur;
         int32_t nextQP = qp;
         uint64_t curCost = 0;
         int skipSplitCheck = 0;
-
+        // split 分成4个cu check
         for (uint32_t subPartIdx = 0; subPartIdx < 4; subPartIdx++)
         {
             const CUGeom& childGeom = *(&cuGeom + cuGeom.childOffset + subPartIdx);
             if (childGeom.flags & CUGeom::PRESENT)
-            {
+            {// 该cu 存在
+                //copy yuv to nd.fencYuv
                 m_modeDepth[0].fencYuv.copyPartToYuv(nd.fencYuv, childGeom.absPartIdx);
                 m_rqt[nextDepth].cur.load(*nextContext);
 
@@ -485,16 +486,16 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
                     nextQP = setLambdaFromQP(parentCTU, calculateQpforCuSize(parentCTU, childGeom));
 
                 if (m_param->bEnableSplitRdSkip)
-                {
-                    curCost += compressIntraCU(parentCTU, childGeom, nextQP);
+                {// 看起来可以加速部分intracu analysis
+                    curCost += compressIntraCU(parentCTU, childGeom, nextQP);//递归调用
                     if (m_modeDepth[depth].bestMode && curCost > m_modeDepth[depth].bestMode->rdCost)
-                    {
+                    {   //如果slipt下的cost 累加超过了 非slipt下的cost了 则可以break掉for循环了
                         skipSplitCheck = 1;
                         break;
                     }
                 }
                 else
-                    compressIntraCU(parentCTU, childGeom, nextQP);
+                    compressIntraCU(parentCTU, childGeom, nextQP);// 递归调用
 
                 // Save best CU and pred data for this sub CU
                 splitCU->copyPartFrom(nd.bestMode->cu, childGeom, subPartIdx);
@@ -503,7 +504,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
                 nextContext = &nd.bestMode->contexts;
             }
             else
-            {
+            {// 改cu 不在pic 内部
                 /* record the depth of this non-present sub-CU */
                 splitCU->setEmptyPart(childGeom, subPartIdx);
 
@@ -512,12 +513,13 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
                     memset(parentCTU.m_cuDepth + childGeom.absPartIdx, 0, childGeom.numPartitions);
             }
         }
+        //如果不需要跳过对slpit的check，则进行checkout
         if (!skipSplitCheck)
         {
             nextContext->store(splitPred->contexts);
-            if (mightNotSplit)
+            if (mightNotSplit)//可能不需要分割，但是却分割了需要加上flag 的cost,再进行update Mode Cost
                 addSplitFlagCost(*splitPred, cuGeom.depth);
-            else
+            else //需要强制分割,不需要code flag bits,直接进行update mode cost 就可以
                 updateModeCost(*splitPred);
 
             checkDQPForSplitPred(*splitPred, cuGeom);

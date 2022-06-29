@@ -100,7 +100,7 @@ struct MotionData
 struct Mode
 {
     CUData     cu;
-    const Yuv* fencYuv;
+    const Yuv* fencYuv;// 指向了外部buff （buff大小 一个ctu 大小）
     Yuv        predYuv;
     Yuv        reconYuv;
     Entropy    contexts;

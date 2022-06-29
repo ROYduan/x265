@@ -628,7 +628,7 @@ static void dequant_normal_c(const int16_t* quantCoef, int16_t* coef, int num, i
 
     for (int n = 0; n < num; n++)
     {
-        coeffQ = (quantCoef[n] * scale + add) >> shift;
+        coeffQ = (quantCoef[n] * scale + add) >> shift;//反量化过程
         coef[n] = (int16_t)s265_clip3(-32768, 32767, coeffQ);
     }
 }
@@ -670,13 +670,13 @@ static uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t*
 
     for (int blockpos = 0; blockpos < numCoeff; blockpos++)
     {
-        int level = coef[blockpos];
+        int level = coef[blockpos];//dct 的输入系数
         int sign  = (level < 0 ? -1 : 1);
 
-        int tmplevel = abs(level) * quantCoeff[blockpos];
-        level = ((tmplevel + add) >> qBits);
-        deltaU[blockpos] = ((tmplevel - (level << qBits)) >> qBits8);
-        if (level)
+        int tmplevel = abs(level) * quantCoeff[blockpos];// 量化矩阵系数
+        level = ((tmplevel + add) >> qBits);// 量化过程
+        deltaU[blockpos] = ((tmplevel - (level << qBits)) >> qBits8);//反量化回来的误差
+        if (level)// 如果量化后的结果为非0 统计非零项加1
             ++numSig;
         level *= sign;
         qCoef[blockpos] = (int16_t)s265_clip3(-32768, 32767, level);

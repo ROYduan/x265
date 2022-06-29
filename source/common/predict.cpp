@@ -600,16 +600,17 @@ void Predict::predIntraChromaAng(uint32_t dirMode, pixel* dst, intptr_t stride, 
 void Predict::initAdiPattern(const CUData& cu, const CUGeom& cuGeom, uint32_t puAbsPartIdx, const IntraNeighbors& intraNeighbors, int dirMode)
 {
     int tuSize = 1 << intraNeighbors.log2TrSize;
-    int tuSize2 = tuSize << 1;
+    int tuSize2 = tuSize << 1;//2倍的tu宽度
 
     PicYuv* reconPic = cu.m_encData->m_reconPic;
+    //按照4x4 在reconpic中先找到ctu位置在找到cu的起始位置+ pu 的偏移
     pixel* adiOrigin = reconPic->getLumaAddr(cu.m_cuAddr, cuGeom.absPartIdx + puAbsPartIdx);
     intptr_t picStride = reconPic->m_stride;
-
+    //从重构pic 拷贝 用于intra预测的左侧列 上边行 参考像素
     fillReferenceSamples(adiOrigin, picStride, intraNeighbors, intraNeighbourBuf[0]);
 
-    pixel* refBuf = intraNeighbourBuf[0];
-    pixel* fltBuf = intraNeighbourBuf[1];
+    pixel* refBuf = intraNeighbourBuf[0];//
+    pixel* fltBuf = intraNeighbourBuf[1];//参考像素滤波
 
     pixel topLeft = refBuf[0], topLast = refBuf[tuSize2], leftLast = refBuf[tuSize2 + tuSize2];
 
@@ -660,7 +661,7 @@ void Predict::initAdiPatternChroma(const CUData& cu, const CUGeom& cuGeom, uint3
     if (m_csp == S265_CSP_I444)
         primitives.cu[intraNeighbors.log2TrSize - 2].intra_filter(intraNeighbourBuf[0], intraNeighbourBuf[1]);
 }
-
+// neighbor的可用性 宽高 transformsize等
 void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t tuDepth, bool isLuma, IntraNeighbors *intraNeighbors)
 {
     uint32_t log2TrSize = cu.m_log2CUSize[0] - tuDepth;
@@ -682,16 +683,18 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
     int  tuHeightInUnits = tuSize >> log2UnitHeight;//tusize 有几个4x4高
     int  aboveUnits = tuWidthInUnits << 1;//上边一行参考像素(intra 预测 需要乘以 2)的宽度为几个4x4宽度
     int  leftUnits = tuHeightInUnits << 1;//左边一列参考像素(intra 预测 需要乘以 2)的高度度为几个4x4宽度
-    uint32_t partIdxLT = cu.m_absIdxInCTU + absPartIdx;// 当前cu 内第 0/1/2/3个pu内部左上角4x4 unit 位置
-    uint32_t partIdxRT = g_rasterToZscan[g_zscanToRaster[partIdxLT] + tuWidthInUnits - 1];//当前cu 右上角位置4x4 unit位置
+    uint32_t partIdxLT = cu.m_absIdxInCTU + absPartIdx;// 当前pu（cu 内第 0/1/2/3个）内部左上角4x4 unit 位置
+    uint32_t partIdxRT = g_rasterToZscan[g_zscanToRaster[partIdxLT] + tuWidthInUnits - 1];//当前pu 右上角位置4x4 unit位置
     uint32_t partIdxLB = g_rasterToZscan[g_zscanToRaster[partIdxLT] + ((tuHeightInUnits - 1) << LOG2_RASTER_SIZE)];//当前cu左下角位置4x4 unit 位置 一行有 16（<<4）个4x4
 
     if (cu.m_slice->isIntra() || !cu.m_slice->m_pps->bConstrainedIntraPred)
     {
-        // 0～ leftunits -1 放 left avaible，[leftUnits]位置处存放 above left
-        bNeighborFlags[leftUnits] = isAboveLeftAvailable<false>(cu, partIdxLT);
+        // [0 ～ leftunits-1] 放 left avaible，[leftUnits]位置处存放 above left
+        // [leftUnits+1 ~ leftUnits+tuWidthInUnits] 放abvoe flags
+        // [leftUnits+tuWidthInUnits+1 ~ leftUnits+tuWidthInUnits+tuWidthInUnits] 放abvoe_right flags
+        bNeighborFlags[leftUnits] = isAboveLeftAvailable<false>(cu, partIdxLT); // 返回 0 or 1
         numIntraNeighbor  = (int)(bNeighborFlags[leftUnits]);// aboveleft available
-        numIntraNeighbor += isAboveAvailable<false>(cu, partIdxLT, partIdxRT, bNeighborFlags + leftUnits + 1); // above available
+        numIntraNeighbor += isAboveAvailable<false>(cu, partIdxLT, partIdxRT, bNeighborFlags + leftUnits + 1); // above available 返回同从前pu的左上角4x4到右上角4x4的above available的个数
         numIntraNeighbor += isAboveRightAvailable<false>(cu, partIdxRT, bNeighborFlags + leftUnits + 1 + tuWidthInUnits, tuWidthInUnits);// above Right available
         numIntraNeighbor += isLeftAvailable<false>(cu, partIdxLT, partIdxLB, bNeighborFlags + leftUnits - 1);// left available
         numIntraNeighbor += isBelowLeftAvailable<false>(cu, partIdxLB, bNeighborFlags + tuHeightInUnits - 1, tuHeightInUnits); //below left available
@@ -706,8 +709,8 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
         numIntraNeighbor += isBelowLeftAvailable<true>(cu, partIdxLB, bNeighborFlags + tuHeightInUnits - 1, tuHeightInUnits);
     }
 
-    intraNeighbors->numIntraNeighbor = numIntraNeighbor;// 左上/上/右上/左/左下 共有几个avaible
-    intraNeighbors->totalUnits = aboveUnits + leftUnits + 1;
+    intraNeighbors->numIntraNeighbor = numIntraNeighbor;// 左上 only1 /上边行的4x4 /右上变行的4x4/左测的4x4/左下测的4x4 共有多少个4x4 avaible
+    intraNeighbors->totalUnits = aboveUnits + leftUnits + 1;// 总的4x4 个数为 2倍的pu/tu的宽+2倍的pu/tu的高 +左上角1个
     intraNeighbors->aboveUnits = aboveUnits;
     intraNeighbors->leftUnits = leftUnits;
     intraNeighbors->unitWidth = 1 << log2UnitWidth;
@@ -717,7 +720,7 @@ void Predict::initIntraNeighbors(const CUData& cu, uint32_t absPartIdx, uint32_t
 
 void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, const IntraNeighbors& intraNeighbors, pixel dst[258])
 {
-    const pixel dcValue = (pixel)(1 << (S265_DEPTH - 1));
+    const pixel dcValue = (pixel)(1 << (S265_DEPTH - 1));// 128
     int numIntraNeighbor = intraNeighbors.numIntraNeighbor;
     int totalUnits = intraNeighbors.totalUnits;
     uint32_t tuSize = 1 << intraNeighbors.log2TrSize;
@@ -737,12 +740,12 @@ void Predict::fillReferenceSamples(const pixel* adiOrigin, intptr_t picStride, c
     else if (numIntraNeighbor == totalUnits)//全部可用
     {
         // Fill top border with rec. samples
-        const pixel* adiTemp = adiOrigin - picStride - 1;
+        const pixel* adiTemp = adiOrigin - picStride - 1;// 上移一行 左移一列
         memcpy(dst, adiTemp, refSize * sizeof(pixel));
 
         // Fill left border with rec. samples
         adiTemp = adiOrigin - 1;
-        for (uint32_t i = 0; i < refSize - 1; i++)
+        for (uint32_t i = 0; i < refSize - 1; i++)// 左边一列排在上边一行的后边
         {
             dst[i + refSize] = adiTemp[0];
             adiTemp += picStride;
@@ -885,11 +888,12 @@ bool Predict::isAboveLeftAvailable(const CUData& cu, uint32_t partIdxLT)
     return cuAboveLeft && (!cip || cuAboveLeft->isIntra(partAboveLeft));
 }
 
+// 返回above 4x4 的可用个数
 template<bool cip>
 int Predict::isAboveAvailable(const CUData& cu, uint32_t partIdxLT, uint32_t partIdxRT, bool* bValidFlags)
 {
-    const uint32_t rasterPartBegin = g_zscanToRaster[partIdxLT];
-    const uint32_t rasterPartEnd = g_zscanToRaster[partIdxRT];
+    const uint32_t rasterPartBegin = g_zscanToRaster[partIdxLT];// 从当前pu内左上角位置的4x4 开始
+    const uint32_t rasterPartEnd = g_zscanToRaster[partIdxRT];//到当前pu内右上角位置结束
     const uint32_t idxStep = 1;
     int numIntra = 0;
 
@@ -899,7 +903,7 @@ int Predict::isAboveAvailable(const CUData& cu, uint32_t partIdxLT, uint32_t par
         const CUData* cuAbove = cu.getPUAbove(partAbove, g_rasterToZscan[rasterPart]);
         if (cuAbove && (!cip || cuAbove->isIntra(partAbove)))
         {
-            numIntra++;
+            numIntra++;//当前4x4的above cu 存在，统计个数加1
             *bValidFlags = true;
         }
         else
@@ -932,20 +936,20 @@ int Predict::isLeftAvailable(const CUData& cu, uint32_t partIdxLT, uint32_t part
 
     return numIntra;
 }
-
+//返回aboveright 行 4x4的可用的个数
 template<bool cip>
 int Predict::isAboveRightAvailable(const CUData& cu, uint32_t partIdxRT, bool* bValidFlags, uint32_t numUnits)
 {
     int numIntra = 0;
-
+    //从当前pu右上角位置的4x4 +offset1 开始统计，右上角一行（4x4）有多少个 valid
     for (uint32_t offset = 1; offset <= numUnits; offset++, bValidFlags++)
     {
         uint32_t partAboveRight;
         const CUData* cuAboveRight = cu.getPUAboveRightAdi(partAboveRight, partIdxRT, offset);
         if (cuAboveRight && (!cip || cuAboveRight->isIntra(partAboveRight)))
         {
-            numIntra++;
-            *bValidFlags = true;
+            numIntra++;//如果右上角的第offset个4x4可用 则 统计量1
+            *bValidFlags = true;//注意每个4x4的位置都对应一个flag
         }
         else
             *bValidFlags = false;

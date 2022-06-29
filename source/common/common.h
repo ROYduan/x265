@@ -267,8 +267,8 @@ typedef int16_t  coeff_t;      // transform coefficient
 #define MIN_TU_SIZE             4
 #define MAX_NUM_SPU_W           (MAX_CU_SIZE / MIN_PU_SIZE) // maximum number of SPU in horizontal line 16
 
-#define MAX_LOG2_TR_SIZE 5
-#define MAX_LOG2_TS_SIZE 2 // TODO: RExt
+#define MAX_LOG2_TR_SIZE 5  // tranform size
+#define MAX_LOG2_TS_SIZE 2 // TODO: RExt tranform_skip size
 #define MAX_TR_SIZE (1 << MAX_LOG2_TR_SIZE)
 #define MAX_TS_SIZE (1 << MAX_LOG2_TS_SIZE)
 

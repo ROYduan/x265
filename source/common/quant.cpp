@@ -426,9 +426,9 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
     {
         bool isIntra = cu.isIntra(absPartIdx);
 
-        if (!sizeIdx && isLuma && isIntra)
+        if (!sizeIdx && isLuma && isIntra) //sizeIdx 为 0 表示的是4x4
             primitives.dst4x4(residual, m_resiDctCoeff, resiStride);
-        else
+        else // 其他size 对residual进行dct 结果写入m_resiDctCoeff
             primitives.cu[sizeIdx].dct(residual, m_resiDctCoeff, resiStride);
 
         /* NOTE: if RDOQ is disabled globally, psy-rdoq is also disabled, so
@@ -464,8 +464,8 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
 
         int qbits = QUANT_SHIFT + per + transformShift;
         int add = (cu.m_slice->m_sliceType == I_SLICE ? 171 : 85) << (qbits - 9);
-        int numCoeff = 1 << (log2TrSize * 2);
-
+        int numCoeff = 1 << (log2TrSize * 2);// 总共有多少个coefficients
+        // 使用量化表quantCoeff 对dct变换后的系数m_resiDctCoeff进行 量化，量化结果写入coeff，返回量化后的非零系数的个数
         uint32_t numSig = primitives.quant(m_resiDctCoeff, quantCoeff, deltaU, coeff, qbits, add, numCoeff);
 
         if (numSig >= 2 && cu.m_slice->m_pps->bSignHideEnabled)
@@ -545,7 +545,7 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
 {
     const uint32_t sizeIdx = log2TrSize - 2;
     if (cu.m_tqBypass[0])
-    {
+    {   //将coeff数据一个一个写入residual（会覆盖原有数据）
         primitives.cu[sizeIdx].cpy1Dto2D_shl[resiStride % 64 == 0](residual, coeff, resiStride, 0);
         return;
     }
@@ -565,6 +565,7 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
     else
     {
         int scale = m_scalingList->s_invQuantScales[rem] << per;
+        //反量化过程 将coeff 反量化后写入 m_resiDctCoeff
         primitives.dequant_normal(coeff, m_resiDctCoeff, numCoeff, scale, shift);
     }
 
@@ -599,7 +600,7 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
 
         if (useDST)
             primitives.idst4x4(m_resiDctCoeff, residual, resiStride);
-        else
+        else // 逆dct变换 反量化后的结果反dct变换后写入 residual
             primitives.cu[sizeIdx].idct(m_resiDctCoeff, residual, resiStride);
     }
 }
