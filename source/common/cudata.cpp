@@ -845,7 +845,7 @@ const CUData* CUData::getQpMinCuAbove(uint32_t& aPartUnitIdx, uint32_t curAbsIdx
     uint32_t absRorderQpMinCUIdx = g_zscanToRaster[absZorderQpMinCUIdx];
 
     // check for top CTU boundary
-    if (isZeroRow(absRorderQpMinCUIdx))
+    if (isZeroRow(absRorderQpMinCUIdx))// ctu 上边界时，above qp 不可用
         return NULL;
 
     // get index of top-CU relative to top-left corner of current quantization group

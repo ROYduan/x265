@@ -539,7 +539,7 @@ uint64_t Quant::ssimDistortion(const CUData& cu, const pixel* fenc, uint32_t fSt
     uint64_t ssim_distortion = ((ssDc * cu.m_fDc_den[ttype]) / fDc_num) + ((ssAc * cu.m_fAc_den[ttype]) / fAc_num);
     return ssim_distortion;
 }
-
+// 反量化反变换
 void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiStride, const coeff_t* coeff,
                             uint32_t log2TrSize, TextType ttype, bool bIntra, bool useTransformSkip, uint32_t numSig)
 {

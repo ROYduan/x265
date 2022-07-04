@@ -263,7 +263,7 @@ struct SPS
 
 struct PPS
 {
-    uint32_t maxCuDQPDepth;
+    uint32_t maxCuDQPDepth; //g_log2Size[m_param->maxCUSize] - g_log2Size[m_param->rc.qgSize] (for 64x64 qg-size 16: 2）
 
     int      chromaQpOffset[2];      // use param
     int      deblockingFilterBetaOffsetDiv2;

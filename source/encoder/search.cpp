@@ -3874,7 +3874,7 @@ void Search::checkDQP(Mode& mode, const CUGeom& cuGeom)
                 mode.sa8dBits++;
                 mode.sa8dCost = m_rdCost.calcRdSADCost((uint32_t)mode.distortion, mode.sa8dBits);
             }
-            else
+            else // rdLevel:2
             {
                 mode.totalBits++;
                 updateModeCost(mode);
@@ -3890,18 +3890,20 @@ void Search::checkDQPForSplitPred(Mode& mode, const CUGeom& cuGeom)
     CUData& cu = mode.cu;
     // 这里是否应该是 <= ??????
     if ((cuGeom.depth == cu.m_slice->m_pps->maxCuDQPDepth) && cu.m_slice->m_pps->bUseDQP)
-    {
+    {// 如果当前cu的大小要>= 最小qg-size，同时
         bool hasResidual = false;
 
         /* Check if any sub-CU has a non-zero QP */
+        // 寻找当前cu覆盖区域以4x4为单位遍历是否有cbf
         for (uint32_t blkIdx = 0; blkIdx < cuGeom.numPartitions; blkIdx++)
         {
             if (cu.getQtRootCbf(blkIdx))
             {
-                hasResidual = true;
+                hasResidual = true;// 只需要找到一个就可以break了
                 break;
             }
         }
+        // 如果当前cu里面有残差需要编码
         if (hasResidual)
         {
             if (m_param->rdLevel >= 3)
