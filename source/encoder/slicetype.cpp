@@ -1341,7 +1341,7 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
         /* aggregate lowres row satds to CTU resolution */
         curFrame->m_lowres.lowresCostForRc = curFrame->m_lowres.lowresCosts[b - p0][p1 - b];
         uint32_t lowresRow = 0, lowresCol = 0, lowresCuIdx = 0, sum = 0, intraSum = 0;
-        uint32_t scale = m_param->maxCUSize / (2 * S265_LOWRES_CU_SIZE);
+        uint32_t scale = m_param->maxCUSize / (2 * S265_LOWRES_CU_SIZE);// 每个 64x64 的ctu 覆盖4个 16x16（对应lowre上8x8的单位）的高度与宽短
         uint32_t numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
         uint32_t widthInLowresCu = (uint32_t)m_8x8Width, heightInLowresCu = (uint32_t)m_8x8Height;
         double *qp_offset = 0;
@@ -1349,16 +1349,17 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
         if (m_param->rc.aqMode || m_param->bAQMotion)
             qp_offset = (frames[b]->sliceType == S265_TYPE_B || !m_param->rc.cuTree) ? frames[b]->qpAqOffset : frames[b]->qpCuTreeOffset;
 
-        for (uint32_t row = 0; row < numCuInHeight; row++)
+        for (uint32_t row = 0; row < numCuInHeight; row++) // ctu 高度
         {
-            lowresRow = row * scale;
-            for (uint32_t cnt = 0; cnt < scale && lowresRow < heightInLowresCu; lowresRow++, cnt++)
+            lowresRow = row * scale; // ctu row index 乘以4 转换为 lowresRow index : 0   4   8  12 
+            for (uint32_t cnt = 0; cnt < scale && lowresRow < heightInLowresCu; lowresRow++, cnt++)// 每个ctu高度4个lowrescu行
             {
                 sum = 0; intraSum = 0;
                 int diff = 0;
-                lowresCuIdx = lowresRow * widthInLowresCu;
-                for (lowresCol = 0; lowresCol < widthInLowresCu; lowresCol++, lowresCuIdx++)
+                lowresCuIdx = lowresRow * widthInLowresCu;// lowresRow index对应ROw 行的首个lowrescu 的index
+                for (lowresCol = 0; lowresCol < widthInLowresCu; lowresCol++, lowresCuIdx++)//每个lowrescu 行有widthInLowresCu 列
                 {
+                    // 取出每个lowresCuindx 的 cost
                     uint16_t lowresCuCost = curFrame->m_lowres.lowresCostForRc[lowresCuIdx] & LOWRES_COST_MASK;
                     if (qp_offset)
                     {
@@ -1370,15 +1371,15 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
                             qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes + 1]) / 4;
                         else
                             qpOffset = qp_offset[lowresCuIdx];
-                        lowresCuCost = (uint16_t)((lowresCuCost * s265_exp2fix8(qpOffset) + 128) >> 8);
+                        lowresCuCost = (uint16_t)((lowresCuCost * s265_exp2fix8(qpOffset) + 128) >> 8);//cost 考率qpdelta 的缩放影响
                         int32_t intraCuCost = curFrame->m_lowres.intraCost[lowresCuIdx];
-                        curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * s265_exp2fix8(qpOffset) + 128) >> 8;
+                        curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * s265_exp2fix8(qpOffset) + 128) >> 8;// intra cost 考虑qpdelta 的缩放影响
                     }
                     if (m_param->bIntraRefresh && slice->m_sliceType == S265_TYPE_P)
                         for (uint32_t x = curFrame->m_encData->m_pir.pirStartCol; x <= curFrame->m_encData->m_pir.pirEndCol; x++)
                             diff += curFrame->m_lowres.intraCost[lowresCuIdx] - lowresCuCost;
-                    curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;
-                    sum += lowresCuCost;
+                    curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;// 覆盖掉原有的lowresCosts
+                    sum += lowresCuCost;// 一个lowrescu行 cost 累加
                     intraSum += curFrame->m_lowres.intraCost[lowresCuIdx];
                 }
                 curFrame->m_encData->m_rowStat[row].satdForVbv += sum;
@@ -1881,29 +1882,29 @@ void Lookahead::slicetypeDecide()
     {
 
     
-    /* Add B-ref frame next to P frame in output queue, the B-ref encode before non B-ref frame */
-    if (brefs)
-    {
+        /* Add B-ref frame next to P frame in output queue, the B-ref encode before non B-ref frame */
+        if (brefs)
+        {
+            for (int i = 0; i < bframes; i++)
+            {
+                if (list[i]->m_lowres.sliceType == S265_TYPE_BREF)
+                {
+                    list[i]->m_reorderedPts = pts[idx++];
+                    m_outputQueue.pushBack(*list[i]);
+                }
+            }
+        }
+
+        /* add B frames to output queue */
         for (int i = 0; i < bframes; i++)
         {
-            if (list[i]->m_lowres.sliceType == S265_TYPE_BREF)
+            /* push all the B frames into output queue except B-ref, which already pushed into output queue */
+            if (list[i]->m_lowres.sliceType != S265_TYPE_BREF)
             {
                 list[i]->m_reorderedPts = pts[idx++];
                 m_outputQueue.pushBack(*list[i]);
             }
         }
-    }
-
-    /* add B frames to output queue */
-    for (int i = 0; i < bframes; i++)
-    {
-        /* push all the B frames into output queue except B-ref, which already pushed into output queue */
-        if (list[i]->m_lowres.sliceType != S265_TYPE_BREF)
-        {
-            list[i]->m_reorderedPts = pts[idx++];
-            m_outputQueue.pushBack(*list[i]);
-        }
-    }
     }
 
     bool isKeyFrameAnalyse = (m_param->rc.cuTree || (m_param->rc.vbvBufferSize && m_param->lookaheadDepth));
