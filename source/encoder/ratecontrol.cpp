@@ -1306,10 +1306,10 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     int orderValue = m_startEndOrder.get();
     int startOrdinal = rce->encodeOrder * 2;
 
-    while (orderValue < startOrdinal && !m_bTerminated)
+    while (orderValue < startOrdinal && !m_bTerminated) // m_bTerminated 由 s265_encoder_close 进行设置
         orderValue = m_startEndOrder.waitForChange(orderValue);
 
-    if (!curFrame)
+    if (!curFrame)// 传进来的frame 为空,表示encoder 在 flushing
     {
         // faked rateControlStart calls when the encoder is flushing
         m_startEndOrder.incr();
@@ -1322,8 +1322,9 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     rce->sliceType = m_sliceType;
     if (!m_2pass)
         rce->keptAsRef = IS_REFERENCED(curFrame);
+    //预测器类型 0位b  1为p 2为I  3为Bref   
     m_predType = getPredictorType(curFrame->m_lowres.sliceType, m_sliceType);
-    rce->poc = m_curSlice->m_poc;
+    rce->poc = m_curSlice->m_poc;// 输入帧的序号
 
     if (!m_param->bResetZoneConfig && (rce->encodeOrder % m_param->reconfigWindowSize == 0))
     {
@@ -1369,23 +1370,25 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         int index = m_encOrder[rce->poc];
         copyRceData(rce, &m_rce2Pass[index]);
     }
-    rce->isActive = true;
+    rce->isActive = true;// 标记状态
     if (!m_param->rc.bStatRead)
         rce->scenecut = false;
     rce->isFadeEnd = curFrame->m_lowres.bIsFadeEnd;
+    // list0 的首个ref 是否是一个场景切换帧
     bool isRefFrameScenecut = m_sliceType!= I_SLICE && m_curSlice->m_refFrameList[0][0]->m_lowres.bScenecut;
+    // 是否是I帧开始的首个minigop
     m_isFirstMiniGop = m_sliceType == I_SLICE ? true : m_isFirstMiniGop;
     if (curFrame->m_lowres.bScenecut)
     {
-        m_isSceneTransition = true;
-        rce->scenecut = true;
-        m_lastPredictorReset = rce->encodeOrder;
+        m_isSceneTransition = true;//场景变换
+        rce->scenecut = true;// 场景切换帧
+        m_lastPredictorReset = rce->encodeOrder;// 因为场景变化了更新
 
         initFramePredictors();
     }
     else if (m_sliceType != B_SLICE && !isRefFrameScenecut)
         m_isSceneTransition = false;
-
+    //
     if (rce->encodeOrder < m_lastPredictorReset + m_param->frameNumThreads)
     {
         rce->rowPreds[0][0].count = 0;
@@ -1594,9 +1597,9 @@ void RateControl::accumPQpUpdate()
 int RateControl::getPredictorType(int lowresSliceType, int sliceType)
 {
     /* Use a different predictor for B Ref and B frames for vbv frame size predictions */
-    if (lowresSliceType == S265_TYPE_BREF)
+    if (lowresSliceType == S265_TYPE_BREF)// 对于B ref帧 使用 第3类型的predictor
         return 3;
-    return sliceType;
+    return sliceType;// 0/1/2 分别为 B帧/P帧/I帧
 }
 
 double RateControl::getDiffLimitedQScale(RateControlEntry *rce, double q)

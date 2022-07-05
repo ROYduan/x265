@@ -431,7 +431,7 @@ void FrameEncoder::writeTrailingSEIMessages()
     m_seiReconPictureDigest.setSize(payloadSize);
     m_seiReconPictureDigest.writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_SUFFIX_SEI, m_nalList, false);
 }
-// 开始一帧的编码
+// 开始一帧的编码,called by workerthreads
 void FrameEncoder::compressFrame()
 {
     ProfileScopeEvent(frameThread);
@@ -446,7 +446,7 @@ void FrameEncoder::compressFrame()
     m_stallStartTime = 0;
 
     m_completionCount = 0;
-    memset((void*)m_bAllRowsStop, 0, sizeof(bool) * m_param->maxSlices);// 改帧中 所有slice 的该标志清零
+    memset((void*)m_bAllRowsStop, 0, sizeof(bool) * m_param->maxSlices);// 该帧中 所有slice 的该标志清零
     memset((void*)m_vbvResetTriggerRow, -1, sizeof(int) * m_param->maxSlices);
     m_rowSliceTotalBits[0] = 0;
     m_rowSliceTotalBits[1] = 0;
@@ -543,6 +543,7 @@ void FrameEncoder::compressFrame()
             if ((bUseWeightP || bUseWeightB) && slice->m_weightPredTable[l][ref][0].wtPresent)
                 w = slice->m_weightPredTable[l][ref];
             slice->m_refReconPicList[l][ref] = slice->m_refFrameList[l][ref]->m_reconPic;
+            // 根据是否需要加权，对参考帧进行加权与否
             m_mref[l][ref].init(slice->m_refReconPicList[l][ref], w, *m_param);
         }
     }
@@ -558,7 +559,7 @@ void FrameEncoder::compressFrame()
     int qp = m_top->m_rateControl->rateControlStart(m_frame, &m_rce, m_top);
     m_rce.newQp = qp;
 
-    if (m_nr)
+    if (m_nr) // noise reduction 相关
     {
         if (qp > QP_MAX_SPEC && m_frame->m_param->rc.vbvBufferSize)
         {

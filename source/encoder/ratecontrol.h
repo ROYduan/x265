@@ -100,7 +100,7 @@ struct RateControlEntry
     int     sliceType;
     int     bframes;
     int     poc;
-    int     encodeOrder;
+    int     encodeOrder;// 当前编码器编码的帧 是第几个帧num（每送一个已经决策好了的帧给编码器，帧order 就会++ß）
     bool    bLastMiniGopBFrame;
     bool    isActive;
     double  amortizeFrames;
@@ -142,7 +142,7 @@ public:
     int         m_zoneBufferIdx;
 
     bool   m_isAbr;
-    bool   m_isVbv;
+    bool   m_isVbv;// 是否开启了vbv
     bool   m_isCbr;
     bool   m_singleFrameVbv;
     bool   m_isGrainEnabled;
