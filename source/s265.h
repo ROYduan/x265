@@ -1326,8 +1326,6 @@ typedef struct s265_param
         /* Enable writing the stats in a multi-pass encode to the stat output file/memory */
         int       bStatWrite;
 
-        /* Enable loading data from the stat input file/memory in a multi pass encode */
-        int       bStatRead;
 
         /* Filename of the 2pass output/input stats file, if unspecified the
          * encoder will default to using s265_2pass.log */
@@ -1384,7 +1382,7 @@ typedef struct s265_param
 
         /* Share the data with stats file or shared memory.
         It must be one of the S265_DATA_SHARE_MODES enum values
-        Available if the bStatWrite or bStatRead is true.
+        Available if the bStatWrite is true.
         Use stats file by default.
         The stats file mode would be used among the encoders running in sequence.
         The shared memory mode could only be used among the encoders running in parallel.

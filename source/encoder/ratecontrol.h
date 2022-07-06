@@ -232,12 +232,7 @@ public:
     double  m_prevCpbFinalAT;
 
     /* 2 pass */
-    bool    m_2pass;
-    bool    m_isGopReEncoded;
-    bool    m_isQpModified;
     int     m_numEntries;
-    int     m_start;
-    int     m_reencode;
     FILE*   m_statFileOut;
     FILE*   m_cutreeStatFileOut;
     FILE*   m_cutreeStatFileIn;
@@ -271,11 +266,8 @@ public:
     void rateControlUpdateStats(RateControlEntry* rce);
     int  rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry* rce, int *filler);
     int  rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId);
-    int  rateControlSliceType(int frameNum);
-    bool cuTreeReadFor2Pass(Frame* curFrame);
     void hrdFullness(SEIBufferingPeriod* sei);
     int writeRateControlFrameStats(Frame* curFrame, RateControlEntry* rce);
-    bool   initPass2();
 
     bool initCUTreeSharedMem();
     void skipCUTreeSharedMemRead(int32_t cnt);
@@ -310,11 +302,9 @@ protected:
     double predictSize(Predictor *p, double q, double var);
     void   checkAndResetABR(RateControlEntry* rce, bool isFrameDone);
     double predictRowsSizeSum(Frame* pic, RateControlEntry* rce, double qpm, int32_t& encodedBits);
-    bool   analyseABR2Pass(uint64_t allAvailableBits);
     void   initFramePredictors();
     double getDiffLimitedQScale(RateControlEntry *rce, double q);
     double countExpectedBits(int startPos, int framesCount);
-    bool   vbv2Pass(uint64_t allAvailableBits, int frameCount, int startPos);
     bool   findUnderflow(double *fills, int *t0, int *t1, int over, int framesCount);
     bool   fixUnderflow(int t0, int t1, double adjustment, double qscaleMin, double qscaleMax);
     double tuneQScaleForGrain(double rcOverflow);

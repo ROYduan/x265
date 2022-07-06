@@ -289,7 +289,6 @@ void s265_param_default(s265_param* param)
     param->rc.costCalPskip = 0;
     param->rc.rfConstantMax = 0;
     param->rc.rfConstantMin = 0;
-    param->rc.bStatRead = 0;
     param->rc.bStatWrite = 0;
     param->rc.dataShareMode = S265_SHARE_MODE_FILE;
     param->rc.statFileName = NULL;
@@ -1192,7 +1191,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     {
         int pass = s265_clip3(0, 3, atoi(value));
         p->rc.bStatWrite = pass & 1;
-        p->rc.bStatRead = pass & 2;
         p->rc.dataShareMode = S265_SHARE_MODE_FILE;
     }
     OPT("stats") p->rc.statFileName = strdup(value);
@@ -1652,9 +1650,9 @@ int s265_check_params(s265_param* param)
         CHECK(param->edgeVarThreshold < 0.0f || param->edgeVarThreshold > 1.0f,
               "Minimum edge density percentage for a CU should be an integer between 0 to 100");
     }
-    // CHECK(param->bframes && param->bframes >= param->lookaheadDepth && !param->rc.bStatRead,
+    // CHECK(param->bframes && param->bframes >= param->lookaheadDepth ,
     //       "Lookahead depth must be greater than the max consecutive bframe count");
-    if(param->bframes && param->bframes >= param->lookaheadDepth && !param->rc.bStatRead)
+    if(param->bframes && param->bframes >= param->lookaheadDepth)
     {
         s265_log(NULL, S265_LOG_WARNING,"Lookahead depth must be greater than the max consecutive bframe count\n");
         s265_log(NULL, S265_LOG_WARNING,"Lookahead depth is set to: %d\n", param->bframes);
@@ -1766,8 +1764,6 @@ int s265_check_params(s265_param* param)
         CHECK(0 > param->noiseReductionIntra || param->noiseReductionIntra > 2000, "Valid noise reduction range 0 - 2000");
     if (param->noiseReductionInter)
         CHECK(0 > param->noiseReductionInter || param->noiseReductionInter > 2000, "Valid noise reduction range 0 - 2000");
-    CHECK(param->rc.rateControlMode == S265_RC_CQP && param->rc.bStatRead,
-          "Constant QP is incompatible with 2pass");
     CHECK(param->rc.bStrictCbr && (param->rc.bitrate <= 0 || param->rc.vbvBufferSize <=0),
           "Strict-cbr cannot be applied without specifying target bitrate or vbv bufsize");
     CHECK(param->rc.qpMax < QP_MIN || param->rc.qpMax > QP_MAX_MAX,
@@ -1796,29 +1792,9 @@ int s265_check_params(s265_param* param)
         "Invalid SAO tune level. Value must be between 0 and 4 (inclusive)");
     if (param->bEnableSceneCutAwareQp)
     {
-        if (!param->rc.bStatRead)
-        {
-            param->bEnableSceneCutAwareQp = 0;
-            s265_log(param, S265_LOG_WARNING, "Disabling Scenecut Aware Frame Quantizer Selection since it works only in pass 2\n");
-        }
-        else
-        {
-            CHECK(param->bEnableSceneCutAwareQp < 0 || param->bEnableSceneCutAwareQp > 3,
-            "Invalid masking direction. Value must be between 0 and 3(inclusive)");
-            CHECK(param->fwdScenecutWindow < 0 || param->fwdScenecutWindow > 1000,
-            "Invalid forward scenecut Window duration. Value must be between 0 and 1000(inclusive)");
-            CHECK(param->fwdRefQpDelta < 0 || param->fwdRefQpDelta > 10,
-            "Invalid fwdRefQpDelta value. Value must be between 0 and 10 (inclusive)");
-            CHECK(param->fwdNonRefQpDelta < 0 || param->fwdNonRefQpDelta > 10,
-            "Invalid fwdNonRefQpDelta value. Value must be between 0 and 10 (inclusive)");
 
-            CHECK(param->bwdScenecutWindow < 0 || param->bwdScenecutWindow > 1000,
-                "Invalid backward scenecut Window duration. Value must be between 0 and 1000(inclusive)");
-            CHECK(param->bwdRefQpDelta < -1 || param->bwdRefQpDelta > 10,
-                "Invalid bwdRefQpDelta value. Value must be between 0 and 10 (inclusive)");
-            CHECK(param->bwdNonRefQpDelta < -1 || param->bwdNonRefQpDelta > 10,
-                "Invalid bwdNonRefQpDelta value. Value must be between 0 and 10 (inclusive)");
-        }
+        param->bEnableSceneCutAwareQp = 0;
+        s265_log(param, S265_LOG_WARNING, "Disabling Scenecut Aware Frame Quantizer Selection since it works only in pass 2\n");
     }
     if (param->bEnableHME)
     {
@@ -1853,7 +1829,6 @@ int s265_check_params(s265_param* param)
     CHECK(param->decoderVbvMaxRate < 0, "Invalid Decoder Vbv Maxrate. Value can not be less than zero");
     if (param->bliveVBV2pass)
     {
-        CHECK((param->rc.bStatRead == 0), "Live VBV in multi pass option requires rate control 2 pass to be enabled");
         if ((param->rc.vbvMaxBitrate <= 0 || param->rc.vbvBufferSize <= 0))
         {
             param->bliveVBV2pass = 0;
@@ -1867,7 +1842,7 @@ int s265_check_params(s265_param* param)
 void s265_param_apply_fastfirstpass(s265_param* param)
 {
     /* Set faster options in case of turbo firstpass */
-    if (param->rc.bStatWrite && !param->rc.bStatRead)
+    if (param->rc.bStatWrite)
     {
         param->maxNumReferences = 1;
         param->maxNumMergeCand = 1;
@@ -2013,7 +1988,6 @@ void s265_print_params(s265_param* param)
     if (param->selectiveSAO && param->selectiveSAO != 4)
         TOOLOPT(param->selectiveSAO, "selective-sao");
     TOOLOPT(param->rc.bStatWrite, "stats-write");
-    TOOLOPT(param->rc.bStatRead,  "stats-read");
     TOOLOPT(param->bSingleSeiNal, "single-sei");
 #if ENABLE_HDR10_PLUS
     TOOLOPT(param->toneMapFile != NULL, "dhdr10-info");
@@ -2157,11 +2131,7 @@ char *s265_param2string(s265_param* p, int padx, int pady)
             s += sprintf(s, " bitrate=%d", p->rc.bitrate);
         s += sprintf(s, " qcomp=%.2f qpstep=%d", p->rc.qCompress, p->rc.qpStep);
         s += sprintf(s, " stats-write=%d", p->rc.bStatWrite);
-        s += sprintf(s, " stats-read=%d", p->rc.bStatRead);
-        if (p->rc.bStatRead)
-            s += sprintf(s, " cplxblur=%.1f qblur=%.1f",
-            p->rc.complexityBlur, p->rc.qblur);
-        if (p->rc.bStatWrite && !p->rc.bStatRead)
+        if (p->rc.bStatWrite)
             BOOL(p->rc.bEnableSlowFirstPass, "slow-firstpass");
         if (p->rc.vbvBufferSize)
         {
@@ -2466,7 +2436,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->rc.rfConstantMax = src->rc.rfConstantMax;
     dst->rc.rfConstantMin = src->rc.rfConstantMin;
     dst->rc.bStatWrite = src->rc.bStatWrite;
-    dst->rc.bStatRead = src->rc.bStatRead;
     dst->rc.dataShareMode = src->rc.dataShareMode;
     if (src->rc.statFileName) dst->rc.statFileName=strdup(src->rc.statFileName);
     else dst->rc.statFileName = NULL;

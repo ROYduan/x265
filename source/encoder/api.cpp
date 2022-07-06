@@ -276,14 +276,6 @@ int s265_encoder_headers(s265_encoder *enc, s265_nal **pp_nal, uint32_t *pi_nal)
 
         Entropy sbacCoder;
         Bitstream bs;
-        if (encoder->m_param->rc.bStatRead && encoder->m_param->bMultiPassOptRPS)
-        {
-            if (!encoder->computeSPSRPSIndex())
-            {
-                encoder->m_aborted = true;
-                return -1;
-            }
-        }
         encoder->getStreamHeaders(encoder->m_nalList, sbacCoder, bs);
         *pp_nal = &encoder->m_nalList.m_nal[0];
         if (pi_nal) *pi_nal = encoder->m_nalList.m_numNal;

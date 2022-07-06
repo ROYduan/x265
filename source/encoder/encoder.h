@@ -340,7 +340,6 @@ public:
     void initRefIdx();
     void analyseRefIdx(int *numRefIdx);
     void updateRefIdx();
-    bool computeSPSRPSIndex();
 
     void copyUserSEIMessages(Frame *frame, const s265_picture* pic_in);
 

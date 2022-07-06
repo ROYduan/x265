@@ -148,26 +148,6 @@ inline double qScale2bits(RateControlEntry *rce, double qScale)
            + rce->miscBits;
 }
 
-inline void copyRceData(RateControlEntry* rce, RateControlEntry* rce2Pass)
-{
-    rce->coeffBits = rce2Pass->coeffBits;
-    rce->mvBits = rce2Pass->mvBits;
-    rce->miscBits = rce2Pass->miscBits;
-    rce->iCuCount = rce2Pass->iCuCount;
-    rce->pCuCount = rce2Pass->pCuCount;
-    rce->skipCuCount = rce2Pass->skipCuCount;
-    rce->keptAsRef = rce2Pass->keptAsRef;
-    rce->qScale = rce2Pass->qScale;
-    rce->newQScale = rce2Pass->newQScale;
-    rce->expectedBits = rce2Pass->expectedBits;
-    rce->expectedVbv = rce2Pass->expectedVbv;
-    rce->blurredComplexity = rce2Pass->blurredComplexity;
-    rce->sliceType = rce2Pass->sliceType;
-    rce->qpNoVbv = rce2Pass->qpNoVbv;
-    rce->newQp = rce2Pass->newQp;
-    rce->qRceq = rce2Pass->qRceq;
-}
-
 }  // end anonymous namespace
 /* Returns the zone for the current frame */
 s265_zone* RateControl::getZone()
@@ -232,8 +212,7 @@ RateControl::RateControl(s265_param& p, Encoder *top)
             m_rateFactorMaxDecrement = m_param->rc.rfConstant - m_param->rc.rfConstantMin;
     }
     // 类似S264 只要非cqp 都算abr 
-    m_isAbr = m_param->rc.rateControlMode != S265_RC_CQP && !m_param->rc.bStatRead;
-    m_2pass = m_param->rc.rateControlMode != S265_RC_CQP && m_param->rc.bStatRead;
+    m_isAbr = m_param->rc.rateControlMode != S265_RC_CQP;
     m_bitrate = m_param->rc.bitrate * 1000;
     m_frameDuration = (double)m_param->fpsDenom / m_param->fpsNum;
     m_qp = m_param->rc.qp;
@@ -485,244 +464,13 @@ bool RateControl::init(const SPS& sps)
 
     /* Frame Predictors used in vbv */
     initFramePredictors();// 首次init predictor 在此处
-    if (!m_statFileOut && (m_param->rc.bStatWrite || m_param->rc.bStatRead))
+    if (!m_statFileOut && (m_param->rc.bStatWrite))
     {
         /* If the user hasn't defined the stat filename, use the default value */
         const char *fileName = m_param->rc.statFileName;
         if (!fileName)
             fileName = s_defaultStatFileName;
-        /* Load stat file and init 2pass algo */
-        if (m_param->rc.bStatRead)
-        {
-            if (S265_SHARE_MODE_FILE == m_param->rc.dataShareMode)
-            {
-                m_expectedBitsSum = 0;
-                char *p, *statsIn, *statsBuf;
-                /* read 1st pass stats */
-                statsIn = statsBuf = s265_slurp_file(fileName);
-                if (!statsBuf)
-                    return false;
-                if (m_param->rc.cuTree)
-                {
-                    char *tmpFile = strcatFilename(fileName, ".cutree");
-                    if (!tmpFile)
-                        return false;
-                    m_cutreeStatFileIn = s265_fopen(tmpFile, "rb");
-                    S265_FREE(tmpFile);
-                    if (!m_cutreeStatFileIn)
-                    {
-                        s265_log_file(m_param, S265_LOG_ERROR, "can't open stats file %s.cutree\n", fileName);
-                        return false;
-                    }
-                }
 
-                /* check whether 1st pass options were compatible with current options */
-                if (strncmp(statsBuf, "#options:", 9))
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "options list in stats file not valid\n");
-                    return false;
-                }
-                {
-                    int i, j, m;
-                    uint32_t k, l;
-                    bool bErr = false;
-                    char *opts = statsBuf;
-                    statsIn = strchr(statsBuf, '\n');
-                    if (!statsIn)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "Malformed stats file\n");
-                        return false;
-                    }
-                    *statsIn = '\0';
-                    statsIn++;
-                    if ((p = strstr(opts, " input-res=")) == 0 || sscanf(p, " input-res=%dx%d", &i, &j) != 2)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "Resolution specified in stats file not valid\n");
-                        return false;
-                    }
-                    if ((p = strstr(opts, " fps=")) == 0 || sscanf(p, " fps=%u/%u", &k, &l) != 2)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "fps specified in stats file not valid\n");
-                        return false;
-                    }
-                    if (((p = strstr(opts, " vbv-maxrate=")) == 0 || sscanf(p, " vbv-maxrate=%d", &m) != 1) && m_param->rc.rateControlMode == S265_RC_CRF)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "Constant rate-factor is incompatible with 2pass without vbv-maxrate in the previous pass\n");
-                        return false;
-                    }
-                    if (k != m_param->fpsNum || l != m_param->fpsDenom)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "fps mismatch with 1st pass (%u/%u vs %u/%u)\n",
-                            m_param->fpsNum, m_param->fpsDenom, k, l);
-                        return false;
-                    }
-                    CMP_OPT_FIRST_PASS("bitdepth", m_param->internalBitDepth);
-                    CMP_OPT_FIRST_PASS("weightp", m_param->bEnableWeightedPred);
-                    CMP_OPT_FIRST_PASS("bframes", m_param->bframes);
-                    CMP_OPT_FIRST_PASS("b-pyramid", m_param->bBPyramid);
-                    CMP_OPT_FIRST_PASS("open-gop", m_param->bOpenGOP);
-                    CMP_OPT_FIRST_PASS(" keyint", m_param->keyframeMax);
-                    CMP_OPT_FIRST_PASS("scenecut", m_param->scenecutThreshold);
-                    CMP_OPT_FIRST_PASS("intra-refresh", m_param->bIntraRefresh);
-                    if (m_param->bMultiPassOptRPS)
-                    {
-                        CMP_OPT_FIRST_PASS("multi-pass-opt-rps", m_param->bMultiPassOptRPS);
-                        CMP_OPT_FIRST_PASS("repeat-headers", m_param->bRepeatHeaders);
-                        CMP_OPT_FIRST_PASS("min-keyint", m_param->keyframeMin);
-                    }
-
-                    if ((p = strstr(opts, "b-adapt=")) != 0 && sscanf(p, "b-adapt=%d", &i) && i >= S265_B_ADAPT_NONE && i <= S265_B_ADAPT_TRELLIS)
-                    {
-                        m_param->bFrameAdaptive = i;
-                    }
-                    else if (m_param->bframes)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "b-adapt method specified in stats file not valid\n");
-                        return false;
-                    }
-
-                    if ((p = strstr(opts, "rc-lookahead=")) != 0 && sscanf(p, "rc-lookahead=%d", &i))
-                        m_param->lookaheadDepth = i;
-                }
-                /* find number of pics */
-                p = statsIn;
-                int numEntries;
-                for (numEntries = -1; p; numEntries++)
-                    p = strchr(p + 1, ';');
-                if (!numEntries)
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "empty stats file\n");
-                    return false;
-                }
-                m_numEntries = numEntries;
-
-                if (m_param->totalFrames < m_numEntries && m_param->totalFrames > 0)
-                {
-                    s265_log(m_param, S265_LOG_WARNING, "2nd pass has fewer frames than 1st pass (%d vs %d)\n",
-                        m_param->totalFrames, m_numEntries);
-                }
-                if (m_param->totalFrames > m_numEntries)
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "2nd pass has more frames than 1st pass (%d vs %d)\n",
-                        m_param->totalFrames, m_numEntries);
-                    return false;
-                }
-
-                m_rce2Pass = S265_MALLOC(RateControlEntry, m_numEntries);
-                if (!m_rce2Pass)
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "Rce Entries for 2 pass cannot be allocated\n");
-                    return false;
-                }
-                m_encOrder = S265_MALLOC(int, m_numEntries);
-                if (!m_encOrder)
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "Encode order for 2 pass cannot be allocated\n");
-                    return false;
-                }
-                /* init all to skipped p frames */
-                for (int i = 0; i < m_numEntries; i++)
-                {
-                    RateControlEntry *rce = &m_rce2Pass[i];
-                    rce->sliceType = P_SLICE;
-                    rce->qScale = rce->newQScale = s265_qp2qScale(20);
-                    rce->miscBits = m_ncu + 10;
-                    rce->newQp = 0;
-                }
-                /* read stats */
-                p = statsIn;
-                double totalQpAq = 0;
-                for (int i = 0; i < m_numEntries; i++)
-                {
-                    RateControlEntry *rce, *rcePocOrder;
-                    int frameNumber;
-                    int encodeOrder;
-                    char picType;
-                    int e;
-                    char *next;
-                    double qpRc, qpAq, qNoVbv, qRceq;
-                    next = strstr(p, ";");
-                    if (next)
-                        *next++ = 0;
-                    e = sscanf(p, " in:%d out:%d", &frameNumber, &encodeOrder);
-                    if (frameNumber < 0 || frameNumber >= m_numEntries)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "bad frame number (%d) at stats line %d\n", frameNumber, i);
-                        return false;
-                    }
-                    rce = &m_rce2Pass[encodeOrder];
-                    rcePocOrder = &m_rce2Pass[frameNumber];
-                    m_encOrder[frameNumber] = encodeOrder;
-                    if (!m_param->bMultiPassOptRPS)
-                    {
-                        int scenecut = 0;
-                        e += sscanf(p, " in:%*d out:%*d type:%c q:%lf q-aq:%lf q-noVbv:%lf q-Rceq:%lf tex:%d mv:%d misc:%d icu:%lf pcu:%lf scu:%lf sc:%d",
-                            &picType, &qpRc, &qpAq, &qNoVbv, &qRceq, &rce->coeffBits,
-                            &rce->mvBits, &rce->miscBits, &rce->iCuCount, &rce->pCuCount,
-                            &rce->skipCuCount, &scenecut);
-                        rcePocOrder->scenecut = scenecut != 0;
-                    }
-                    else
-                    {
-                        char deltaPOC[128];
-                        char bUsed[40];
-                        memset(deltaPOC, 0, sizeof(deltaPOC));
-                        memset(bUsed, 0, sizeof(bUsed));
-                        e += sscanf(p, " in:%*d out:%*d type:%c q:%lf q-aq:%lf q-noVbv:%lf q-Rceq:%lf tex:%d mv:%d misc:%d icu:%lf pcu:%lf scu:%lf nump:%d numnegp:%d numposp:%d deltapoc:%s bused:%s",
-                            &picType, &qpRc, &qpAq, &qNoVbv, &qRceq, &rce->coeffBits,
-                            &rce->mvBits, &rce->miscBits, &rce->iCuCount, &rce->pCuCount,
-                            &rce->skipCuCount, &rce->rpsData.numberOfPictures, &rce->rpsData.numberOfNegativePictures, &rce->rpsData.numberOfPositivePictures, deltaPOC, bUsed);
-                        splitdeltaPOC(deltaPOC, rce);
-                        splitbUsed(bUsed, rce);
-                        rce->rpsIdx = -1;
-                    }
-                    rce->keptAsRef = true;
-                    rce->isIdr = false;
-                    if (picType == 'b' || picType == 'p')
-                        rce->keptAsRef = false;
-                    if (picType == 'I')
-                        rce->isIdr = true;
-                    if (picType == 'I' || picType == 'i')
-                        rce->sliceType = I_SLICE;
-                    else if (picType == 'P' || picType == 'p')
-                        rce->sliceType = P_SLICE;
-                    else if (picType == 'B' || picType == 'b')
-                        rce->sliceType = B_SLICE;
-                    else
-                        e = -1;
-                    if (e < 10)
-                    {
-                        s265_log(m_param, S265_LOG_ERROR, "statistics are damaged at line %d, parser out=%d\n", i, e);
-                        return false;
-                    }
-                    rce->qScale = rce->newQScale = s265_qp2qScale(qpRc);
-                    totalQpAq += qpAq;
-                    rce->qpNoVbv = qNoVbv;
-                    rce->qpaRc = qpRc;
-                    rce->qpAq = qpAq;
-                    rce->qRceq = qRceq;
-                    p = next;
-                }
-                S265_FREE(statsBuf);
-                if (m_param->rc.rateControlMode != S265_RC_CQP)
-                {
-                    m_start = 0;
-                    m_isQpModified = true;
-                    if (!initPass2())
-                        return false;
-                } /* else we're using constant quant, so no need to run the bitrate allocation */
-            }
-            else // S265_SHARE_MODE_SHAREDMEM == m_param->rc.dataShareMode
-            {
-                if (m_param->rc.cuTree)
-                {
-                    if (!initCUTreeSharedMem())
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
         /* Open output file */
         /* If input and output files are the same, output to a temp file
          * and move it to the real name only when it's complete */
@@ -743,7 +491,7 @@ bool RateControl::init(const SPS& sps)
             if (p)
                 fprintf(m_statFileOut, "#options: %s\n", p);
             S265_FREE(p);
-            if (m_param->rc.cuTree && !m_param->rc.bStatRead)
+            if (m_param->rc.cuTree)
             {
                 if (S265_SHARE_MODE_FILE == m_param->rc.dataShareMode)
                 {
@@ -772,14 +520,10 @@ bool RateControl::init(const SPS& sps)
             if (m_param->rc.qgSize == 8)
             {
                 m_cuTreeStats.qpBuffer[0] = S265_MALLOC(uint16_t, m_ncu * 4 * sizeof(uint16_t));
-                if (m_param->bBPyramid && m_param->rc.bStatRead)
-                    m_cuTreeStats.qpBuffer[1] = S265_MALLOC(uint16_t, m_ncu * 4 * sizeof(uint16_t));
             }
             else
             {
                 m_cuTreeStats.qpBuffer[0] = S265_MALLOC(uint16_t, m_ncu * sizeof(uint16_t));
-                if (m_param->bBPyramid && m_param->rc.bStatRead)
-                    m_cuTreeStats.qpBuffer[1] = S265_MALLOC(uint16_t, m_ncu * sizeof(uint16_t));
             }
             m_cuTreeStats.qpBufPos = -1;
         }
@@ -893,393 +637,6 @@ void RateControl::initHRD(SPS& sps)
     #undef MAX_DURATION
 }
 
-bool RateControl::analyseABR2Pass(uint64_t allAvailableBits)
-{
-    double rateFactor, stepMult;
-    double qBlur = m_param->rc.qblur;
-    double cplxBlur = m_param->rc.complexityBlur;
-    const int filterSize = (int)(qBlur * 4) | 1;
-    double expectedBits;
-    double *qScale, *blurredQscale;
-    double baseCplx = m_ncu * (m_param->bframes ? 120 : 80);
-    double clippedDuration = CLIP_DURATION(m_frameDuration) / BASE_FRAME_DURATION;
-    /* Blur complexities, to reduce local fluctuation of QP.
-     * We don't blur the QPs directly, because then one very simple frame
-     * could drag down the QP of a nearby complex frame and give it more
-     * bits than intended. */
-    for (int i = 0; i < m_numEntries; i++)
-    {
-        double weightSum = 0;
-        double cplxSum = 0;
-        double weight = 1.0;
-        double gaussianWeight;
-        /* weighted average of cplx of future frames */
-        for (int j = 1; j < cplxBlur * 2 && j < m_numEntries - i; j++)
-        {
-            int index = i+j;
-            RateControlEntry *rcj = &m_rce2Pass[index];
-            weight *= 1 - pow(rcj->iCuCount / m_ncu, 2);
-            if (weight < 0.0001)
-                break;
-            gaussianWeight = weight * exp(-j * j / 200.0);
-            weightSum += gaussianWeight;
-            cplxSum += gaussianWeight * (qScale2bits(rcj, 1) - rcj->miscBits) / clippedDuration;
-        }
-        /* weighted average of cplx of past frames */
-        weight = 1.0;
-        for (int j = 0; j <= cplxBlur * 2 && j <= i; j++)
-        {
-            int index = i-j;
-            RateControlEntry *rcj = &m_rce2Pass[index];
-            gaussianWeight = weight * exp(-j * j / 200.0);
-            weightSum += gaussianWeight;
-            cplxSum += gaussianWeight * (qScale2bits(rcj, 1) - rcj->miscBits) / clippedDuration;
-            weight *= 1 - pow(rcj->iCuCount / m_ncu, 2);
-            if (weight < .0001)
-                break;
-        }
-        m_rce2Pass[i].blurredComplexity= cplxSum / weightSum;
-    }
-    CHECKED_MALLOC(qScale, double, m_numEntries);
-    if (filterSize > 1)
-    {
-        CHECKED_MALLOC(blurredQscale, double, m_numEntries);
-    }
-    else
-        blurredQscale = qScale;
-
-    /* Search for a factor which, when multiplied by the RCEQ values from
-     * each frame, adds up to the desired total size.
-     * There is no exact closed-form solution because of VBV constraints and
-     * because qscale2bits is not invertible, but we can start with the simple
-     * approximation of scaling the 1st pass by the ratio of bitrates.
-     * The search range is probably overkill, but speed doesn't matter here. */
-    expectedBits = 1;
-    for (int i = 0; i < m_numEntries; i++)
-    {
-        RateControlEntry* rce = &m_rce2Pass[i];
-        double q = getQScale(rce, 1.0);
-        expectedBits += qScale2bits(rce, q);
-        m_lastQScaleFor[rce->sliceType] = q;
-    }
-    stepMult = allAvailableBits / expectedBits;
-
-    rateFactor = 0;
-    for (double step = 1E4 * stepMult; step > 1E-7 * stepMult; step *= 0.5)
-    {
-        expectedBits = 0;
-        rateFactor += step;
-
-        m_lastNonBPictType = -1;
-        m_lastAccumPNorm = 1;
-        m_accumPNorm = 0;
-
-        m_lastQScaleFor[0] = m_lastQScaleFor[1] =
-        m_lastQScaleFor[2] = pow(baseCplx, 1 - m_qCompress) / rateFactor;
-
-        /* find qscale */
-        for (int i = 0; i < m_numEntries; i++)
-        {
-            RateControlEntry *rce = &m_rce2Pass[i];
-            qScale[i] = getQScale(rce, rateFactor);
-            m_lastQScaleFor[rce->sliceType] = qScale[i];
-        }
-
-        /* fixed I/B qscale relative to P */
-        for (int i = 0; i < m_numEntries; i++)
-        {
-            qScale[i] = getDiffLimitedQScale(&m_rce2Pass[i], qScale[i]);
-            S265_CHECK(qScale[i] >= 0, "qScale became negative\n");
-        }
-
-        /* smooth curve */
-        if (filterSize > 1)
-        {
-            S265_CHECK(filterSize % 2 == 1, "filterSize not an odd number\n");
-            for (int i = 0; i < m_numEntries; i++)
-            {
-                double q = 0.0, sum = 0.0;
-                for (int j = 0; j < filterSize; j++)
-                {
-                    int idx = i + j - filterSize / 2;
-                    double d = idx - i;
-                    double coeff = qBlur == 0 ? 1.0 : exp(-d * d / (qBlur * qBlur));
-                    if (idx < 0 || idx >= m_numEntries)
-                        continue;
-                    if (m_rce2Pass[i].sliceType != m_rce2Pass[idx].sliceType)
-                        continue;
-                    q += qScale[idx] * coeff;
-                    sum += coeff;
-                }
-                blurredQscale[i] = q / sum;
-            }
-        }
-
-        /* find expected bits */
-        for (int i = 0; i < m_numEntries; i++)
-        {
-            RateControlEntry *rce = &m_rce2Pass[i];
-            rce->newQScale = clipQscale(NULL, rce, blurredQscale[i]); // check if needed
-            S265_CHECK(rce->newQScale >= 0, "new Qscale is negative\n");
-            expectedBits += qScale2bits(rce, rce->newQScale);
-        }
-
-        if (expectedBits > allAvailableBits)
-            rateFactor -= step;
-    }
-
-    S265_FREE(qScale);
-    if (filterSize > 1)
-        S265_FREE(blurredQscale);
-    if (m_isVbv)
-    if (!vbv2Pass(allAvailableBits, m_numEntries - 1, 0))
-            return false;
-    expectedBits = countExpectedBits(0, m_numEntries - 1);
-    if (fabs(expectedBits / allAvailableBits - 1.0) > 0.01)
-    {
-        double avgq = 0;
-        for (int i = 0; i < m_numEntries; i++)
-            avgq += m_rce2Pass[i].newQScale;
-        avgq = s265_qScale2qp(avgq / m_numEntries);
-
-        if (expectedBits > allAvailableBits || !m_isVbv)
-            s265_log(m_param, S265_LOG_WARNING, "Error: 2pass curve failed to converge\n");
-        s265_log(m_param, S265_LOG_WARNING, "target: %.2f kbit/s, expected: %.2f kbit/s, avg QP: %.4f\n",
-                 (double)m_param->rc.bitrate,
-                 expectedBits * m_fps / (m_numEntries * 1000.),
-                 avgq);
-        if (expectedBits < allAvailableBits && avgq < m_param->rc.qpMin + 2)
-        {
-            if (m_param->rc.qpMin > 0)
-                s265_log(m_param, S265_LOG_WARNING, "try reducing target bitrate or reducing qp_min (currently %d)\n", m_param->rc.qpMin);
-            else
-                s265_log(m_param, S265_LOG_WARNING, "try reducing target bitrate\n");
-        }
-        else if (expectedBits > allAvailableBits && avgq > m_param->rc.qpMax - 2)
-        {
-            if (m_param->rc.qpMax < QP_MAX_MAX)
-                s265_log(m_param, S265_LOG_WARNING, "try increasing target bitrate or increasing qp_max (currently %d)\n", m_param->rc.qpMax);
-            else
-                s265_log(m_param, S265_LOG_WARNING, "try increasing target bitrate\n");
-        }
-        else if (!(m_2pass && m_isVbv))
-            s265_log(m_param, S265_LOG_WARNING, "internal error\n");
-    }
-
-    return true;
-
-fail:
-    s265_log(m_param, S265_LOG_WARNING, "two-pass ABR initialization failed\n");
-    return false;
-}
-
-bool RateControl::initPass2()
-{
-    uint64_t allConstBits = 0, allCodedBits = 0;
-    uint64_t allAvailableBits = uint64_t(m_param->rc.bitrate * 1000. * m_numEntries * m_frameDuration);
-    int startIndex, endIndex;
-    int fps = S265_MIN(m_param->keyframeMax, (int)(m_fps + 0.5));
-    int distance = fps << 1;
-    distance = distance > m_param->keyframeMax ? (m_param->keyframeMax << 1) : m_param->keyframeMax;
-    startIndex = endIndex = 0;
-    double targetBits = 0;
-    double expectedBits = 0;
-    double targetBits2 = 0;
-    double expectedBits2 = 0;
-    double cpxSum = 0;
-    double cpxSum2 = 0;
-
-    if (m_param->rc.rateControlMode == S265_RC_ABR)
-    {
-        for (endIndex = m_start; endIndex < m_numEntries; endIndex++)
-        {
-            allConstBits += m_rce2Pass[endIndex].miscBits;
-            allCodedBits += m_rce2Pass[endIndex].coeffBits + m_rce2Pass[endIndex].mvBits;
-        }
-
-        if (allAvailableBits < allConstBits)
-        {
-            s265_log(m_param, S265_LOG_ERROR, "requested bitrate is too low. estimated minimum is %d kbps\n",
-                (int)(allConstBits * m_fps / (m_numEntries - m_start) * 1000.));
-            return false;
-        }
-        if (!analyseABR2Pass(allAvailableBits))
-            return false;
-
-        return true;
-    }
-
-    if (m_isQpModified)
-    {
-        return true;
-    }
-
-    if (m_start + (fps << 1) > m_numEntries)
-    {
-        return true;
-    }
-
-    for (startIndex = m_start, endIndex = m_numEntries - 1; startIndex < endIndex; startIndex++, endIndex--)
-    {
-        cpxSum += m_rce2Pass[startIndex].qScale / m_rce2Pass[startIndex].coeffBits;
-        cpxSum2 += m_rce2Pass[endIndex].qScale / m_rce2Pass[endIndex].coeffBits;
-
-        RateControlEntry *rce = &m_rce2Pass[startIndex];
-        targetBits += qScale2bits(rce, s265_qp2qScale(rce->qpNoVbv));
-        expectedBits += qScale2bits(rce, rce->qScale);
-
-        rce = &m_rce2Pass[endIndex];
-        targetBits2 += qScale2bits(rce, s265_qp2qScale(rce->qpNoVbv));
-        expectedBits2 += qScale2bits(rce, rce->qScale);
-    }
-
-    if (expectedBits < 0.95 * targetBits || expectedBits2 < 0.95 * targetBits2)
-    {
-        if (cpxSum / cpxSum2 < 0.95 || cpxSum2 / cpxSum < 0.95)
-        {
-            m_isQpModified = true;
-            m_isGopReEncoded = true;
-
-            m_shortTermCplxSum = 0;
-            m_shortTermCplxCount = 0;
-            m_framesDone = m_start;
-
-            for (startIndex = m_start; startIndex < m_numEntries; startIndex++)
-            {
-                m_shortTermCplxSum *= 0.5;
-                m_shortTermCplxCount *= 0.5;
-                m_shortTermCplxSum += m_rce2Pass[startIndex].currentSatd / (CLIP_DURATION(m_frameDuration) / BASE_FRAME_DURATION);
-                m_shortTermCplxCount++;
-            }
-
-            m_bufferFill = m_rce2Pass[m_start - 1].bufferFill;
-            m_bufferFillFinal = m_rce2Pass[m_start - 1].bufferFillFinal;
-            m_bufferFillActual = m_rce2Pass[m_start - 1].bufferFillActual;
-
-            m_reencode = m_start;
-            m_start = m_numEntries;
-        }
-        else
-        {
-
-            m_isQpModified = false;
-            m_isGopReEncoded = false;
-        }
-    }
-    else
-    {
-
-        m_isQpModified = false;
-        m_isGopReEncoded = false;
-    }
-
-    m_start = S265_MAX(m_start, m_numEntries - distance + m_param->keyframeMax);
-
-    return true;
-}
-
-bool RateControl::vbv2Pass(uint64_t allAvailableBits, int endPos, int startPos)
-{
-    /* for each interval of bufferFull .. underflow, uniformly increase the qp of all
-     * frames in the interval until either buffer is full at some intermediate frame or the
-     * last frame in the interval no longer underflows.  Recompute intervals and repeat.
-     * Then do the converse to put bits back into overflow areas until target size is met */
-
-    double *fills;
-    double expectedBits = 0;
-    double adjustment;
-    double prevBits = 0;
-    int t0, t1;
-    double qScaleMin = s265_qp2qScale(m_param->rc.qpMin);
-    double qScaleMax = s265_qp2qScale(m_param->rc.qpMax);
-    int iterations = 0 , adjMin, adjMax;
-    CHECKED_MALLOC(fills, double, m_numEntries + 1);
-    fills++;
-
-    /* adjust overall stream size */
-    do
-    {
-        iterations++;
-        prevBits = expectedBits;
-
-        if (expectedBits)
-        {   /* not first iteration */
-            adjustment = S265_MAX(S265_MIN(expectedBits / allAvailableBits, 0.999), 0.9);
-            fills[-1] = m_bufferSize * m_param->rc.vbvBufferInit;
-            t0 = startPos;
-            /* fix overflows */
-            adjMin = 1;
-            while (adjMin && findUnderflow(fills, &t0, &t1, 1, endPos))
-            {
-                adjMin = fixUnderflow(t0, t1, adjustment, qScaleMin, qScaleMax);
-                t0 = t1;
-            }
-        }
-
-        fills[-1] = m_bufferSize * (1. - m_param->rc.vbvBufferInit);
-        t0 = 0;
-        /* fix underflows -- should be done after overflow, as we'd better undersize target than underflowing VBV */
-        adjMax = 1;
-        while (adjMax && findUnderflow(fills, &t0, &t1, 0, endPos))
-            adjMax = fixUnderflow(t0, t1, 1.001, qScaleMin, qScaleMax);
-        expectedBits = countExpectedBits(startPos, endPos);
-    }
-    while ((expectedBits < .995 * allAvailableBits) && ((int64_t)(expectedBits+.5) > (int64_t)(prevBits+.5)) && !(m_param->rc.rateControlMode == S265_RC_CRF));
-    if (!adjMax)
-        s265_log(m_param, S265_LOG_WARNING, "vbv-maxrate issue, qpmax or vbv-maxrate too low\n");
-    /* store expected vbv filling values for tracking when encoding */
-    for (int i = startPos; i <= endPos; i++)
-        m_rce2Pass[i].expectedVbv = m_bufferSize - fills[i];
-    S265_FREE(fills - 1);
-    return true;
-
-fail:
-    s265_log(m_param, S265_LOG_ERROR, "malloc failure in two-pass VBV init\n");
-    return false;
-}
-
-/* In 2pass, force the same frame types as in the 1st pass */
-int RateControl::rateControlSliceType(int frameNum)
-{
-    if (m_param->rc.bStatRead)
-    {
-        if (frameNum >= m_numEntries)
-        {
-            /* We could try to initialize everything required for ABR and
-             * adaptive B-frames, but that would be complicated.
-             * So just calculate the average QP used so far. */
-            m_param->rc.qp = (m_accumPQp < 1) ? ABR_INIT_QP_MAX : (int)(m_accumPQp + 0.5);
-            m_qpConstant[P_SLICE] = s265_clip3(QP_MIN, QP_MAX_MAX, m_param->rc.qp);
-            m_qpConstant[I_SLICE] = s265_clip3(QP_MIN, QP_MAX_MAX, (int)(m_param->rc.qp - m_ipOffset + 0.5));
-            m_qpConstant[B_SLICE] = s265_clip3(QP_MIN, QP_MAX_MAX, (int)(m_param->rc.qp + m_pbOffset + 0.5));
-
-            s265_log(m_param, S265_LOG_ERROR, "2nd pass has more frames than 1st pass (%d)\n", m_numEntries);
-            s265_log(m_param, S265_LOG_ERROR, "continuing anyway, at constant QP=%d\n", m_param->rc.qp);
-            if (m_param->bFrameAdaptive)
-                s265_log(m_param, S265_LOG_ERROR, "disabling adaptive B-frames\n");
-
-            m_isAbr = 0;
-            m_2pass = 0;
-            m_param->rc.rateControlMode = S265_RC_CQP;
-            m_param->rc.bStatRead = 0;
-            m_param->bFrameAdaptive = 0;
-            m_param->scenecutThreshold = 0;
-            m_param->bHistBasedSceneCut = 0;
-            m_param->rc.cuTree = 0;
-            if (m_param->bframes > 1)
-                m_param->bframes = 1;
-            return S265_TYPE_AUTO;
-        }
-        int index = m_encOrder[frameNum];
-        int frameType = m_rce2Pass[index].sliceType == I_SLICE ? (m_rce2Pass[index].isIdr ? S265_TYPE_IDR : S265_TYPE_I)
-                        : m_rce2Pass[index].sliceType == P_SLICE ? S265_TYPE_P
-                        : (m_rce2Pass[index].sliceType == B_SLICE && m_rce2Pass[index].keptAsRef ? S265_TYPE_BREF : S265_TYPE_B);
-        return frameType;
-    }
-    else
-        return S265_TYPE_AUTO;
-}
-
 void RateControl::initFramePredictors()
 {
     /* Frame Predictors used in vbv */
@@ -1323,8 +680,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     m_curSlice = curEncData.m_slice;
     m_sliceType = m_curSlice->m_sliceType;
     rce->sliceType = m_sliceType;
-    if (!m_2pass)
-        rce->keptAsRef = IS_REFERENCED(curFrame);
+    rce->keptAsRef = IS_REFERENCED(curFrame);
     //预测器类型 0位b  1为p 2为I  3为Bref   
     m_predType = getPredictorType(curFrame->m_lowres.sliceType, m_sliceType);
     rce->poc = m_curSlice->m_poc;// 输入帧的序号
@@ -1367,15 +723,8 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         }
     }
 
-    if (m_param->rc.bStatRead)
-    {
-        S265_CHECK(rce->poc >= 0 && rce->poc < m_numEntries, "bad encode ordinal\n");
-        int index = m_encOrder[rce->poc];
-        copyRceData(rce, &m_rce2Pass[index]);
-    }
     rce->isActive = true;// 标记状态
-    if (!m_param->rc.bStatRead)
-        rce->scenecut = false;
+    rce->scenecut = false;
     rce->isFadeEnd = curFrame->m_lowres.bIsFadeEnd;
     // list0 的首个ref 是否是一个场景切换帧
     bool isRefFrameScenecut = m_sliceType!= I_SLICE && m_curSlice->m_refFrameList[0][0]->m_lowres.bScenecut;
@@ -1456,49 +805,8 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         }
     }
 
-    ///< regenerate the qp
-    if (!m_isAbr && m_2pass && m_param->rc.rateControlMode == S265_RC_CRF)
-    {
-        if (!m_param->rc.bEncFocusedFramesOnly)
-        {
-            rce->qpPrev = s265_qScale2qp(rce->qScale);
-            rce->qScale = rce->newQScale;
-            rce->qpaRc = curEncData.m_avgQpRc = curEncData.m_avgQpAq = s265_qScale2qp(rce->newQScale);
-            m_qp = int(rce->qpaRc + 0.5);
-            rce->frameSizePlanned = qScale2bits(rce, rce->qScale);
-            m_framesDone++;
-            return m_qp;
-        }
-        else
-        { 
-            int index = m_encOrder[rce->poc];
-            index++;
-            double totalDuration = m_frameDuration;
-            for (int j = 0; totalDuration < 1.0 && index < m_numEntries; j++)
-            {
-                switch (m_rce2Pass[index].sliceType)
-                {
-                case B_SLICE:
-                    curFrame->m_lowres.plannedType[j] = m_rce2Pass[index].keptAsRef ? S265_TYPE_BREF : S265_TYPE_B;
-                    break;
-                case P_SLICE:
-                    curFrame->m_lowres.plannedType[j] = S265_TYPE_P;
-                    break;
-                case I_SLICE:
-                    curFrame->m_lowres.plannedType[j] = m_param->bOpenGOP ? S265_TYPE_I : S265_TYPE_IDR;
-                    break;
-                default:
-                    break;
-                }
 
-                curFrame->m_lowres.plannedSatd[j] = m_rce2Pass[index].currentSatd;
-                totalDuration += m_frameDuration;
-                index++;
-            }
-        }
-    }
-
-    if (m_isAbr || m_2pass) // ABR,CRF
+    if (m_isAbr) // ABR,CRF
     {
         if (m_isAbr || m_isVbv)
         {   
@@ -1579,7 +887,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         m_qp = (int32_t)(curFrame->m_forceqp + 0.5) - 1;
         m_qp = s265_clip3(m_param->rc.qpMin, m_param->rc.qpMax, m_qp);
         rce->qpaRc = curEncData.m_avgQpRc = curEncData.m_avgQpAq = m_qp;
-        if (m_isAbr || m_2pass)
+        if (m_isAbr)
         {
             rce->qpNoVbv = rce->qpaRc;
             m_lastQScaleFor[m_sliceType] = s265_qp2qScale(rce->qpaRc);
@@ -1734,66 +1042,6 @@ bool RateControl::fixUnderflow(int t0, int t1, double adjustment, double qscaleM
     return adjusted;
 }
 
-bool RateControl::cuTreeReadFor2Pass(Frame* frame)
-{
-    int index = m_encOrder[frame->m_poc];
-    uint8_t sliceTypeActual = (uint8_t)m_rce2Pass[index].sliceType;
-    int ncu;
-    if (m_param->rc.qgSize == 8)
-        ncu = m_ncu * 4;
-    else
-        ncu = m_ncu;
-    if (m_rce2Pass[index].keptAsRef)
-    {
-        /* TODO: We don't need pre-lookahead to measure AQ offsets, but there is currently
-         * no way to signal this */
-        uint8_t type;
-        if (m_cuTreeStats.qpBufPos < 0)
-        {
-            do
-            {
-                m_cuTreeStats.qpBufPos++;
-
-                if (S265_SHARE_MODE_FILE == m_param->rc.dataShareMode)
-                {
-                    if (!fread(&type, 1, 1, m_cutreeStatFileIn))
-                        goto fail;
-                    if (fread(m_cuTreeStats.qpBuffer[m_cuTreeStats.qpBufPos], sizeof(uint16_t), ncu, m_cutreeStatFileIn) != (size_t)ncu)
-                        goto fail;
-                }
-                else // S265_SHARE_MODE_SHAREDMEM == m_param->rc.dataShareMode
-                {
-                    if (!m_cutreeShrMem)
-                    {
-                        goto fail;
-                    }
-
-                    CUTreeSharedDataItem shrItem;
-                    shrItem.type = &type;
-                    shrItem.stats = m_cuTreeStats.qpBuffer[m_cuTreeStats.qpBufPos];
-                    m_cutreeShrMem->readNext(&shrItem, ReadSharedCUTreeData);
-                }
-
-                if (type != sliceTypeActual && m_cuTreeStats.qpBufPos == 1)
-                {
-                    s265_log(m_param, S265_LOG_ERROR, "CU-tree frametype %d doesn't match actual frametype %d.\n", type, sliceTypeActual);
-                    return false;
-                }
-            }
-            while(type != sliceTypeActual);
-        }
-        primitives.fix8Unpack(frame->m_lowres.qpCuTreeOffset, m_cuTreeStats.qpBuffer[m_cuTreeStats.qpBufPos], ncu);
-        for (int i = 0; i < ncu; i++)
-            frame->m_lowres.invQscaleFactor[i] = s265_exp2fix8(frame->m_lowres.qpCuTreeOffset[i]);
-        m_cuTreeStats.qpBufPos--;
-    }
-    return true;
-
-fail:
-    s265_log(m_param, S265_LOG_ERROR, "Incomplete CU-tree stats file.\n");
-    return false;
-}
-
 double RateControl::tuneAbrQScaleFromFeedback(double qScale)
 {
     double abrBuffer = 2 * m_rateTolerance * m_bitrate;
@@ -1862,15 +1110,6 @@ double RateControl::tuneQScaleForGrain(double rcOverflow)
 double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 {
     double q;
-
-    if (m_2pass)
-    {
-        if (m_sliceType != rce->sliceType)
-        {
-            s265_log(m_param, S265_LOG_ERROR, "slice=%c but 2pass stats say %c\n",
-                     g_sliceTypeToChar[m_sliceType], g_sliceTypeToChar[rce->sliceType]);
-        }
-    }
 
     // 计算 rce->movingAvgSum
     if ((m_param->bliveVBV2pass && m_param->rc.rateControlMode == S265_RC_ABR) || m_isAbr)
@@ -1953,7 +1192,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             q = q1;
         else if (i1)
             q = q0;
-        else if(m_isGrainEnabled && !m_2pass)
+        else if(m_isGrainEnabled)
                 q = q1;
             else
             q = (q0 * dt1 + q1 * dt0) / (dt0 + dt1);
@@ -2029,22 +1268,16 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 qScale = s265_clip3(lqmin, lqmax, qScale);
             }
 
-            if (!m_2pass || m_param->bliveVBV2pass || (m_2pass && m_param->rc.rateControlMode == S265_RC_CRF && m_param->rc.bEncFocusedFramesOnly))
-            {
-                /* clip qp to permissible range after vbv-lookahead estimation to avoid possible 
-                 * mispredictions by initial frame size predictors */
-                qScale = clipQscale(curFrame, rce, qScale);
+            /* clip qp to permissible range after vbv-lookahead estimation to avoid possible 
+                * mispredictions by initial frame size predictors */
+            qScale = clipQscale(curFrame, rce, qScale);
 
-                if (m_pred[m_predType].count == 1)
-                    qScale = s265_clip3(lmin, lmax, qScale);
-                m_lastQScaleFor[m_sliceType] = qScale;
-            }
+            if (m_pred[m_predType].count == 1)
+                qScale = s265_clip3(lmin, lmax, qScale);
+            m_lastQScaleFor[m_sliceType] = qScale;
         }
 
-        if (m_2pass)
-            rce->frameSizePlanned = qScale2bits(rce, qScale);
-        else
-            rce->frameSizePlanned = predictSize(&m_pred[m_predType], qScale, (double)m_currentSatd);
+        rce->frameSizePlanned = predictSize(&m_pred[m_predType], qScale, (double)m_currentSatd);
 
         /* Limit planned size by MinCR */
         if (m_isVbv)
@@ -2066,108 +1299,6 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
     else
     {
         double abrBuffer = 2 * m_rateTolerance * m_bitrate;
-        if (m_2pass && (m_param->rc.rateControlMode != S265_RC_CRF || !m_param->rc.bEncFocusedFramesOnly))
-        {
-            double lmin = m_lmin[m_sliceType];
-            double lmax = m_lmax[m_sliceType];
-            int64_t diff;
-            if (!m_isVbv)
-            {
-                m_predictedBits = m_totalBits;
-                if (rce->encodeOrder < m_param->frameNumThreads)
-                    m_predictedBits += (int64_t)(rce->encodeOrder * m_bitrate / m_fps);
-                else
-                    m_predictedBits += (int64_t)(m_param->frameNumThreads * m_bitrate / m_fps);
-            }
-            /* Adjust ABR buffer based on distance to the end of the video. */
-            if (m_numEntries > rce->encodeOrder)
-            {
-                uint64_t finalBits = m_rce2Pass[m_numEntries - 1].expectedBits;
-                double videoPos = (double)rce->expectedBits / finalBits;
-                double scaleFactor = sqrt((1 - videoPos) * m_numEntries);
-                abrBuffer *= 0.5 * S265_MAX(scaleFactor, 0.5);
-            }
-            diff = m_predictedBits - (int64_t)rce->expectedBits;
-            q = rce->newQScale;
-            s265_zone* zone = getZone();
-            if (zone)
-            {
-                if (zone->bForceQp)
-                    q = s265_qp2qScale(zone->qp);
-                else
-                    q /= zone->bitrateFactor;
-            }
-            /*Existing ABR conformance check may not be valid with real time VBV*/
-            if(!m_param->bliveVBV2pass)
-                q /= s265_clip3(0.5, 2.0, (double)(abrBuffer - diff) / abrBuffer);
-            if (m_expectedBitsSum > 0)
-            {
-                /* Adjust quant based on the difference between
-                 * achieved and expected bitrate so far */
-                double curTime = (double)rce->encodeOrder / m_numEntries;
-                double w = s265_clip3(0.0, 1.0, curTime);
-                q *= pow((double)m_totalBits / m_expectedBitsSum, w);
-            }
-            if (m_framesDone == 0 && m_param->rc.rateControlMode == S265_RC_ABR && m_isGrainEnabled)
-                q = S265_MIN(s265_qp2qScale(ABR_INIT_QP_GRAIN_MAX), q);
-            rce->qpNoVbv = s265_qScale2qp(q);
-            if ((m_sliceType == I_SLICE && m_param->keyframeMax > 1
-                && m_lastNonBPictType != I_SLICE && !m_isAbrReset) || (m_isNextGop && !m_framesDone))
-                m_avgPFrameQp = 0;
-            if (m_sliceType == P_SLICE)
-            {
-                m_avgPFrameQp = m_avgPFrameQp == 0 ? rce->qpNoVbv : m_avgPFrameQp;
-                m_avgPFrameQp = (m_avgPFrameQp + rce->qpNoVbv) / 2;
-            }
-
-            /* Scenecut Aware QP offsets*/
-            if (m_param->bEnableSceneCutAwareQp)
-            {
-                double qmin = m_lmin[m_sliceType];
-                double qmax = m_lmax[m_sliceType];
-
-                if (m_param->bEnableSceneCutAwareQp & FORWARD)
-                    q = forwardMasking(curFrame, q);
-                if (m_param->bEnableSceneCutAwareQp & BACKWARD)
-                    q = backwardMasking(curFrame, q);
-
-                q = s265_clip3(qmin, qmax, q);
-                rce->qpNoVbv = s265_qScale2qp(q);
-            }
-
-            if (m_isVbv)
-            {
-                if (!m_param->bliveVBV2pass)
-                {
-                    /* Do not overflow vbv */
-                    double expectedSize = qScale2bits(rce, q);
-                    double expectedVbv = m_bufferFill + m_bufferRate - expectedSize;
-                    double expectedFullness = rce->expectedVbv / m_bufferSize;
-                    double qmax = q * (2 - expectedFullness);
-                    double sizeConstraint = 1 + expectedFullness;
-                    qmax = S265_MAX(qmax, rce->newQScale);
-                    if (expectedFullness < .05)
-                        qmax = lmax;
-                    qmax = S265_MIN(qmax, lmax);
-                    while (((expectedVbv < rce->expectedVbv / sizeConstraint) && (q < qmax)) ||
-                        ((expectedVbv < 0) && (q < lmax)))
-                    {
-                        q *= 1.05;
-                        expectedSize = qScale2bits(rce, q);
-                        expectedVbv = m_bufferFill + m_bufferRate - expectedSize;
-                    }
-                }
-                else
-                {
-                        /*  clip qp to permissible range after vbv-lookahead estimation to avoid possible
-                        * mispredictions by Rate Control pass 1 statistics analysis */
-                        q = clipQscale(curFrame, rce, q);
-                }
-            }
-
-            q = s265_clip3(lmin, lmax, q);
-        }
-        else
         {
             /* 1pass ABR */
 
@@ -2208,8 +1339,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             }
             else
             {
-                if (!m_param->rc.bStatRead)
-                    checkAndResetABR(rce, false);
+                checkAndResetABR(rce, false);
                 double initialQScale = getQScale(rce, m_wantedBitsWindow / m_cplxrSum);
                 s265_zone* zone = getZone();
                 if (zone)
@@ -2305,25 +1435,19 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             }
             q = clipQscale(curFrame, rce, q);
 
-            if (m_2pass)
-                rce->frameSizePlanned = qScale2bits(rce, q);
-            else
-                rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+            rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
 
             /*  clip qp to permissible range after vbv-lookahead estimation to avoid possible
              * mispredictions by initial frame size predictors, after each scenecut */
             bool isFrameAfterScenecut = m_sliceType!= I_SLICE && m_curSlice->m_refFrameList[0][0]->m_lowres.bScenecut;
-            if (!m_2pass && m_isVbv && isFrameAfterScenecut)
+            if (m_isVbv && isFrameAfterScenecut)
                 q = s265_clip3(lqmin, lqmax, q);
         }
         m_lastQScaleFor[m_sliceType] = q;
-        if ((m_curSlice->m_poc == 0 || m_lastQScaleFor[P_SLICE] < q) && !(m_2pass && !m_isVbv))
+        if ((m_curSlice->m_poc == 0 || m_lastQScaleFor[P_SLICE] < q))
             m_lastQScaleFor[P_SLICE] = q * fabs(m_param->rc.ipFactor);
 
-        if (m_2pass)
-            rce->frameSizePlanned = qScale2bits(rce, q);
-        else
-            rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+        rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
 
         /* Always use up the whole VBV in this case. */
         if (m_singleFrameVbv)
@@ -2339,7 +1463,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 // 开启码空或者vbv 下，每一帧编码完成后进行调用
 void RateControl::rateControlUpdateStats(RateControlEntry* rce)
 {
-    if (!m_param->rc.bStatWrite && !m_param->rc.bStatRead)
+    if (!m_param->rc.bStatWrite)
     {
         if (rce->sliceType == I_SLICE)
         {
@@ -2544,7 +1668,7 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
                     /* Try to get the buffer not more than 80% filled, but don't set an impossible goal. */
 
                     targetFill = s265_clip3(m_bufferSize * (1 - m_maxBufferFill * finalDur), m_bufferSize, m_bufferFill - totalDuration * m_vbvMaxRate * 0.5);
-                    if ((m_isCbr || m_2pass) && bufferFillCur > targetFill && !m_isSceneTransition)
+                    if ((m_isCbr) && bufferFillCur > targetFill && !m_isSceneTransition)
                     {
                         q /= 1.01;
                         loopTerminate |= 2;
@@ -2597,7 +1721,7 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
          * lookahead vbv reduces its qscale by half its value. Be on safer side and avoid drastic 
          * qscale reductions for frames high in complexity */
         bool mispredCheck = rce->movingAvgSum && m_currentSatd >= rce->movingAvgSum && q <= q0 / 2;
-        if (!m_isCbr || ((m_isAbr || m_2pass) && mispredCheck))
+        if (!m_isCbr || ((m_isAbr) && mispredCheck))
             q = S265_MAX(q0, q);
 
         if (m_rateFactorMaxIncrement)
@@ -2606,15 +1730,6 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
             double qmax = S265_MIN(lmax,s265_qp2qScale(qpNoVbv + m_rateFactorMaxIncrement));
             return s265_clip3(lmin, qmax, q);
         }
-    }
-    if (!curFrame && m_2pass)
-    {
-        double min = log(lmin);
-        double max = log(lmax);
-        q = (log(q) - min) / (max - min) - 0.5;
-        q = 1.0 / (1.0 + exp(-4 * q));
-        q = q*(max - min) + min;
-        return exp(q);
     }
     return s265_clip3(lmin, lmax, q);
 }
@@ -2966,7 +2081,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_param->rc.aqMode || m_isVbv || m_param->bAQMotion)
     {
-        if (m_isVbv && !(m_2pass && m_param->rc.rateControlMode == S265_RC_CRF && !m_param->rc.bEncFocusedFramesOnly))
+        if (m_isVbv)
         {
             double avgQpRc = 0;
             /* determine avg QP decided by VBV rate control */
@@ -2994,7 +2109,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_isAbr)
     {
-        if (m_param->rc.rateControlMode == S265_RC_ABR && !m_param->rc.bStatRead)
+        if (m_param->rc.rateControlMode == S265_RC_ABR)
             checkAndResetABR(rce, true);
     }
     if (m_param->rc.rateControlMode == S265_RC_CRF)
@@ -3002,14 +2117,6 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
         double crfVal, qpRef = curEncData.m_avgQpRc;
 
         bool is2passCrfChange = false;
-        if (m_2pass && !m_param->rc.bEncFocusedFramesOnly)
-        {
-            if (fabs(curEncData.m_avgQpRc - rce->qpPrev) > 0.1)
-            {
-                qpRef = rce->qpPrev;
-                is2passCrfChange = true;
-            }
-        }
         if (is2passCrfChange || fabs(qpRef - rce->qpNoVbv) > 0.5)
         {
             double crfFactor = rce->qRceq /s265_qp2qScale(qpRef);
@@ -3028,7 +2135,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
     {
         /* amortize part of each I slice over the next several frames, up to
          * keyint-max, to avoid over-compensating for the large I slice cost */
-        if (!m_param->rc.bStatWrite && !m_param->rc.bStatRead)
+        if (!m_param->rc.bStatWrite)
         {
             if (rce->sliceType == I_SLICE)
             {
@@ -3072,12 +2179,6 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
         curFrame->m_rcData->cplxrSum = m_cplxrSum;
         curFrame->m_rcData->totalBits = m_totalBits;
         curFrame->m_rcData->encodedBits = m_encodedBits;
-    }
-
-    if (m_2pass)
-    {
-        m_expectedBitsSum += qScale2bits(rce, s265_qp2qScale(rce->newQp));
-        m_totalBits += bits - rce->rowTotalBits;
     }
 
     if (m_isVbv)
@@ -3183,7 +2284,7 @@ int RateControl::writeRateControlFrameStats(Frame* curFrame, RateControlEntry* r
             goto writeFailure;
     }
     /* Don't re-write the data in multi-pass mode. */
-    if (m_param->rc.cuTree && IS_REFERENCED(curFrame) && !m_param->rc.bStatRead)
+    if (m_param->rc.cuTree && IS_REFERENCED(curFrame))
     {
         uint8_t sliceType = (uint8_t)rce->sliceType;
         primitives.fix8Pack(m_cuTreeStats.qpBuffer[0], curFrame->m_lowres.qpCuTreeOffset, ncu);

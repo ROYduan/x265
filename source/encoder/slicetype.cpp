@@ -470,7 +470,7 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
         curFrame->m_lowres.wp_sum[y] = 0;
     }
 
-    if (!(param->rc.bStatRead && param->rc.cuTree && IS_REFERENCED(curFrame)))
+    if (1)
     {
         /* Calculate Qp offset for each 16x16 or 8x8 block in the frame */
         if (param->rc.aqMode == S265_AQ_NONE || param->rc.aqStrength == 0)
@@ -653,13 +653,6 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
 
     if (param->bEnableWeightedPred || param->bEnableWeightedBiPred)
     {
-        if (param->rc.bStatRead && param->rc.cuTree && IS_REFERENCED(curFrame))
-        {
-            for (int blockY = 0; blockY < maxRow; blockY += loopIncr)
-                for (int blockX = 0; blockX < maxCol; blockX += loopIncr)
-                    acEnergyCu(curFrame, blockX, blockY, param->internalCsp, param->rc.qgSize);
-        }
-
         int hShift = CHROMA_H_SHIFT(param->internalCsp);
         int vShift = CHROMA_V_SHIFT(param->internalCsp);
         maxCol = ((maxCol + 8) >> 4) << 4;
@@ -1325,7 +1318,7 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
     // 注意 assuming 需要的cost 在lookahead 阶段已经计算过了
     S265_CHECK(curFrame->m_lowres.costEst[b - p0][p1 - b] > 0, "Slice cost not estimated\n")
 
-    if (m_param->rc.cuTree && !m_param->rc.bStatRead)
+    if (m_param->rc.cuTree)
         /* update row satds based on cutree offsets */
         curFrame->m_lowres.satdCost = frameCostRecalculate(frames, p0, p1, b);
     else
@@ -1594,8 +1587,7 @@ void Lookahead::slicetypeDecide()
          m_param->rc.cuTree || m_param->scenecutThreshold || m_param->bHistBasedSceneCut ||
          (m_param->lookaheadDepth && m_param->rc.vbvBufferSize)))
     {
-        if(!m_param->rc.bStatRead)
-            slicetypeAnalyse(frames, false);//真正的帧类型分析
+        slicetypeAnalyse(frames, false);//真正的帧类型分析
         if (m_param->bliveVBV2pass)
         {
             int numFrames;
@@ -1922,8 +1914,7 @@ void Lookahead::slicetypeDecide()
         m_inputLock.release();
 
         frames[j + 1] = NULL;
-        if (!m_param->rc.bStatRead)
-            slicetypeAnalyse(frames, true);
+        slicetypeAnalyse(frames, true);
         if (m_param->bliveVBV2pass)
         {
             int numFrames;
