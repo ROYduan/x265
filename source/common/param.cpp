@@ -289,17 +289,12 @@ void s265_param_default(s265_param* param)
     param->rc.costCalPskip = 0;
     param->rc.rfConstantMax = 0;
     param->rc.rfConstantMin = 0;
-    param->rc.bStatWrite = 0;
-    param->rc.dataShareMode = S265_SHARE_MODE_FILE;
-    param->rc.statFileName = NULL;
-    param->rc.sharedMemName = NULL;
     param->rc.bEncFocusedFramesOnly = 0;
     param->rc.complexityBlur = 20;
     param->rc.qblur = 0.5;
     param->rc.zoneCount = 0;
     param->rc.zonefileCount = 0;
     param->rc.zones = NULL;
-    param->rc.bEnableSlowFirstPass = 1;
     param->rc.bStrictCbr = 0;
     param->rc.bEnableGrain = 0;
     param->rc.qpMin = 0;
@@ -1118,8 +1113,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         p->mctf.mvMatch = atoi(value);
     OPT("t-filter-range")
         p->mctf.range = atoi(value);
-
-    OPT("slow-firstpass") p->rc.bEnableSlowFirstPass = atobool(value);
     OPT("strict-cbr")
     {
         p->rc.bStrictCbr = atobool(value);
@@ -1187,13 +1180,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     }
     OPT("nr-intra") p->noiseReductionIntra = atoi(value);
     OPT("nr-inter") p->noiseReductionInter = atoi(value);
-    OPT("pass")
-    {
-        int pass = s265_clip3(0, 3, atoi(value));
-        p->rc.bStatWrite = pass & 1;
-        p->rc.dataShareMode = S265_SHARE_MODE_FILE;
-    }
-    OPT("stats") p->rc.statFileName = strdup(value);
     OPT("scaling-list") p->scalingLists = strdup(value);
     OPT2("pools", "numa-pools") p->numaPools = strdup(value);
     OPT("lambda-file") p->rc.lambdaFileName = strdup(value);
@@ -1835,25 +1821,7 @@ int s265_check_params(s265_param* param)
             s265_log(param, S265_LOG_WARNING, "Live VBV enabled without VBV settings.Disabling live VBV in 2 pass\n");
         }
     }
-    CHECK(param->rc.dataShareMode != S265_SHARE_MODE_FILE && param->rc.dataShareMode != S265_SHARE_MODE_SHAREDMEM, "Invalid data share mode. It must be one of the S265_DATA_SHARE_MODES enum values\n" );
     return check_failed;
-}
-
-void s265_param_apply_fastfirstpass(s265_param* param)
-{
-    /* Set faster options in case of turbo firstpass */
-    if (param->rc.bStatWrite)
-    {
-        param->maxNumReferences = 1;
-        param->maxNumMergeCand = 1;
-        param->bEnableRectInter = 0;
-        param->bEnableFastIntra = 1;
-        param->bEnableAMP = 0;
-        param->searchMethod = S265_DIA_SEARCH;
-        param->subpelRefine = S265_MIN(2, param->subpelRefine);
-        param->bEnableEarlySkip = 1;
-        param->rdLevel = S265_MIN(2, param->rdLevel);
-    }
 }
 
 static void appendtool(s265_param* param, char* buf, size_t size, const char* toolstr)
@@ -1987,7 +1955,6 @@ void s265_print_params(s265_param* param)
     TOOLOPT(!param->bSaoNonDeblocked && param->bEnableSAO, "sao");
     if (param->selectiveSAO && param->selectiveSAO != 4)
         TOOLOPT(param->selectiveSAO, "selective-sao");
-    TOOLOPT(param->rc.bStatWrite, "stats-write");
     TOOLOPT(param->bSingleSeiNal, "single-sei");
 #if ENABLE_HDR10_PLUS
     TOOLOPT(param->toneMapFile != NULL, "dhdr10-info");
@@ -2130,9 +2097,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
         else
             s += sprintf(s, " bitrate=%d", p->rc.bitrate);
         s += sprintf(s, " qcomp=%.2f qpstep=%d", p->rc.qCompress, p->rc.qpStep);
-        s += sprintf(s, " stats-write=%d", p->rc.bStatWrite);
-        if (p->rc.bStatWrite)
-            BOOL(p->rc.bEnableSlowFirstPass, "slow-firstpass");
         if (p->rc.vbvBufferSize)
         {
             s += sprintf(s, " vbv-maxrate=%d vbv-bufsize=%d vbv-init=%.1f min-vbv-fullness=%.1f max-vbv-fullness=%.1f",
@@ -2435,15 +2399,8 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->rc.costCalPskip = src->rc.costCalPskip;
     dst->rc.rfConstantMax = src->rc.rfConstantMax;
     dst->rc.rfConstantMin = src->rc.rfConstantMin;
-    dst->rc.bStatWrite = src->rc.bStatWrite;
-    dst->rc.dataShareMode = src->rc.dataShareMode;
-    if (src->rc.statFileName) dst->rc.statFileName=strdup(src->rc.statFileName);
-    else dst->rc.statFileName = NULL;
-    if (src->rc.sharedMemName) dst->rc.sharedMemName = strdup(src->rc.sharedMemName);
-    else dst->rc.sharedMemName = NULL;
     dst->rc.qblur = src->rc.qblur;
     dst->rc.complexityBlur = src->rc.complexityBlur;
-    dst->rc.bEnableSlowFirstPass = src->rc.bEnableSlowFirstPass;
     dst->rc.zoneCount = src->rc.zoneCount;
     dst->rc.zonefileCount = src->rc.zonefileCount;
     dst->reconfigWindowSize = src->reconfigWindowSize;

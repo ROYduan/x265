@@ -173,9 +173,6 @@ s265_encoder *s265_encoder_open(s265_param *p)
     if (s265_check_params(param))
         goto fail;
 
-    if (!param->rc.bEnableSlowFirstPass)
-        PARAM_NS::s265_param_apply_fastfirstpass(param);
-
     // may change params for auto-detect, etc
     encoder->configure(param);
     if (encoder->m_aborted)

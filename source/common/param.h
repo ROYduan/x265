@@ -29,7 +29,6 @@ namespace S265_NS {
 
 int   s265_check_params(s265_param *param);
 void  s265_print_params(s265_param *param);
-void  s265_param_apply_fastfirstpass(s265_param *p);
 char* s265_param2string(s265_param *param, int padx, int pady);
 int   s265_atoi(const char *str, bool& bError);
 double s265_atof(const char *str, bool& bError);

@@ -50,7 +50,6 @@ using namespace S265_NS;
 /* Amortize the partial cost of I frames over the next N frames */
 
 const int RateControl::s_slidingWindowFrames = 20;
-const char *RateControl::s_defaultStatFileName = "s265_2pass.log";
 
 namespace {
 #define CMP_OPT_FIRST_PASS(opt, param_val)\
@@ -93,59 +92,6 @@ inline int calcLength(uint32_t x)
     z += y = ((x - 0x10) >> 29) & 4;
     x >>= y ^ 4;
     return z + lut[x];
-}
-
-inline char *strcatFilename(const char *input, const char *suffix)
-{
-    char *output = S265_MALLOC(char, strlen(input) + strlen(suffix) + 1);
-    if (!output)
-    {
-        s265_log(NULL, S265_LOG_ERROR, "unable to allocate memory for filename\n");
-        return NULL;
-    }
-    strcpy(output, input);
-    strcat(output, suffix);
-    return output;
-}
-
-typedef struct CUTreeSharedDataItem
-{
-    uint8_t  *type;
-    uint16_t *stats;
-}CUTreeSharedDataItem;
-
-void static ReadSharedCUTreeData(void *dst, void *src, int32_t size)
-{
-    CUTreeSharedDataItem *statsDst = reinterpret_cast<CUTreeSharedDataItem *>(dst);
-    uint8_t *typeSrc = reinterpret_cast<uint8_t *>(src);
-    *statsDst->type = *typeSrc;
-
-    ///< for memory alignment, the type will take 32bit in the shared memory
-    int32_t offset = (sizeof(*statsDst->type) + SHARED_DATA_ALIGNMENT - 1) & ~(SHARED_DATA_ALIGNMENT - 1);
-    uint16_t *statsSrc = reinterpret_cast<uint16_t *>(typeSrc + offset);
-    memcpy(statsDst->stats, statsSrc, size - offset);
-}
-
-void static WriteSharedCUTreeData(void *dst, void *src, int32_t size)
-{
-    CUTreeSharedDataItem *statsSrc = reinterpret_cast<CUTreeSharedDataItem *>(src);
-    uint8_t *typeDst = reinterpret_cast<uint8_t *>(dst);
-    *typeDst = *statsSrc->type;
-
-    ///< for memory alignment, the type will take 32bit in the shared memory
-    int32_t offset = (sizeof(*statsSrc->type) + SHARED_DATA_ALIGNMENT - 1) & ~(SHARED_DATA_ALIGNMENT - 1);
-    uint16_t *statsDst = reinterpret_cast<uint16_t *>(typeDst + offset);
-    memcpy(statsDst, statsSrc->stats, size - offset);
-}
-
-
-inline double qScale2bits(RateControlEntry *rce, double qScale)
-{
-    if (qScale < 0.1)
-        qScale = 0.1;
-    return (rce->coeffBits + .1) * pow(rce->qScale / qScale, 1.1)
-           + rce->mvBits * pow(S265_MAX(rce->qScale, 1) / S265_MAX(qScale, 1), 0.5)
-           + rce->miscBits;
 }
 
 }  // end anonymous namespace
@@ -222,11 +168,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
     m_lastNonBPictType = I_SLICE;
     m_isAbrReset = false;
     m_lastAbrResetPoc = -1;
-    m_statFileOut = NULL;
-    m_cutreeStatFileOut = m_cutreeStatFileIn = NULL;
-    m_cutreeShrMem = NULL;
-    m_rce2Pass = NULL;
-    m_encOrder = NULL;
     m_lastBsliceSatdCost = 0;
     m_movingAvgSum = 0.0;
     m_isNextGop = false;
@@ -331,45 +272,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
 
     /* qpstep - value set as encoder specific */
     m_lstep = pow(2, m_param->rc.qpStep / 6.0);
-
-    for (int i = 0; i < 2; i++)
-        m_cuTreeStats.qpBuffer[i] = NULL;
-}
-
-bool RateControl::initCUTreeSharedMem()
-{
-    if (!m_cutreeShrMem) {
-        m_cutreeShrMem = new RingMem();
-        if (!m_cutreeShrMem)
-        {
-            return false;
-        }
-
-        ///< now cutree data form at most 3 gops would be stored in the shared memory at the same time
-        int32_t itemSize = (sizeof(uint8_t) + SHARED_DATA_ALIGNMENT - 1) & ~(SHARED_DATA_ALIGNMENT - 1);
-        if (m_param->rc.qgSize == 8)
-        {
-            itemSize += sizeof(uint16_t) * m_ncu * 4;
-        }
-        else
-        {
-            itemSize += sizeof(uint16_t) * m_ncu;
-        }
-
-        int32_t itemCnt = S265_MIN(m_param->keyframeMax, (int)(m_fps + 0.5));
-        itemCnt *= GOP_CNT_CU_TREE;
-
-        char shrname[MAX_SHR_NAME_LEN] = { 0 };
-        strcpy(shrname, m_param->rc.sharedMemName);
-        strcat(shrname, CUTREE_SHARED_MEM_NAME);
-
-        if (!m_cutreeShrMem->init(itemSize, itemCnt, shrname))
-        {
-            return false;
-        }
-    }
-
-    return true;
 }
 //一个encoder 对应一个有个RateControl 来把控全局码率
 bool RateControl::init(const SPS& sps)
@@ -464,76 +366,7 @@ bool RateControl::init(const SPS& sps)
 
     /* Frame Predictors used in vbv */
     initFramePredictors();// 首次init predictor 在此处
-    if (!m_statFileOut && (m_param->rc.bStatWrite))
-    {
-        /* If the user hasn't defined the stat filename, use the default value */
-        const char *fileName = m_param->rc.statFileName;
-        if (!fileName)
-            fileName = s_defaultStatFileName;
-
-        /* Open output file */
-        /* If input and output files are the same, output to a temp file
-         * and move it to the real name only when it's complete */
-        if (m_param->rc.bStatWrite)
-        {
-            char *p, *statFileTmpname;
-            statFileTmpname = strcatFilename(fileName, ".temp");
-            if (!statFileTmpname)
-                return false;
-            m_statFileOut = s265_fopen(statFileTmpname, "wb");
-            S265_FREE(statFileTmpname);
-            if (!m_statFileOut)
-            {
-                s265_log_file(m_param, S265_LOG_ERROR, "can't open stats file %s.temp\n", fileName);
-                return false;
-            }
-            p = s265_param2string(m_param, sps.conformanceWindow.rightOffset, sps.conformanceWindow.bottomOffset);
-            if (p)
-                fprintf(m_statFileOut, "#options: %s\n", p);
-            S265_FREE(p);
-            if (m_param->rc.cuTree)
-            {
-                if (S265_SHARE_MODE_FILE == m_param->rc.dataShareMode)
-                {
-                    statFileTmpname = strcatFilename(fileName, ".cutree.temp");
-                    if (!statFileTmpname)
-                        return false;
-                    m_cutreeStatFileOut = s265_fopen(statFileTmpname, "wb");
-                    S265_FREE(statFileTmpname);
-                    if (!m_cutreeStatFileOut)
-                    {
-                        s265_log_file(m_param, S265_LOG_ERROR, "can't open mbtree stats file %s.cutree.temp\n", fileName);
-                        return false;
-                    }
-                }
-                else // S265_SHARE_MODE_SHAREDMEM == m_param->rc.dataShareMode
-                {
-                    if (!initCUTreeSharedMem())
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-        if (m_param->rc.cuTree && !m_cuTreeStats.qpBuffer[0])
-        {
-            if (m_param->rc.qgSize == 8)
-            {
-                m_cuTreeStats.qpBuffer[0] = S265_MALLOC(uint16_t, m_ncu * 4 * sizeof(uint16_t));
-            }
-            else
-            {
-                m_cuTreeStats.qpBuffer[0] = S265_MALLOC(uint16_t, m_ncu * sizeof(uint16_t));
-            }
-            m_cuTreeStats.qpBufPos = -1;
-        }
-    }
     return true;
-}
-
-void RateControl::skipCUTreeSharedMemRead(int32_t cnt)
-{
-    m_cutreeShrMem->skipRead(cnt);
 }
 void RateControl::reconfigureRC()
 {
@@ -770,7 +603,6 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         }
         rce->rowPred[0] = &rce->rowPreds[m_sliceType][0];
         rce->rowPred[1] = &rce->rowPreds[m_sliceType][1];
-        m_predictedBits = m_totalBits;
         updateVbvPlan(enc);//根据所有在活frameEncoder 的预估消耗bits与整段时间内应注入bits 更新总体m_bufferFill
         rce->bufferFill = m_bufferFill;//总体m_bufferFill 赋给该帧的rce的bufferFill
         rce->vbvEndAdj = false;
@@ -918,128 +750,6 @@ int RateControl::getPredictorType(int lowresSliceType, int sliceType)
     if (lowresSliceType == S265_TYPE_BREF)// 对于B ref帧 使用 第3类型的predictor
         return 3;
     return sliceType;// 0/1/2 分别为 B帧/P帧/I帧
-}
-
-double RateControl::getDiffLimitedQScale(RateControlEntry *rce, double q)
-{
-    // force I/B quants as a function of P quants
-    const double lastPqScale    = m_lastQScaleFor[P_SLICE];
-    const double lastNonBqScale = m_lastQScaleFor[m_lastNonBPictType];
-    if (rce->sliceType == I_SLICE)
-    {
-        double iq = q;
-        double pq = s265_qp2qScale(m_accumPQp / m_accumPNorm);
-        double ipFactor = fabs(m_param->rc.ipFactor);
-        /* don't apply ipFactor if the following frame is also I */
-        if (m_accumPNorm <= 0)
-            q = iq;
-        else if (m_param->rc.ipFactor < 0)
-            q = iq / ipFactor;
-        else if (m_accumPNorm >= 1)
-            q = pq / ipFactor;
-        else
-            q = m_accumPNorm * pq / ipFactor + (1 - m_accumPNorm) * iq;
-    }
-    else if (rce->sliceType == B_SLICE)
-    {
-        if (m_param->rc.pbFactor > 0)
-            q = lastNonBqScale;
-        if (!rce->keptAsRef)
-            q *= fabs(m_param->rc.pbFactor);
-    }
-    else if (rce->sliceType == P_SLICE
-             && m_lastNonBPictType == P_SLICE
-             && rce->coeffBits == 0)
-    {
-        q = lastPqScale;
-    }
-
-    /* last qscale / qdiff stuff */
-    if (m_lastNonBPictType == rce->sliceType &&
-        (rce->sliceType != I_SLICE || m_lastAccumPNorm < 1))
-    {
-        double maxQscale = m_lastQScaleFor[rce->sliceType] * m_lstep;
-        double minQscale = m_lastQScaleFor[rce->sliceType] / m_lstep;
-        q = s265_clip3(minQscale, maxQscale, q);
-    }
-
-    m_lastQScaleFor[rce->sliceType] = q;
-    if (rce->sliceType != B_SLICE)
-        m_lastNonBPictType = rce->sliceType;
-    if (rce->sliceType == I_SLICE)
-    {
-        m_lastAccumPNorm = m_accumPNorm;
-        m_accumPNorm = 0;
-        m_accumPQp = 0;
-    }
-    if (rce->sliceType == P_SLICE)
-    {
-        double mask = 1 - pow(rce->iCuCount / m_ncu, 2);
-        m_accumPQp   = mask * (s265_qScale2qp(q) + m_accumPQp);
-        m_accumPNorm = mask * (1 + m_accumPNorm);
-    }
-
-    return q;
-}
-
-double RateControl::countExpectedBits(int startPos, int endPos)
-{
-    double expectedBits = 0;
-    for (int i = startPos; i <= endPos; i++)
-    {
-        RateControlEntry *rce = &m_rce2Pass[i];
-        rce->expectedBits = (uint64_t)expectedBits;
-        expectedBits += qScale2bits(rce, rce->newQScale);
-    }
-    return expectedBits;
-}
-
-bool RateControl::findUnderflow(double *fills, int *t0, int *t1, int over, int endPos)
-{
-    /* find an interval ending on an overflow or underflow (depending on whether
-     * we're adding or removing bits), and starting on the earliest frame that
-     * can influence the buffer fill of that end frame. */
-    const double bufferMin = .1 * m_bufferSize;
-    const double bufferMax = .9 * m_bufferSize;
-    double fill = fills[*t0 - 1];
-    double parity = over ? 1. : -1.;
-    int start = -1, end = -1;
-    for (int i = *t0; i <= endPos; i++)
-    {
-        fill += (m_frameDuration * m_vbvMaxRate -
-                 qScale2bits(&m_rce2Pass[i], m_rce2Pass[i].newQScale)) * parity;
-        fill = s265_clip3(0.0, m_bufferSize, fill);
-        fills[i] = fill;
-        if (fill <= bufferMin || i == 0)
-        {
-            if (end >= 0)
-                break;
-            start = i;
-        }
-        else if (fill >= bufferMax && start >= 0)
-            end = i;
-    }
-    *t0 = start;
-    *t1 = end;
-    return start >= 0 && end >= 0;
-}
-
-bool RateControl::fixUnderflow(int t0, int t1, double adjustment, double qscaleMin, double qscaleMax)
-{
-    double qscaleOrig, qscaleNew;
-    bool adjusted = false;
-    if (t0 > 0)
-        t0++;
-    for (int i = t0; i <= t1; i++)
-    {
-        qscaleOrig = m_rce2Pass[i].newQScale;
-        qscaleOrig = s265_clip3(qscaleMin, qscaleMax, qscaleOrig);
-        qscaleNew  = qscaleOrig * adjustment;
-        qscaleNew  = s265_clip3(qscaleMin, qscaleMax, qscaleNew);
-        m_rce2Pass[i].newQScale = qscaleNew;
-        adjusted = adjusted || (qscaleNew != qscaleOrig);
-    }
-    return adjusted;
 }
 
 double RateControl::tuneAbrQScaleFromFeedback(double qScale)
@@ -1298,7 +1008,6 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
     }
     else
     {
-        double abrBuffer = 2 * m_rateTolerance * m_bitrate;
         {
             /* 1pass ABR */
 
@@ -1463,8 +1172,6 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 // 开启码空或者vbv 下，每一帧编码完成后进行调用
 void RateControl::rateControlUpdateStats(RateControlEntry* rce)
 {
-    if (!m_param->rc.bStatWrite)
-    {
         if (rce->sliceType == I_SLICE)
         {
             /* previous I still had a residual; roll it into the new loan */
@@ -1494,7 +1201,6 @@ void RateControl::rateControlUpdateStats(RateControlEntry* rce)
              rce->rowTotalBits += m_partialResidualCost;
              m_partialResidualFrames--;
         }
-    }
     if (rce->sliceType != B_SLICE)
         rce->rowCplxrSum = rce->rowTotalBits * s265_qp2qScale(rce->qpaRc) / rce->qRceq; // I/P slice
     else
@@ -2133,24 +1839,19 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_isAbr && !m_isAbrReset)
     {
-        /* amortize part of each I slice over the next several frames, up to
-         * keyint-max, to avoid over-compensating for the large I slice cost */
-        if (!m_param->rc.bStatWrite)
+        if (rce->sliceType == I_SLICE)
         {
-            if (rce->sliceType == I_SLICE)
-            {
-                /* previous I still had a residual; roll it into the new loan */
-                if (m_residualFrames)
-                    bits += m_residualCost * m_residualFrames;
-                m_residualFrames = S265_MIN((int)rce->amortizeFrames, m_param->keyframeMax);
-                m_residualCost = (int)((bits * rce->amortizeFraction) / m_residualFrames);
-                bits -= m_residualCost * m_residualFrames;
-            }
-            else if (m_residualFrames)
-            {
-                bits += m_residualCost;
-                m_residualFrames--;
-            }
+            /* previous I still had a residual; roll it into the new loan */
+            if (m_residualFrames)
+                bits += m_residualCost * m_residualFrames;
+            m_residualFrames = S265_MIN((int)rce->amortizeFrames, m_param->keyframeMax);
+            m_residualCost = (int)((bits * rce->amortizeFraction) / m_residualFrames);
+            bits -= m_residualCost * m_residualFrames;
+        }
+        else if (m_residualFrames)
+        {
+            bits += m_residualCost;
+            m_residualFrames--;
         }
         if (rce->sliceType != B_SLICE)
         {
@@ -2224,97 +1925,6 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
     return 0;
 }
 
-/* called to write out the rate control frame stats info in multipass encodes */
-int RateControl::writeRateControlFrameStats(Frame* curFrame, RateControlEntry* rce)
-{
-    FrameData& curEncData = *curFrame->m_encData;    
-    int ncu = (m_param->rc.qgSize == 8) ? m_ncu * 4 : m_ncu;
-    char cType = rce->sliceType == I_SLICE ? (curFrame->m_lowres.sliceType == S265_TYPE_IDR ? 'I' : 'i')
-        : rce->sliceType == P_SLICE ? 'P'
-        : IS_REFERENCED(curFrame) ? 'B' : 'b';
-    
-    if (!curEncData.m_param->bMultiPassOptRPS)
-    {
-        if (fprintf(m_statFileOut,
-            "in:%d out:%d type:%c q:%.2f q-aq:%.2f q-noVbv:%.2f q-Rceq:%.2f tex:%d mv:%d misc:%d icu:%.2f pcu:%.2f scu:%.2f sc:%d ;\n",
-            rce->poc, rce->encodeOrder,
-            cType, curEncData.m_avgQpRc, curEncData.m_avgQpAq,
-            rce->qpNoVbv, rce->qRceq,
-            curFrame->m_encData->m_frameStats.coeffBits,
-            curFrame->m_encData->m_frameStats.mvBits,
-            curFrame->m_encData->m_frameStats.miscBits,
-            curFrame->m_encData->m_frameStats.percent8x8Intra * m_ncu,
-            curFrame->m_encData->m_frameStats.percent8x8Inter * m_ncu,
-            curFrame->m_encData->m_frameStats.percent8x8Skip  * m_ncu,
-            curFrame->m_lowres.bScenecut) < 0)
-            goto writeFailure;
-    }
-    else
-    {
-        RPS* rpsWriter = &curFrame->m_encData->m_slice->m_rps;
-        int i, num = rpsWriter->numberOfPictures;
-        char deltaPOC[128];
-        char bUsed[40];
-        memset(deltaPOC, 0, sizeof(deltaPOC));
-        memset(bUsed, 0, sizeof(bUsed));
-        sprintf(deltaPOC, "deltapoc:~");
-        sprintf(bUsed, "bused:~");
-
-        for (i = 0; i < num; i++)
-        {
-            sprintf(deltaPOC, "%s%d~", deltaPOC, rpsWriter->deltaPOC[i]);
-            sprintf(bUsed, "%s%d~", bUsed, rpsWriter->bUsed[i]);
-        }
-
-        if (fprintf(m_statFileOut,
-            "in:%d out:%d type:%c q:%.2f q-aq:%.2f q-noVbv:%.2f q-Rceq:%.2f tex:%d mv:%d misc:%d icu:%.2f pcu:%.2f scu:%.2f nump:%d numnegp:%d numposp:%d %s %s ;\n",
-            rce->poc, rce->encodeOrder,
-            cType, curEncData.m_avgQpRc, curEncData.m_avgQpAq,
-            rce->qpNoVbv, rce->qRceq,
-            curFrame->m_encData->m_frameStats.coeffBits,
-            curFrame->m_encData->m_frameStats.mvBits,
-            curFrame->m_encData->m_frameStats.miscBits,
-            curFrame->m_encData->m_frameStats.percent8x8Intra * m_ncu,
-            curFrame->m_encData->m_frameStats.percent8x8Inter * m_ncu,
-            curFrame->m_encData->m_frameStats.percent8x8Skip  * m_ncu,
-            rpsWriter->numberOfPictures,
-            rpsWriter->numberOfNegativePictures,
-            rpsWriter->numberOfPositivePictures,
-            deltaPOC, bUsed) < 0)
-            goto writeFailure;
-    }
-    /* Don't re-write the data in multi-pass mode. */
-    if (m_param->rc.cuTree && IS_REFERENCED(curFrame))
-    {
-        uint8_t sliceType = (uint8_t)rce->sliceType;
-        primitives.fix8Pack(m_cuTreeStats.qpBuffer[0], curFrame->m_lowres.qpCuTreeOffset, ncu);
-
-        if (S265_SHARE_MODE_FILE == m_param->rc.dataShareMode)
-        {
-            if (fwrite(&sliceType, 1, 1, m_cutreeStatFileOut) < 1)
-                goto writeFailure;
-            if (fwrite(m_cuTreeStats.qpBuffer[0], sizeof(uint16_t), ncu, m_cutreeStatFileOut) < (size_t)ncu)
-                goto writeFailure;
-        }
-        else // S265_SHARE_MODE_SHAREDMEM == m_param->rc.dataShareMode
-        {
-            if (!m_cutreeShrMem)
-            {
-                goto writeFailure;
-            }
-
-            CUTreeSharedDataItem shrItem;
-            shrItem.type = &sliceType;
-            shrItem.stats = m_cuTreeStats.qpBuffer[0];
-            m_cutreeShrMem->writeData(&shrItem, WriteSharedCUTreeData);
-        } 
-    }
-    return 0;
-
-    writeFailure:
-    s265_log(m_param, S265_LOG_ERROR, "RatecontrolEnd: stats file write failure\n");
-    return 1;
-}
 #if defined(_MSC_VER)
 #pragma warning(disable: 4996) // POSIX function names are just fine, thank you
 #endif
@@ -2339,62 +1949,7 @@ void RateControl::terminate()
 }
 
 void RateControl::destroy()
-{
-    const char *fileName = m_param->rc.statFileName;
-    if (!fileName)
-        fileName = s_defaultStatFileName;
-
-    if (m_statFileOut)
-    {
-        fclose(m_statFileOut);
-        char *tmpFileName = strcatFilename(fileName, ".temp");
-        int bError = 1;
-        if (tmpFileName)
-        {
-            s265_unlink(fileName);
-            bError = s265_rename(tmpFileName, fileName);
-        }
-        if (bError)
-        {
-            s265_log_file(m_param, S265_LOG_ERROR, "failed to rename output stats file to \"%s\"\n", fileName);
-        }
-        S265_FREE(tmpFileName);
-    }
-
-    if (m_cutreeStatFileOut)
-    {
-        fclose(m_cutreeStatFileOut);
-        char *tmpFileName = strcatFilename(fileName, ".cutree.temp");
-        char *newFileName = strcatFilename(fileName, ".cutree");
-        int bError = 1;
-        if (tmpFileName && newFileName)
-        {
-            s265_unlink(newFileName);
-            bError = s265_rename(tmpFileName, newFileName);
-        }
-        if (bError)
-        {
-            s265_log_file(m_param, S265_LOG_ERROR, "failed to rename cutree output stats file to \"%s\"\n", newFileName);
-        }
-        S265_FREE(tmpFileName);
-        S265_FREE(newFileName);
-    }
-
-    if (m_cutreeStatFileIn)
-        fclose(m_cutreeStatFileIn);
-
-    if (m_cutreeShrMem)
-    {
-        m_cutreeShrMem->release();
-        delete m_cutreeShrMem;
-        m_cutreeShrMem = NULL;
-    }
-
-    S265_FREE(m_rce2Pass);
-    S265_FREE(m_encOrder);
-    for (int i = 0; i < 2; i++)
-        S265_FREE(m_cuTreeStats.qpBuffer[i]);
-    
+{   
     if (m_relativeComplexity)
         S265_FREE(m_relativeComplexity);
 

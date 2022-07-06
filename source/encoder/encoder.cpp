@@ -135,20 +135,6 @@ Encoder::Encoder()
     m_scaledChromaThreshold = 0.0;
     m_zoneIndex = 0;
 }
-
-inline char *strcatFilename(const char *input, const char *suffix)
-{
-    char *output = S265_MALLOC(char, strlen(input) + strlen(suffix) + 1);
-    if (!output)
-    {
-        s265_log(NULL, S265_LOG_ERROR, "unable to allocate memory for filename\n");
-        return NULL;
-    }
-    strcpy(output, input);
-    strcat(output, suffix);
-    return output;
-}
-
 void Encoder::create()
 {
     if (!primitives.pu[0].sad)
@@ -650,8 +636,6 @@ void Encoder::destroy()
             fclose(m_param->csvfpt);
         /* release string arguments that were strdup'd */
         free((char*)m_param->rc.lambdaFileName);
-        free((char*)m_param->rc.statFileName);
-        free((char*)m_param->rc.sharedMemName);
         free((char*)m_param->scalingLists);
         free((char*)m_param->csvfn);
         free((char*)m_param->numaPools);
@@ -1431,10 +1415,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
             if ((m_outputCount + 1)  >= m_param->chunkStart)
                 finishFrameStats(outFrame, curEncoder, frameData, m_pocLast);
 
-            /* Write RateControl Frame level stats in multipass encodes */
-            if (m_param->rc.bStatWrite)
-                if (m_rateControl->writeRateControlFrameStats(outFrame, &curEncoder->m_rce))
-                    m_aborted = true;
             if (pic_out)
             { 
                 /* m_rcData is allocated for every frame */
@@ -2859,11 +2839,6 @@ void Encoder::configure(s265_param *p)
         s265_log(p, S265_LOG_WARNING, "Disabling pme and pmode: --pme and --pmode cannot be used with SEA motion search!\n");
         p->bDistributeMotionEstimation = 0;
         p->bDistributeModeAnalysis = 0;
-    }
-
-    if (p->rc.bStatWrite && p->rc.dataShareMode != S265_SHARE_MODE_FILE && p->rc.dataShareMode != S265_SHARE_MODE_SHAREDMEM)
-    {
-        p->rc.dataShareMode = S265_SHARE_MODE_FILE;
     }
 
     p->rc.bEncFocusedFramesOnly = 0;

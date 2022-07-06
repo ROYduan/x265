@@ -645,13 +645,6 @@ typedef struct s265_vmaf_commondata
 
 static const s265_vmaf_commondata vcd[] = { { NULL, (char *)"/usr/local/share/model/vmaf_v0.6.1.pkl", NULL, NULL, 0, 0, 0, 0, 0, 0, 0, NULL, 0, 1, 0 } };
 
-
-typedef enum
-{
-    S265_SHARE_MODE_FILE = 0,
-    S265_SHARE_MODE_SHAREDMEM
-}S265_DATA_SHARE_MODES;
-
 /* s265 input parameters
  *
  * For version safety you may use s265_param_alloc/free() to manage the
@@ -1322,23 +1315,11 @@ typedef struct s265_param
         /* In CRF mode, minimum CRF as caused by VBV */
         double    rfConstantMin;
 
-        /* Multi-pass encoding */
-        /* Enable writing the stats in a multi-pass encode to the stat output file/memory */
-        int       bStatWrite;
-
-
-        /* Filename of the 2pass output/input stats file, if unspecified the
-         * encoder will default to using s265_2pass.log */
-        const char* statFileName;
-
         /* temporally blur quants */
         double    qblur;
 
         /* temporally blur complexity */
         double    complexityBlur;
-
-        /* Enable slow and a more detailed first pass encode in multi pass rate control */
-        int       bEnableSlowFirstPass;
 
         /* rate-control overrides */
         int        zoneCount;
@@ -1379,19 +1360,6 @@ typedef struct s265_param
 
         /* if only the focused frames would be re-encode or not */
         int       bEncFocusedFramesOnly;
-
-        /* Share the data with stats file or shared memory.
-        It must be one of the S265_DATA_SHARE_MODES enum values
-        Available if the bStatWrite is true.
-        Use stats file by default.
-        The stats file mode would be used among the encoders running in sequence.
-        The shared memory mode could only be used among the encoders running in parallel.
-        Now only the cutree data could be shared among shared memory. More data would be support in the future.*/
-        int       dataShareMode;
-
-        /* Unique shared memory name. Required if the shared memory mode enabled. NULL by default */
-        const char* sharedMemName;
-
     } rc;
 
     struct {

@@ -884,26 +884,6 @@ void FrameEncoder::compressFrame()
     if (m_param->bDynamicRefine && m_top->m_startPoint <= m_frame->m_encodeOrder) //Avoid collecting data that will not be used by future frames.
         collectDynDataFrame();
 
-    if (m_param->rc.bStatWrite)
-    {
-        int totalI = 0, totalP = 0, totalSkip = 0;
-
-        // accumulate intra,inter,skip cu count per frame for 2 pass
-        for (uint32_t i = 0; i < m_numRows; i++)
-        {
-            m_frame->m_encData->m_frameStats.mvBits    += m_rows[i].rowStats.mvBits;
-            m_frame->m_encData->m_frameStats.coeffBits += m_rows[i].rowStats.coeffBits;
-            m_frame->m_encData->m_frameStats.miscBits  += m_rows[i].rowStats.miscBits;
-            totalI                                     += m_rows[i].rowStats.intra8x8Cnt;
-            totalP                                     += m_rows[i].rowStats.inter8x8Cnt;
-            totalSkip                                  += m_rows[i].rowStats.skip8x8Cnt;
-        }
-        int totalCuCount = totalI + totalP + totalSkip;
-        m_frame->m_encData->m_frameStats.percent8x8Intra = (double)totalI / totalCuCount;
-        m_frame->m_encData->m_frameStats.percent8x8Inter = (double)totalP / totalCuCount;
-        m_frame->m_encData->m_frameStats.percent8x8Skip  = (double)totalSkip / totalCuCount;
-    }
-
     if (m_param->csvLogLevel >= 1)
     {
         for (uint32_t i = 0; i < m_numRows; i++)
@@ -1557,26 +1537,6 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         FrameStats frameLog;
         curEncData.m_rowStat[row].sumQpAq += collectCTUStatistics(*ctu, &frameLog);
 
-        // copy number of intra, inter cu per row into frame stats for 2 pass
-        if (m_param->rc.bStatWrite)
-        {
-            curRow.rowStats.mvBits    += best.mvBits;
-            curRow.rowStats.coeffBits += best.coeffBits;
-            curRow.rowStats.miscBits  += best.totalBits - (best.mvBits + best.coeffBits);
-
-            for (uint32_t depth = 0; depth <= m_param->maxCUDepth; depth++)
-            {
-                /* 1 << shift == number of 8x8 blocks at current depth */
-                int shift = 2 * (m_param->maxCUDepth - depth);
-                int cuSize = m_param->maxCUSize >> depth;
-
-                curRow.rowStats.intra8x8Cnt += (cuSize == 8) ? (int)(frameLog.cntIntra[depth] + frameLog.cntIntraNxN) :
-                                                               (int)(frameLog.cntIntra[depth] << shift);
-
-                curRow.rowStats.inter8x8Cnt += (int)(frameLog.cntInter[depth] << shift);
-                curRow.rowStats.skip8x8Cnt += (int)((frameLog.cntSkipCu[depth] + frameLog.cntMergeCu[depth]) << shift);
-            }
-        }
         curRow.rowStats.totalCtu++;
         curRow.rowStats.lumaDistortion   += best.lumaDistortion;
         curRow.rowStats.chromaDistortion += best.chromaDistortion;
@@ -1993,7 +1953,7 @@ int FrameEncoder::collectCTUStatistics(const CUData& ctu, FrameStats* log)
         totQP += ctu.m_qp[absPartIdx] * (ctu.m_numPartitions >> (depth * 2));
     }
 
-    if (m_param->csvLogLevel >= 1 || m_param->rc.bStatWrite)
+    if (m_param->csvLogLevel >= 1)
     {
         if (ctu.m_slice->m_sliceType == I_SLICE)
         {

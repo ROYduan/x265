@@ -171,5 +171,4 @@ add_library(common OBJECT
     predict.cpp  predict.h
     scalinglist.cpp scalinglist.h
     quant.cpp quant.h contexts.h
-    deblock.cpp deblock.h
-    ringmem.cpp ringmem.h)
+    deblock.cpp deblock.h)

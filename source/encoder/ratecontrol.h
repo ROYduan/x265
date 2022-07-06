@@ -28,7 +28,6 @@
 
 #include "common.h"
 #include "sei.h"
-#include "ringmem.h"
 
 namespace S265_NS {
 // encoder namespace
@@ -233,24 +232,7 @@ public:
 
     /* 2 pass */
     int     m_numEntries;
-    FILE*   m_statFileOut;
-    FILE*   m_cutreeStatFileOut;
-    FILE*   m_cutreeStatFileIn;
-    ///< store the cutree data in memory instead of file
-    RingMem *m_cutreeShrMem;
-    double  m_lastAccumPNorm;
-    double  m_expectedBitsSum;   /* sum of qscale2bits after rceq, ratefactor, and overflow, only includes finished frames */
-    int64_t m_predictedBits;
-    int     *m_encOrder;
-    RateControlEntry* m_rce2Pass;
     Encoder* m_top;
-
-    struct
-    {
-        uint16_t *qpBuffer[2]; /* Global buffers for converting MB-tree quantizer data. */
-        int qpBufPos;          /* In order to handle pyramid reordering, QP buffer acts as a stack.
-                                * This value is the current position (0 or 1). */
-    } m_cuTreeStats;
 
     RateControl(s265_param& p, Encoder *enc);
     bool init(const SPS& sps);
@@ -267,10 +249,6 @@ public:
     int  rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry* rce, int *filler);
     int  rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId);
     void hrdFullness(SEIBufferingPeriod* sei);
-    int writeRateControlFrameStats(Frame* curFrame, RateControlEntry* rce);
-
-    bool initCUTreeSharedMem();
-    void skipCUTreeSharedMemRead(int32_t cnt);
 
     double forwardMasking(Frame* curFrame, double q);
     double backwardMasking(Frame* curFrame, double q);
@@ -278,7 +256,6 @@ public:
 protected:
 
     static const int   s_slidingWindowFrames;
-    static const char* s_defaultStatFileName;
 
     double m_amortizeFraction;
     int    m_amortizeFrames;
@@ -303,10 +280,6 @@ protected:
     void   checkAndResetABR(RateControlEntry* rce, bool isFrameDone);
     double predictRowsSizeSum(Frame* pic, RateControlEntry* rce, double qpm, int32_t& encodedBits);
     void   initFramePredictors();
-    double getDiffLimitedQScale(RateControlEntry *rce, double q);
-    double countExpectedBits(int startPos, int framesCount);
-    bool   findUnderflow(double *fills, int *t0, int *t1, int over, int framesCount);
-    bool   fixUnderflow(int t0, int t1, double adjustment, double qscaleMin, double qscaleMax);
     double tuneQScaleForGrain(double rcOverflow);
     void   splitdeltaPOC(char deltapoc[], RateControlEntry *rce);
     void   splitbUsed(char deltapoc[], RateControlEntry *rce);

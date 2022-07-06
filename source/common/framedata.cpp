@@ -38,8 +38,6 @@ bool FrameData::create(const s265_param& param, const SPS& sps, int csp)
     m_picCTU = new CUData[sps.numCUsInFrame];
     m_picCsp = csp;
     m_spsrpsIdx = -1;
-    if (param.rc.bStatWrite)
-        m_spsrps = const_cast<RPS*>(sps.spsrps);
     bool isallocated = m_cuMemPool.create(0, param.internalCsp, sps.numCUsInFrame, param);
     if (m_param->bDynamicRefine)
     {
