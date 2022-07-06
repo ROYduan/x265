@@ -46,7 +46,6 @@ Frame::Frame()
     m_rpu.payloadSize = 0;
     m_rpu.payload = NULL;
     memset(&m_lowres, 0, sizeof(m_lowres));
-    m_rcData = NULL;
     m_encodeStartTime = 0;
     m_reconfigureRc = false;
     m_classifyFrame = false;
@@ -64,7 +63,6 @@ bool Frame::create(s265_param *param, float* quantOffsets)
     m_fencPic = new PicYuv;
     m_originalPic = m_fencPic;
     m_param = param;
-    CHECKED_MALLOC_ZERO(m_rcData, RcStats, 1);
 
 
     if (param->bDynamicRefine)
@@ -222,7 +220,6 @@ void Frame::destroy()
     }
 
     m_lowres.destroy();
-    S265_FREE(m_rcData);
 
     if (m_param->bDynamicRefine)
     {

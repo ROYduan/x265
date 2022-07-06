@@ -113,7 +113,6 @@ public:
     Frame*                 m_prev;
     s265_param*            m_param;              // Points to the latest param set for the frame.
     s265_analysis_data     m_analysisData;
-    RcStats*               m_rcData;
 
     int64_t                m_encodeStartTime;
 

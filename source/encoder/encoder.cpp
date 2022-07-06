@@ -1276,33 +1276,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         /* Use the frame types from the first pass, if available */
         int sliceType = inputPic->sliceType;
 
-        if (m_param->bUseRcStats && inputPic->rcData)
-        {
-            RcStats* rc = (RcStats*)inputPic->rcData;
-            m_rateControl->m_accumPQp = rc->cumulativePQp;
-            m_rateControl->m_accumPNorm = rc->cumulativePNorm;
-            m_rateControl->m_isNextGop = true;
-            for (int j = 0; j < 3; j++)
-                m_rateControl->m_lastQScaleFor[j] = rc->lastQScaleFor[j];
-            m_rateControl->m_wantedBitsWindow = rc->wantedBitsWindow;
-            m_rateControl->m_cplxrSum = rc->cplxrSum;
-            m_rateControl->m_totalBits = rc->totalBits;
-            m_rateControl->m_encodedBits = rc->encodedBits;
-            m_rateControl->m_shortTermCplxSum = rc->shortTermCplxSum;
-            m_rateControl->m_shortTermCplxCount = rc->shortTermCplxCount;
-            if (m_rateControl->m_isVbv)
-            {
-                m_rateControl->m_bufferFillFinal = rc->bufferFillFinal;
-                for (int i = 0; i < 4; i++)
-                {
-                    m_rateControl->m_pred[i].coeff = rc->coeff[i];
-                    m_rateControl->m_pred[i].count = rc->count[i];
-                    m_rateControl->m_pred[i].offset = rc->offset[i];
-                }
-            }
-            m_param->bUseRcStats = 0;
-        }
-
         if (m_reconfigureRc)
             inFrame->m_reconfigureRc = true;
         // 添加到inputQeune 用于预分析,如果帧数满了会自动触发lookahead线程池里面的线程worker
@@ -1414,28 +1387,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
             if ((m_outputCount + 1)  >= m_param->chunkStart)
                 finishFrameStats(outFrame, curEncoder, frameData, m_pocLast);
-
-            if (pic_out)
-            { 
-                /* m_rcData is allocated for every frame */
-                pic_out->rcData = outFrame->m_rcData;
-                outFrame->m_rcData->qpaRc = outFrame->m_encData->m_avgQpRc;
-                outFrame->m_rcData->qRceq = curEncoder->m_rce.qRceq;
-                outFrame->m_rcData->qpNoVbv = curEncoder->m_rce.qpNoVbv;
-                outFrame->m_rcData->coeffBits = outFrame->m_encData->m_frameStats.coeffBits;
-                outFrame->m_rcData->miscBits = outFrame->m_encData->m_frameStats.miscBits;
-                outFrame->m_rcData->mvBits = outFrame->m_encData->m_frameStats.mvBits;
-                outFrame->m_rcData->qScale = outFrame->m_rcData->newQScale = s265_qp2qScale(outFrame->m_encData->m_avgQpRc);
-                outFrame->m_rcData->poc = curEncoder->m_rce.poc;
-                outFrame->m_rcData->encodeOrder = curEncoder->m_rce.encodeOrder;
-                outFrame->m_rcData->sliceType = curEncoder->m_rce.sliceType;
-                outFrame->m_rcData->keptAsRef = curEncoder->m_rce.sliceType == B_SLICE && !IS_REFERENCED(outFrame) ? 0 : 1;
-                outFrame->m_rcData->qpAq = outFrame->m_encData->m_avgQpAq;
-                outFrame->m_rcData->iCuCount = outFrame->m_encData->m_frameStats.percent8x8Intra * m_rateControl->m_ncu;
-                outFrame->m_rcData->pCuCount = outFrame->m_encData->m_frameStats.percent8x8Inter * m_rateControl->m_ncu;
-                outFrame->m_rcData->skipCuCount = outFrame->m_encData->m_frameStats.percent8x8Skip  * m_rateControl->m_ncu;
-                outFrame->m_rcData->currentSatd = curEncoder->m_rce.coeffBits;
-            }
 
             /* Allow this frame to be recycled if no frame encoders are using it for reference */
             if (!pic_out)

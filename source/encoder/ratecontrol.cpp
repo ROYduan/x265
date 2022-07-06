@@ -684,12 +684,6 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         /* copy value of lastRceq into thread local rce struct *to be used in RateControlEnd() */
         rce->qRceq = m_lastRceq;//使用更新后的Rceq 给thread local 
         accumPQpUpdate();//qp累加衰减
-        curFrame->m_rcData->cumulativePQp = m_accumPQp;
-        curFrame->m_rcData->cumulativePNorm = m_accumPNorm;
-        for (int i = 0; i < 3; i++)
-            curFrame->m_rcData->lastQScaleFor[i] = m_lastQScaleFor[i];
-        curFrame->m_rcData->shortTermCplxSum = m_shortTermCplxSum;
-        curFrame->m_rcData->shortTermCplxCount = m_shortTermCplxCount;
     }
     else // CQP
     {
@@ -1876,23 +1870,11 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
             int qp = int (rce->qpaRc + 0.5);
             m_qpToEncodedBits[qp] =  m_qpToEncodedBits[qp] == 0 ? actualBits : (m_qpToEncodedBits[qp] + actualBits) * 0.5;
         }
-        curFrame->m_rcData->wantedBitsWindow = m_wantedBitsWindow;
-        curFrame->m_rcData->cplxrSum = m_cplxrSum;
-        curFrame->m_rcData->totalBits = m_totalBits;
-        curFrame->m_rcData->encodedBits = m_encodedBits;
     }
 
     if (m_isVbv)
     {
         *filler = updateVbv(actualBits, rce);
-
-        curFrame->m_rcData->bufferFillFinal = m_bufferFillFinal;
-        for (int i = 0; i < 4; i++)
-        {
-            curFrame->m_rcData->coeff[i] = m_pred[i].coeff;
-            curFrame->m_rcData->count[i] = m_pred[i].count;
-            curFrame->m_rcData->offset[i] = m_pred[i].offset;
-        }
         if (m_param->bEmitHRDSEI)
         {
             const VUI *vui = &curEncData.m_slice->m_sps->vuiParameters;

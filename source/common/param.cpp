@@ -344,7 +344,6 @@ void s265_param_default(s265_param* param)
     param->toneMapFile = NULL;
     param->bDhdr10opt = 0;
     param->dolbyProfile = 0;
-    param->bUseRcStats = 0;
     param->intraRefine = 0;
     param->interRefine = 0;
     param->bDynamicRefine = 0;
@@ -2501,7 +2500,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     if (src->toneMapFile) dst->toneMapFile = strdup(src->toneMapFile);
     else dst->toneMapFile = NULL;
     dst->bDhdr10opt = src->bDhdr10opt;
-    dst->bUseRcStats = src->bUseRcStats;
     dst->interRefine = src->interRefine;
     dst->intraRefine = src->intraRefine;
     dst->mvRefine = src->mvRefine;

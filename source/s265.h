@@ -357,11 +357,6 @@ typedef struct s265_picture
     /* User defined SEI */
     s265_sei         userSEI;
 
-    /* Ratecontrol statistics for collecting the ratecontrol information.
-     * It is not used for collecting the last pass ratecontrol data in 
-     * multi pass ratecontrol mode. */
-    void*  rcData;
-
     size_t framesize;
 
     int    height;
@@ -1547,9 +1542,6 @@ typedef struct s265_param
     /* Insert tone mapping information only for IDR frames and when the 
      * tone mapping information changes. */
     int       bDhdr10opt;
-
-    /* Use ratecontrol statistics from pic_in, if available*/
-    int       bUseRcStats;
 
     /* Enable intra refinement in load mode*/
     int       intraRefine;
