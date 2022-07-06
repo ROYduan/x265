@@ -112,7 +112,6 @@ public:
     Frame*                 m_next;               // PicList doubly linked list pointers
     Frame*                 m_prev;
     s265_param*            m_param;              // Points to the latest param set for the frame.
-    s265_analysis_data     m_analysisData;
 
     int64_t                m_encodeStartTime;
 

@@ -202,8 +202,7 @@ New features
 
 Encoder enhancements
 --------------------
-1. Create API function for allocating and freeing s265_analysis_data.
-2. CEA 608/708 support: Read SEI messages from text file and encode it using userSEI message.
+1. CEA 608/708 support: Read SEI messages from text file and encode it using userSEI message.
 
 Bug fixes
 ---------
@@ -279,7 +278,7 @@ Release date - 29th November, 2017.
 
 New features
 ------------
-1. s265 can now refine analysis from a previous HEVC encode (using options :option:`--refine-inter`, and :option:`--refine-intra`), or a previous AVC encode (using option :option:`--refine-mv-type`). The previous encode's information can be packaged using the *s265_analysis_data_t*  data field available in the *s265_picture* object.
+1. s265 can now refine analysis from a previous HEVC encode (using options :option:`--refine-inter`, and :option:`--refine-intra`), or a previous AVC encode (using option :option:`--refine-mv-type`).
 2. Basic support for segmented (or chunked) encoding added with :option:`--vbv-end` that can specify the status of CPB at the end of a segment. String this together with :option:`--vbv-init` to encode a title as chunks while maintaining VBV compliance!
 3. :option:`--force-flush` can be used to trigger a premature flush of the encoder. This option is beneficial when input is known to be bursty, and may be at a rate slower than the encoder.
 4. Experimental feature :option:`--lowpass-dct` that uses truncated DCT for transformation.

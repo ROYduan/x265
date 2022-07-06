@@ -576,12 +576,6 @@ fail:
     if (numEncoded)
         encoder->m_externalFlush = false;
 
-    // do not allow reuse of these buffers for more than one picture. The
-    // encoder now owns these analysisData buffers.
-    if (pic_in)
-    {
-        pic_in->analysisData.wt = NULL;
-    }
 
     if (pp_nal && numEncoded > 0 && encoder->m_outputCount >= encoder->m_latestParam->chunkStart)
     {
@@ -798,7 +792,6 @@ static const s265_api libapi =
     S265_BUILD,
     sizeof(s265_param),
     sizeof(s265_picture),
-    sizeof(s265_analysis_data),
     sizeof(s265_zone),
     sizeof(s265_stats),
 

@@ -144,27 +144,6 @@ typedef uint64_t sse_t;
 #define EDGE_BINS 2
 #define MAX_HIST_BINS 1024
 
-/* Stores all analysis data for a single frame */
-typedef struct s265_analysis_data
-{
-    int64_t                           satdCost;
-    uint32_t                          frameRecordSize;
-    uint32_t                          poc;
-    uint32_t                          sliceType;
-    uint32_t                          numCUsInFrame;
-    uint32_t                          numPartitions;
-    uint32_t                          depthBytes;
-    int32_t                           edgeHist[EDGE_BINS];
-    int32_t                           yuvHist[3][MAX_HIST_BINS];
-    int                               bScenecut;
-    s265_weight_param*                wt;
-    uint32_t                          numCuInHeight;
-    s265_lookahead_data               lookahead;
-    uint8_t*                          modeFlag[2];
-    uint64_t                          frameBits;
-    int                               list0POC[MAX_NUM_REF];
-    int                               list1POC[MAX_NUM_REF];
-} s265_analysis_data;
 
 /* cu statistics */
 typedef struct s265_cu_stats
@@ -341,8 +320,6 @@ typedef struct s265_picture
     /* Force the slice base QP for this picture within the encoder. Set to 0
      * to allow the encoder to determine base QP */
     int     forceqp;
-
-    s265_analysis_data analysisData;
 
     /* An array of quantizer offsets to be applied to this image during encoding.
      * These are added on top of the decisions made by rateControl.
@@ -2033,7 +2010,6 @@ typedef struct s265_api
     int           api_build_number;     /* S265_BUILD (soname) */
     int           sizeof_param;         /* sizeof(s265_param) */
     int           sizeof_picture;       /* sizeof(s265_picture) */
-    int           sizeof_analysis_data; /* sizeof(s265_analysis_data) */
     int           sizeof_zone;          /* sizeof(s265_zone) */
     int           sizeof_stats;         /* sizeof(s265_stats) */
 
