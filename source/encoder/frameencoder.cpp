@@ -754,7 +754,7 @@ void FrameEncoder::compressFrame()
      * RateControlEnd here, after the slice contexts are initialized. For the rest - ABR
      * and VBV, unlock only after rateControlUpdateStats of this frame is called */
     if (m_param->rc.rateControlMode != S265_RC_ABR && !m_top->m_rateControl->m_isVbv)
-    {
+    {// 这里是非码空情况下，不需要统计 bits,在这里提前 自增m_startEndOrder
         m_top->m_rateControl->m_startEndOrder.incr();
 
         if (m_rce.encodeOrder < m_param->frameNumThreads - 1)
@@ -1530,7 +1530,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                     int allowCol = col;
 
                     // avoid race condition on last column
-                    if (rowInSlice >= 2)//从slice的第3行开始
+                    if (rowInSlice >= 2)//从slice的第2行开始(从0开始算法)
                     {   // 如果改ctu 是row的最后一列，则允许上一行从其更上一行的已经完成了所有deblock的ctu相同位置的ctu开始进行deblock
                         // 否则不是最后一列，则允许上一行从其更上一行中准备处理的ctu的相同位置ctu进行滤波处理
                         allowCol = S265_MIN(((col == numCols - 1) ? m_frameFilter.m_parallelFilter[row - 2].m_lastDeblocked.get()
@@ -1807,39 +1807,39 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
      * after refLagRows (the number of rows reference frames must have completed
      * before referencees may begin encoding) */
     if (m_param->rc.rateControlMode == S265_RC_ABR || bIsVbv)
-    {
+    {// 在有码率控制的情况下
         uint32_t rowCount = 0;
         uint32_t maxRows = m_sliceBaseRow[sliceId + 1] - m_sliceBaseRow[sliceId];
 
-        if (!m_rce.encodeOrder)
+        if (!m_rce.encodeOrder)//对于首帧需要等到最后一行编码结束
             rowCount = maxRows - 1; 
         else if ((uint32_t)m_rce.encodeOrder <= 2 * (m_param->fpsNum / m_param->fpsDenom))
-            rowCount = S265_MIN((maxRows + 1) / 2, maxRows - 1);
-        else
+            rowCount = S265_MIN((maxRows + 1) / 2, maxRows - 1);//对于前面两秒时间内的帧数，需要等到帧的一半ctu 行编码完成
+        else// 对于超过2s后的帧，只需要等待 refLagRow 行
             rowCount = S265_MIN(m_refLagRows / m_param->maxSlices, maxRows - 1);
 
-        if (rowInSlice == rowCount)
+        if (rowInSlice == rowCount)//当前slice 的所有 ctu row 编码完了
         {
             m_rowSliceTotalBits[sliceId] = 0;
             if (bIsVbv && !(m_param->rc.bEnableConstVbv && m_param->bEnableWavefront))
             {
                 for (uint32_t i = m_sliceBaseRow[sliceId]; i < rowCount + m_sliceBaseRow[sliceId]; i++)
-                    m_rowSliceTotalBits[sliceId] += curEncData.m_rowStat[i].encodedBits;
+                    m_rowSliceTotalBits[sliceId] += curEncData.m_rowStat[i].encodedBits;//累加slice 中的每一行ctu 编码产生的bits
             }
             else
             {
-                uint32_t startAddr = m_sliceBaseRow[sliceId] * numCols;
-                uint32_t finishAddr = startAddr + rowCount * numCols;
+                uint32_t startAddr = m_sliceBaseRow[sliceId] * numCols;//当前slice的首个ctu在frame中地址
+                uint32_t finishAddr = startAddr + rowCount * numCols;// 当前slcie的最后一个ctu 在frame中的地址
                 
                 for (uint32_t cuAddr = startAddr; cuAddr < finishAddr; cuAddr++)
-                    m_rowSliceTotalBits[sliceId] += curEncData.m_cuStat[cuAddr].totalBits;
+                    m_rowSliceTotalBits[sliceId] += curEncData.m_cuStat[cuAddr].totalBits;// 按照ctu 进行统计产生的bits
             }
-
+            // slice num 先自加 再访问, 
             if (ATOMIC_INC(&m_sliceCnt) == (int)m_param->maxSlices)
-            {
+            {   //如果当前frame的slice 全部编码完毕，则重新统计bits
                 m_rce.rowTotalBits = 0;
                 for (uint32_t i = 0; i < m_param->maxSlices; i++)
-                    m_rce.rowTotalBits += m_rowSliceTotalBits[i];
+                    m_rce.rowTotalBits += m_rowSliceTotalBits[i];// 所有slice产生的bits 累加
                 m_top->m_rateControl->rateControlUpdateStats(&m_rce);
             }
         }

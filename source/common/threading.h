@@ -442,7 +442,7 @@ public:
     {
         pthread_mutex_lock(&m_mutex);
         if (m_val == prev) // 注意没有用while,只要m_val 不等于prev 了就立马返回
-            pthread_cond_wait(&m_cond, &m_mutex);
+            pthread_cond_wait(&m_cond, &m_mutex);// 等待m_cond 条件变量期间会释放lock,一旦等到了,会立即再次获取lock,继续往下执行  
         pthread_mutex_unlock(&m_mutex);
         return m_val;
     }

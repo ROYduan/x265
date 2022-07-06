@@ -667,11 +667,11 @@ void Encoder::updateVbvPlan(RateControl* rc)
     {
         FrameEncoder *encoder = m_frameEncoder[i];
         if (encoder->m_rce.isActive && encoder->m_rce.poc != rc->m_curSlice->m_poc)
-        {
+        {//统计其他在活线程编码帧
             int64_t bits = m_param->rc.bEnableConstVbv ? (int64_t)encoder->m_rce.frameSizePlanned : (int64_t)S265_MAX(encoder->m_rce.frameSizeEstimated, encoder->m_rce.frameSizePlanned);
-            rc->m_bufferFill -= bits;
+            rc->m_bufferFill -= bits;// bufferFill - 减去编码帧预计消耗的bits
             rc->m_bufferFill = S265_MAX(rc->m_bufferFill, 0);
-            rc->m_bufferFill += encoder->m_rce.bufferRate;
+            rc->m_bufferFill += encoder->m_rce.bufferRate;// bufferFill + 这一帧duration内应该注入vbv内的bits
             rc->m_bufferFill = S265_MIN(rc->m_bufferFill, rc->m_bufferSize);
             if (rc->m_2pass)
                 rc->m_predictedBits += bits;

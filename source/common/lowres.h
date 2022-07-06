@@ -177,7 +177,7 @@ struct Lowres : public ReferencePlanes
 
     bool   bScenecut;        // Set to false if the frame cannot possibly be part of a real scenecut.
     bool   bKeyframe;
-    bool   bLastMiniGopBFrame;
+    bool   bLastMiniGopBFrame; //一个nimigop内的最后一个B帧也是编码顺序上的最后一帧
     bool   bIsFadeEnd;
 
     double ipCostRatio;

@@ -71,7 +71,7 @@ struct HRDTiming
 
 struct RateControlEntry
 {
-    Predictor  rowPreds[3][2];
+    Predictor  rowPreds[3][2];//[B/P/I][pred_s/pred_intra]
     Predictor* rowPred[2];
 
     int64_t currentSatd;
