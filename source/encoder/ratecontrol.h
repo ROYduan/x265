@@ -221,7 +221,12 @@ public:
      * rceStart  12
      * rceUpdate 12
      * rceEnd    11 */
+    // 此变量用于控制整个编码器中码率控制，何时可以执行rateControlStart,何时可以执行rateControlEnd
+    // 变量的变换情况是 start后在update中+1, 然后在end中+1
+    // 执行条件是，在调用start 前 需要等在并行编码中的最早的一帧完成end的调用
+    // 在调用end之前，需要等在并行编码中的最新的一帧完成update调用
     ThreadSafeInteger m_startEndOrder;
+
     int     m_finalFrameCount;   /* set when encoder begins flushing */
     bool    m_bTerminated;       /* set true when encoder is closing */
 

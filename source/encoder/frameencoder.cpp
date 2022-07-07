@@ -431,7 +431,7 @@ void FrameEncoder::writeTrailingSEIMessages()
     m_seiReconPictureDigest.setSize(payloadSize);
     m_seiReconPictureDigest.writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_SUFFIX_SEI, m_nalList, false);
 }
-// 开始一帧的编码,called by workerthreads
+// 开始一帧的编码,called by frameEncode threads
 void FrameEncoder::compressFrame()
 {
     ProfileScopeEvent(frameThread);
@@ -542,6 +542,7 @@ void FrameEncoder::compressFrame()
 
     /* Get the QP for this frame from rate control. This call may block until
      * frames ahead of it in encode order have called rateControlEnd() */
+    //里面会阻塞，等当前帧之前的帧完成对rateControlEnd 的访问 
     int qp = m_top->m_rateControl->rateControlStart(m_frame, &m_rce, m_top);
     m_rce.newQp = qp;
 
@@ -740,11 +741,11 @@ void FrameEncoder::compressFrame()
      * RateControlEnd here, after the slice contexts are initialized. For the rest - ABR
      * and VBV, unlock only after rateControlUpdateStats of this frame is called */
     if (m_param->rc.rateControlMode != S265_RC_ABR && !m_top->m_rateControl->m_isVbv)
-    {// 这里是非码空情况下，不需要统计 bits,在这里提前 自增m_startEndOrder
-        m_top->m_rateControl->m_startEndOrder.incr();
-
+    {// 这里是非码空情况下，不需要统计 bits,在这里提前 自增m_startEndOrder，以让之前的线程在执行RateControlEnd 不需要等待
+        m_top->m_rateControl->m_startEndOrder.incr();// 非码空 update+1 by frameEncoder threads 
+        // 当前帧的编码序号不足一个 frameNumThreads 循环，
         if (m_rce.encodeOrder < m_param->frameNumThreads - 1)
-            m_top->m_rateControl->m_startEndOrder.incr(); // faked rateControlEnd calls for negative frames
+            m_top->m_rateControl->m_startEndOrder.incr(); // 非码空提前 end+1 by frameEncoder threads  faked rateControlEnd calls for negative frames
     }
 
     if (m_param->bDynamicRefine)
@@ -1009,6 +1010,7 @@ void FrameEncoder::compressFrame()
         {
             bytes += m_nalList.m_nal[i].sizeBytes;
             // and exclude start code prefix
+            //减去起始码，第一个nalunit ,sps_nalunit,pps_nalunit 使用4字节起始码，其他使用3字节起始码
             bytes -= (!i || type == NAL_UNIT_SPS || type == NAL_UNIT_PPS) ? 4 : 3;
         }
     }
@@ -1725,7 +1727,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             ATOMIC_INC(&m_countRowBlocks);
             return;
         }
-    }// 完成一行ctu的编码了
+    }// 完成了 第 rowInSlice 行ctu的编码了
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
@@ -1764,7 +1766,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         else// 对于超过2s后的帧，只需要等待 refLagRow 行
             rowCount = S265_MIN(m_refLagRows / m_param->maxSlices, maxRows - 1);
 
-        if (rowInSlice == rowCount)//当前slice 的所有 ctu row 编码完了
+        if (rowInSlice == rowCount)//当前slice需要等待的CTU行编码完了
         {
             m_rowSliceTotalBits[sliceId] = 0;
             if (bIsVbv && !(m_param->rc.bEnableConstVbv && m_param->bEnableWavefront))
@@ -1950,6 +1952,7 @@ int FrameEncoder::collectCTUStatistics(const CUData& ctu, FrameStats* log)
     for (uint32_t absPartIdx = 0; absPartIdx < ctu.m_numPartitions; absPartIdx += ctu.m_numPartitions >> (depth * 2))
     {
         depth = ctu.m_cuDepth[absPartIdx];
+        // 按照4X4 来存储的m_qp
         totQP += ctu.m_qp[absPartIdx] * (ctu.m_numPartitions >> (depth * 2));
     }
 

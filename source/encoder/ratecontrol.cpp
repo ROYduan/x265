@@ -126,7 +126,7 @@ RateControl::RateControl(s265_param& p, Encoder *top)
     m_rateFactorMaxIncrement = 0;
     m_rateFactorMaxDecrement = 0;
     m_fps = (double)m_param->fpsNum / m_param->fpsDenom;
-    m_startEndOrder.set(0);
+    m_startEndOrder.set(0);// 初始值 0
     m_bTerminated = false;
     m_finalFrameCount = 0;
     m_numEntries = 0;
@@ -493,19 +493,20 @@ void RateControl::initFramePredictors()
         m_pred[0].coeffMin = m_pred[3].coeffMin = 0.75 / 4;
     }
 }
-// 每个帧编码线程在编码一帧前调用
+// 每个帧编码线程在编码一帧前调用 called by frameEncode threads
 int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encoder* enc)
 {
-    int orderValue = m_startEndOrder.get();
+    int orderValue = m_startEndOrder.get();// 从主线程获取start end order值
     int startOrdinal = rce->encodeOrder * 2;
-
+    // 主线程 当前的 orderValue 比当前线程中rce编码的帧 的两倍 值要小，
+    // 执行当前帧的start 之前需要等并行帧中最老的帧完成 end的调用
     while (orderValue < startOrdinal && !m_bTerminated) // m_bTerminated 由 s265_encoder_close 进行设置
         orderValue = m_startEndOrder.waitForChange(orderValue);//等待 m_startEndOrder 的value 发生变化
 
     if (!curFrame)// 传进来的frame 为空,表示encoder 在 flushing
     {
         // faked rateControlStart calls when the encoder is flushing
-        m_startEndOrder.incr();// 先自增 在唤醒条件变量
+        m_startEndOrder.incr();// flushing return 相当于update+1
         return 0;
     }
 
@@ -1163,7 +1164,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         return q;
     }
 }
-// 开启码空或者vbv 下，每一帧编码完成后进行调用
+// 开启码空或者vbv 下，在一帧的最后一个slice完成若干需要等待的CTU行后进行调用
+// called by workthreads
 void RateControl::rateControlUpdateStats(RateControlEntry* rce)
 {
         if (rce->sliceType == I_SLICE)
@@ -1207,10 +1209,10 @@ void RateControl::rateControlUpdateStats(RateControlEntry* rce)
      * frame has updated its mid-frame statistics */
     if (m_param->rc.rateControlMode == S265_RC_ABR || m_isVbv)
     {
-        m_startEndOrder.incr();
+        m_startEndOrder.incr();//  码空 update+1 by workthreads
 
         if (rce->encodeOrder < m_param->frameNumThreads - 1)
-            m_startEndOrder.incr(); // faked rateControlEnd calls for negative frames
+            m_startEndOrder.incr(); // 码空提前 end+1 by workthreads   Start faked rateControlEnd calls for negative frames
     }
 }
 
@@ -1715,7 +1717,10 @@ void RateControl::updatePredictor(Predictor *p, double q, double var, double bit
     p->coeff  += new_coeff;
     p->offset += new_offset;
 }
-
+// called by frameEncoder threads
+// bits: 当前帧编码实际产生的bits
+// updateVbv 和 rateControlStart rateControlEnd 一样 按照严格的顺序执行
+// 虽然会被不同的线程执行，但不会有竞争的现象
 int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
 {
     int predType = rce->sliceType;
@@ -1723,9 +1728,7 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
     double bufferBits;
     predType = rce->sliceType == B_SLICE && rce->keptAsRef ? 3 : predType;
     if (rce->lastSatd >= m_ncu && rce->encodeOrder >= m_lastPredictorReset)
-        updatePredictor(&m_pred[predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);
-    if (!m_isVbv)
-        return 0;
+        updatePredictor(&m_pred[predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);w
 
     m_bufferFillFinal -= bits;
 
@@ -1733,14 +1736,14 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
         s265_log(m_param, S265_LOG_WARNING, "poc:%d, VBV underflow (%.0f bits)\n", rce->poc, m_bufferFillFinal);
 
     m_bufferFillFinal = S265_MAX(m_bufferFillFinal, 0);
-    m_bufferFillFinal += rce->bufferRate;
+    m_bufferFillFinal += rce->bufferRate;//加上应流入的bits
     if (m_param->csvLogLevel >= 2)
         m_unclippedBufferFillFinal = m_bufferFillFinal;
 
     if (m_param->rc.bStrictCbr)
     {
         if (m_bufferFillFinal > m_bufferSize)
-        {
+        {   // 可用bits量有多，填充filler
             filler = (int)(m_bufferFillFinal - m_bufferSize);
             filler += FILLER_OVERHEAD * 8;
         }
@@ -1751,25 +1754,37 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
     }
     else
     {
-        m_bufferFillFinal = S265_MIN(m_bufferFillFinal, m_bufferSize);
-        bufferBits = S265_MIN(bits + m_bufferExcess, rce->bufferRate);
-        m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits, 0);
-        m_bufferFillActual += bufferBits - bits;
+        m_bufferFillFinal = S265_MIN(m_bufferFillFinal, m_bufferSize);//fillFinal 肯定要小于bufferSize
+        // 当实际使用掉了的bits一直< bufferRate时，m_bufferExcess 一直为0,bufferBits 则一直等于实际消耗的bits，m_bufferFillActual一直为m_bufferFillFinal
+        // 当实际使用掉了的bits 超过 bufferRate时，bufferBits 取去上界bufferRate，m_bufferExcess 更新本次多用了的bits,m_bufferFillActual 会下降(用多了)
+        // 如果后面用掉的bits仍然太多了，bufferBits 取去上界bufferRate，m_bufferExcess 在之前多用的基础上继续累加，m_bufferFillActual 会继续下降(用多了)
+        // 如果后面用掉的bits < bufferRate了:
+            //如果 bits + 之前整个多用了的 < bufferRate了 ,则 bufferBits 取值为 实际消耗的+之前整个多用了的，m_bufferExcess 跟新为0 m_bufferFillActual 向上调整
+            //如果 bits + 之前整个多用了的 > bufferRate了,则 bufferBits 取值为 bufferRate， m_bufferExcess将变小留给后面继续调整，m_bufferFillActual 向上调整
+            //直到 m_bufferExcess 跟新为0 为了 m_bufferFillActual 不在调整
+        bufferBits = S265_MIN(bits + m_bufferExcess, rce->bufferRate);//本次实际用掉的bits+之前多用的bits（如果之前还有多用了的） 最多不超过bufferRate,表示实际流入vbv 的bits
+        m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits, 0);// 下次进来时 还需要考虑的剩余了的多用的bits
+        m_bufferFillActual += bufferBits - bits;//alctual fill + 应流入 - 实际输出的bits
         m_bufferFillActual = S265_MIN(m_bufferFillActual, m_bufferSize);
     }
-    return filler;
+    return filler;// 返回需要填充的bits
 }
 
 /* After encoding one frame, update rate control state */
+// 每个帧编码线程在编码一帧全部完成后 called by frameEncode threads
 int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry* rce, int *filler)
 {
-    int orderValue = m_startEndOrder.get();
+    int orderValue = m_startEndOrder.get();//从主线程获取start end order
+    // (当前编码帧序号 + 一圈的帧级线程） 需要等一圈的帧编码都完成了rateControlEnd 
     int endOrdinal = (rce->encodeOrder + m_param->frameNumThreads) * 2 - 1;
+    //如果主线程当前统计到 order 值小于 （当前线程编码帧号+再加其他正在并行帧）* 2 -1
+    // 执行当前帧的End 时 之前需要等并行帧中最新的帧完成update的调用
     while (orderValue < endOrdinal && !m_bTerminated)
     {
         /* no more frames are being encoded, so fake the start event if we would
          * have blocked on it. Note that this does not enforce rateControlEnd()
          * ordering during flush, but this has no impact on the outputs */
+        // 遇到编码器flush了
         if (m_finalFrameCount && orderValue >= 2 * m_finalFrameCount)
             break;
         orderValue = m_startEndOrder.waitForChange(orderValue);
@@ -1788,7 +1803,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
             for (uint32_t i = 0; i < slice->m_sps->numCuInHeight; i++)
                 avgQpRc += curEncData.m_rowStat[i].sumQpRc;
 
-            avgQpRc /= slice->m_sps->numCUsInFrame;
+            avgQpRc /= slice->m_sps->numCUsInFrame;//计算所有CTU的平均QPRC
             curEncData.m_avgQpRc = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, avgQpRc);
             rce->qpaRc = curEncData.m_avgQpRc;
         }
@@ -1800,7 +1815,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
             for (uint32_t i = 0; i < slice->m_sps->numCuInHeight; i++)
                 avgQpAq += curEncData.m_rowStat[i].sumQpAq;
 
-            avgQpAq /= (slice->m_sps->numCUsInFrame * m_param->num4x4Partitions);
+            avgQpAq /= (slice->m_sps->numCUsInFrame * m_param->num4x4Partitions);//计算所有4x4的平均qp
             curEncData.m_avgQpAq = avgQpAq;
         }
         else
@@ -1809,15 +1824,14 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_isAbr)
     {
-        if (m_param->rc.rateControlMode == S265_RC_ABR)
+        if (m_param->rc.rateControlMode == S265_RC_ABR)// abr 码空先不看
             checkAndResetABR(rce, true);
     }
     if (m_param->rc.rateControlMode == S265_RC_CRF)
     {
         double crfVal, qpRef = curEncData.m_avgQpRc;
 
-        bool is2passCrfChange = false;
-        if (is2passCrfChange || fabs(qpRef - rce->qpNoVbv) > 0.5)
+        if (fabs(qpRef - rce->qpNoVbv) > 0.5)
         {
             double crfFactor = rce->qRceq /s265_qp2qScale(qpRef);
             double baseCplx = m_ncu * (m_param->bframes ? 120 : 80);
@@ -1903,7 +1917,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
     }
     rce->isActive = false;
     // Allow rateControlStart of next frame only when rateControlEnd of previous frame is over
-    m_startEndOrder.incr();
+    m_startEndOrder.incr(); // 码控/非码控 都end +1
     return 0;
 }
 
