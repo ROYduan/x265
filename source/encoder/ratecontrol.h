@@ -113,9 +113,7 @@ struct RateControlEntry
     double   qScale;
     double   newQScale;
     double   newQp;
-    int      mvBits;
     int      miscBits;
-    int      coeffBits;
     bool     keptAsRef;
     bool     scenecut;
     bool     isIdr;
@@ -286,8 +284,6 @@ protected:
     double predictRowsSizeSum(Frame* pic, RateControlEntry* rce, double qpm, int32_t& encodedBits);
     void   initFramePredictors();
     double tuneQScaleForGrain(double rcOverflow);
-    void   splitdeltaPOC(char deltapoc[], RateControlEntry *rce);
-    void   splitbUsed(char deltapoc[], RateControlEntry *rce);
 };
 }
 #endif // ifndef S265_RATECONTROL_H

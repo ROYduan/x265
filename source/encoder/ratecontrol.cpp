@@ -588,7 +588,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     rce->rowTotalBits = 0;
     if (m_isVbv)
     {
-        if (rce->rowPreds[0][0].count == 0)//发现B帧使用的 用于pred_s 的预测器参数重置，注意第一次也在这里初始化
+        if (rce->rowPreds[0][0].count == 0)//B帧使用的用于pred_s 的预测器参数重置，注意第一次也在这里初始化
         {
             for (int i = 0; i < 3; i++)
             {
@@ -812,6 +812,7 @@ double RateControl::tuneQScaleForGrain(double rcOverflow)
     return q;
 }
 // 每个帧编码线程在编码一帧前 由 rateControlStart调用
+// 在并行编码的过程中，rateControlStart 按照严格的顺序调用
 double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 {
     double q;
@@ -1023,10 +1024,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             m_shortTermCplxCount *= 0.5;
             m_shortTermCplxSum += m_currentSatd / (CLIP_DURATION(m_frameDuration) / BASE_FRAME_DURATION);
             m_shortTermCplxCount++;
-            /* coeffBits to be used in 2-pass */
-            rce->coeffBits = (int)m_currentSatd;
             rce->blurredComplexity = m_shortTermCplxSum / m_shortTermCplxCount;
-            rce->mvBits = 0;
             rce->sliceType = m_sliceType;
 
             if (m_param->rc.rateControlMode == S265_RC_CRF)
@@ -1671,6 +1669,8 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
 }
 
 /* modify the bitrate curve from pass1 for one frame */
+// 调用关系 rateControlStart-->rateEstimateQscale --> getQScale
+// 从调用关系可以看出来每一帧编码前进行计算 m_lastRceq
 double RateControl::getQScale(RateControlEntry *rce, double rateFactor)
 {
     double q;
@@ -1685,17 +1685,20 @@ double RateControl::getQScale(RateControlEntry *rce, double rateFactor)
         q = pow(rce->blurredComplexity, 1 - m_param->rc.qCompress);
 
     // avoid NaN's in the Rceq
-    if (rce->coeffBits + rce->mvBits == 0)
+    if (rce->lastSatd == 0)
         q = m_lastQScaleFor[rce->sliceType];
     else
     {
-        m_lastRceq = q;
+        m_lastRceq = q;//更新rceq
         q /= rateFactor;
     }
 
     return q;
 }
-
+//q: qscale
+//var: satd
+//bits: encoded bits
+// equation: bits*qscale = coeff* satd + offset
 void RateControl::updatePredictor(Predictor *p, double q, double var, double bits)
 {
     if (var < 10)
@@ -1710,12 +1713,12 @@ void RateControl::updatePredictor(Predictor *p, double q, double var, double bit
         new_coeff = new_coeff_clipped;
     else
         new_offset = 0;
-    p->count  *= p->decay;
+    p->count  *= p->decay;//衰减
     p->coeff  *= p->decay;
     p->offset *= p->decay;
-    p->count++;
-    p->coeff  += new_coeff;
-    p->offset += new_offset;
+    p->count++;// 计数++
+    p->coeff  += new_coeff;//系数累加
+    p->offset += new_offset;//系数累加
 }
 // called by frameEncoder threads
 // bits: 当前帧编码实际产生的bits
@@ -1728,7 +1731,7 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
     double bufferBits;
     predType = rce->sliceType == B_SLICE && rce->keptAsRef ? 3 : predType;
     if (rce->lastSatd >= m_ncu && rce->encodeOrder >= m_lastPredictorReset)
-        updatePredictor(&m_pred[predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);w
+        updatePredictor(&m_pred[predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);
 
     m_bufferFillFinal -= bits;
 
@@ -1949,52 +1952,6 @@ void RateControl::destroy()
     if (m_relativeComplexity)
         S265_FREE(m_relativeComplexity);
 
-}
-
-void RateControl::splitdeltaPOC(char deltapoc[], RateControlEntry *rce)
-{
-    int idx = 0, length = 0;
-    char tmpStr[128];
-    char* src = deltapoc;
-    char* buf = strstr(src, "~");
-    while (buf)
-    {
-        memset(tmpStr, 0, sizeof(tmpStr));
-        length = (int)(buf - src);
-        if (length != 0)
-        {
-            strncpy(tmpStr, src, length);
-            rce->rpsData.deltaPOC[idx] = atoi(tmpStr);
-            idx++;
-            if (idx == rce->rpsData.numberOfPictures)
-                break;
-        }
-        src += (length + 1);
-        buf = strstr(src, "~");
-    }
-}
-
-void RateControl::splitbUsed(char bused[], RateControlEntry *rce)
-{
-    int idx = 0, length = 0;
-    char tmpStr[128];
-    char* src = bused;
-    char* buf = strstr(src, "~");
-    while (buf)
-    {
-        memset(tmpStr, 0, sizeof(tmpStr));
-        length = (int)(buf - src);
-        if (length != 0)
-        {
-            strncpy(tmpStr, src, length);
-            rce->rpsData.bUsed[idx] = atoi(tmpStr) > 0;
-            idx++;
-            if (idx == rce->rpsData.numberOfPictures)
-                break;
-        }
-        src += (length + 1);
-        buf = strstr(src, "~");
-    }
 }
 
 double RateControl::forwardMasking(Frame* curFrame, double q)
