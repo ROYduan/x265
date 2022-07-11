@@ -172,7 +172,7 @@ public:
     volatile int             m_activeWorkerCount;        // count of workers currently encoding or filtering CTUs
     volatile int             m_totalActiveWorkerCount;   // sum of m_activeWorkerCount sampled at end of each CTU
     volatile int             m_activeWorkerCountSamples; // count of times m_activeWorkerCount was sampled (think vbv restarts)
-    volatile int             m_countRowBlocks;           // count of workers forced to abandon a row because of top dependency
+    volatile int             m_countRowBlocks;           // count of workers forced to abandon a row because of top dependency 用于统计wpp下因为右上测依赖条件没有满足而阻塞row行编码的次数，仅仅用于统计
     int64_t                  m_startCompressTime;        // timestamp when frame encoder is given a frame
     int64_t                  m_row0WaitTime;             // timestamp when row 0 is allowed to start
     int64_t                  m_allRowsAvailableTime;     // timestamp when all reference dependencies are resolved

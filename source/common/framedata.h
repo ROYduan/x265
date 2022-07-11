@@ -143,7 +143,7 @@ public:
         uint32_t encodedBits;   /* sum of 'totalBits' of encoded CTUs */
         uint32_t satdForVbv;    /* sum of lowres (estimated) costs for entire row */
         uint32_t intraSatdForVbv; /* sum of lowres (estimated) intra costs for entire row */
-        uint32_t rowSatd;
+        uint32_t rowSatd;// 每一行在编码过程中不断累计所在行的CTU的satd值
         uint32_t rowIntraSatd;
         double   rowQp;
         double   rowQpScale;
@@ -163,8 +163,8 @@ public:
     };
 
     PeriodicIR     m_pir;
-    double         m_avgQpRc;    /* avg QP as decided by rate-control */
-    double         m_avgQpAq;    /* avg QP as decided by AQ in addition to rate-control */
+    double         m_avgQpRc;    /* avg QP as decided by rate-control CTU 级别 */
+    double         m_avgQpAq;    /* avg QP as decided by AQ in addition to rate-control 4x4 级别*/
     double         m_rateFactor; /* calculated based on the Frame QP */
     int            m_picCsp;
 

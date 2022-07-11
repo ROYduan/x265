@@ -1274,7 +1274,7 @@ void FrameEncoder::processRow(int row, int threadId)
     m_totalWorkerElapsedTime += s265_mdate() - startTime; // not thread safe, but good enough
 }
 
-// Called by worker threads （编码任务）
+// Called by worker threads （行编码任务）
 void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 {
     const uint32_t row = (uint32_t)intRow;
@@ -1282,7 +1282,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
     if (m_param->bEnableWavefront)// wpp  下 需要先拿到锁
     {
-        ScopedLock self(curRow.lock);
+        ScopedLock self(curRow.lock);// 锁 active 和busy 变量
         if (!curRow.active) //
             /* VBV restart is in progress, exit out */
             return;
@@ -1323,10 +1323,10 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         rowCoder.load(m_initSliceContext);
 
     // calculate mean QP for consistent deltaQP signalling calculation
-    //计算一个CTU行内的menQp
+    //计算一个CTU行内的meanQp
     if (m_param->bOptCUDeltaQP)
     {
-        ScopedLock self(curRow.lock);
+        ScopedLock self(curRow.lock);// // 锁 avgQPComputed 变量
         if (!curRow.avgQPComputed)//如果该行的avgQP 还没有被计算
         {
             if (m_param->bEnableWavefront || !row)// wpp下每一行都计算,非wpp下只有第0行才计算
@@ -1419,7 +1419,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
             FrameData::RCStatCU& cuStat = curEncData.m_cuStat[cuAddr];
             if (m_param->bEnableWavefront && rowInSlice >= col && !bFirstRowInSlice && m_vbvResetTriggerRow[curRow.sliceId] != intRow)
-                //wpp下，在非slice首行ctu行的斜对角线上的的ctu上，如果该row 所在slice没有被标记为从该row行开始重新编码
+                //wpp下，在非slice首行ctu行的斜对角线上以及右下边部分的ctu上，如果该row 所在slice没有被标记为从该row行开始重新编码
                 cuStat.baseQp = curEncData.m_cuStat[cuAddr - numCols + 1].baseQp;//取右上角ctu的baseQp作为当前ctu的初始baseqp
             else if (!m_param->bEnableWavefront && !bFirstRowInSlice && m_vbvResetTriggerRow[curRow.sliceId] != intRow)
                 //非wpp下，非slice首行ctu且该row 所在slice没有被标记为从该row行开始重新编码
@@ -1604,7 +1604,8 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 }
             }
             // If current block is at row diagonal checkpoint, call vbv ratecontrol.
-            // wpp下 处在对角线上的ctu
+            // wpp下 处在对角线上的ctu 且非slice的首行
+            // 放在对角线上检查的原因： 与wpp依赖关系构成 trick 保证每次只有一个线程进入该process
             else if (m_param->bEnableWavefront && rowInSlice == col && !bFirstRowInSlice)
             {
                 if (m_param->rc.bEnableConstVbv)
@@ -1626,13 +1627,13 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                         }
                         if (curRow.reEncode < 0)
                             break;
-                        startCuAddr = EndCuAddr - numCols;
-                        EndCuAddr = startCuAddr + 1;
-                        if( EndCuAddr > numCols * r ) break; //到第r行截止就是好了，再往后推是那些行已经全部编码完毕了
+                        startCuAddr = EndCuAddr - numCols;//下一次统计的起始位置为当前行的结束位置往上退一行
+                        EndCuAddr = startCuAddr + 1;//一行只统计两个CTU的信息
+                        if( EndCuAddr > numCols * r ) break; //到第r行截止就好了，再往后推是那些行已经全部编码完毕了
                     }
                 }
                 double qpBase = curEncData.m_cuStat[cuAddr].baseQp;
-                //wpp下 在对角线上策ctu上检查是否满足vbv
+                //wpp下 在对角线上的ctu上检查是否满足vbv
                 curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId);
                 qpBase = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, qpBase);
                 curEncData.m_rowStat[row].rowQp = qpBase;
@@ -1644,6 +1645,10 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                              m_frame->m_poc, row, qpBase, curEncData.m_cuStat[cuAddr].baseQp);
 
                     // prevent the WaveFront::findJob() method from providing new jobs
+                    // 注意：注意这里之所以不用加锁：因为每次只有一个线程进入该处理过程标记该flag
+                    // 其他编码线程需要访问到该flag，如果访问到了正确的值则直接重新编码那一行
+                    // 如果还没有访问到正确的值，则继续编码一个ctu，到一下个ctu可再次访问该flag，然后再重新编码对应行
+
                     m_vbvResetTriggerRow[curRow.sliceId] = row;//记录该slice需要从该row行开始重新编码
                     m_bAllRowsStop[curRow.sliceId] = true;// 该lice 的 curRow 需要重新编码，则curRow后面的所有row 都需要重新编码标志该slice的所有row 需要stop
 
@@ -1676,7 +1681,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                                 bRowBusy = stopRow.busy;//获取对应的该行的状态
                                 stopRow.lock.release();
 
-                                if (bRowBusy)//如果该行为Busy状态，则继续等待其推出busy状态
+                                if (bRowBusy)//如果该行为Busy状态，则继续等待退出busy状态
                                 {
                                     GIVE_UP_TIME();
                                 }
@@ -1685,7 +1690,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                         }
                         // 重置该行的所有状态
                         m_outStreams[r].resetBits();
-                        stopRow.completed = 0;
+                        stopRow.completed = 0;// 这里是安全的因为，在标记了该行需要重新编码后，会等待正在编码的线程完成其正在编码的ctu 的completed++,之后再被清零
                         memset(&stopRow.rowStats, 0, sizeof(stopRow.rowStats));
                         curEncData.m_rowStat[r].numEncodedCUs = 0;
                         curEncData.m_rowStat[r].encodedBits = 0;
@@ -1727,12 +1732,13 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             ATOMIC_INC(&m_countRowBlocks);
             return;
         }
+
     }// 完成了 第 rowInSlice 行ctu的编码了
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
     {//wpp下
-        if (bLastRowInSlice)// 整个slice 已经在编码最后一行了     
+        if (bLastRowInSlice)// 整个slice 已经在编码最后一行了    注意: 这里统计所有还没有统计到的ctu的信息 
         {   //从slice的起始行到最后一行
             for (uint32_t r = m_sliceBaseRow[sliceId]; r < m_sliceBaseRow[sliceId + 1]; r++)
             {   // 统计每一行中还没有completed的ctu的信息累加
