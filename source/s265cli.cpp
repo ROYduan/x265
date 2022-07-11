@@ -253,13 +253,6 @@ namespace S265_NS {
         H1("   --cbqpoffs <integer>          Chroma Cb QP Offset [-12..12]. Default %d\n", param->cbQpOffset);
         H1("   --crqpoffs <integer>          Chroma Cr QP Offset [-12..12]. Default %d\n", param->crQpOffset);
         H1("   --scaling-list <string>       Specify a file containing HM style quant scaling lists or 'default' or 'off'. Default: off\n");
-        H1("   --zones <zone0>/<zone1>/...   Tweak the bitrate of regions of the video\n");
-        H1("                                 Each zone is of the form\n");
-        H1("                                   <start frame>,<end frame>,<option>\n");
-        H1("                                   where <option> is either\n");
-        H1("                                       q=<integer> (force QP)\n");
-        H1("                                   or  b=<float> (bitrate multiplier)\n");
-        H0("   --zonefile <filename>         Zone file containing the zone boundaries and the parameters to be reconfigured.\n");
         H1("   --lambda-file <string>        Specify a file containing replacement values for the lambda tables\n");
         H1("                                 MAX_MAX_QP+1 floats for lambda table, then again for lambda2 table\n");
         H1("                                 Blank lines and lines starting with hash(#) are ignored\n");
@@ -358,9 +351,6 @@ namespace S265_NS {
         if (qpfile)
             fclose(qpfile);
         qpfile = NULL;
-        if (zoneFile)
-            fclose(zoneFile);
-        zoneFile = NULL;
         if (dolbyVisionRpu)
             fclose(dolbyVisionRpu);
         dolbyVisionRpu = NULL;
@@ -396,109 +386,6 @@ namespace S265_NS {
         prevUpdateTime = time;
     }
 
-    bool CLIOptions::parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount)
-    {
-        bool bError = false;
-        int bShowHelp = false;
-        int outputBitDepth = 0;
-        const char *profile = NULL;
-
-        /* Presets are applied before all other options. */
-        for (optind = 0;;)
-        {
-            int c = getopt_long(argc, argv, short_options, long_options, NULL);
-            if (c == -1)
-                break;
-            else if (c == 'D')
-                outputBitDepth = atoi(optarg);
-            else if (c == 'P')
-                profile = optarg;
-            else if (c == '?')
-                bShowHelp = true;
-        }
-
-        if (!outputBitDepth && profile)
-        {
-            /* try to derive the output bit depth from the requested profile */
-            if (strstr(profile, "10"))
-                outputBitDepth = 10;
-            else if (strstr(profile, "12"))
-                outputBitDepth = 12;
-            else
-                outputBitDepth = 8;
-        }
-
-        api = s265_api_get(outputBitDepth);
-        if (!api)
-        {
-            s265_log(NULL, S265_LOG_WARNING, "falling back to default bit-depth\n");
-            api = s265_api_get(0);
-        }
-
-        if (bShowHelp)
-        {
-            printVersion(globalParam, api);
-            showHelp(globalParam);
-        }
-
-        globalParam->rc.zones[zonefileCount].zoneParam = api->param_alloc();
-        if (!globalParam->rc.zones[zonefileCount].zoneParam)
-        {
-            s265_log(NULL, S265_LOG_ERROR, "param alloc failed\n");
-            return true;
-        }
-
-        memcpy(globalParam->rc.zones[zonefileCount].zoneParam, globalParam, sizeof(s265_param));
-
-        for (optind = 0;;)
-        {
-            int long_options_index = -1;
-            int c = getopt_long(argc, argv, short_options, long_options, &long_options_index);
-            if (c == -1)
-                break;
-
-            if (long_options_index < 0 && c > 0)
-            {
-                for (size_t i = 0; i < sizeof(long_options) / sizeof(long_options[0]); i++)
-                {
-                    if (long_options[i].val == c)
-                    {
-                        long_options_index = (int)i;
-                        break;
-                    }
-                }
-
-                if (long_options_index < 0)
-                {
-                    /* getopt_long might have already printed an error message */
-                    if (c != 63)
-                        s265_log(NULL, S265_LOG_WARNING, "internal error: short option '%c' has no long option\n", c);
-                    return true;
-                }
-            }
-            if (long_options_index < 0)
-            {
-                s265_log(NULL, S265_LOG_WARNING, "short option '%c' unrecognized\n", c);
-                return true;
-            }
-
-            bError |= !!api->zone_param_parse(globalParam->rc.zones[zonefileCount].zoneParam, long_options[long_options_index].name, optarg);
-
-            if (bError)
-            {
-                const char *name = long_options_index > 0 ? long_options[long_options_index].name : argv[optind - 2];
-                s265_log(NULL, S265_LOG_ERROR, "invalid argument: %s = %s\n", name, optarg);
-                return true;
-            }
-        }
-
-        if (optind < argc)
-        {
-            s265_log(param, S265_LOG_WARNING, "extra unused command arguments given <%s>\n", argv[optind]);
-            return true;
-        }
-        return false;
-    }
 // 设置各个api 接口
 // 分配param 对象
 // 设置默认参数
@@ -676,12 +563,6 @@ namespace S265_NS {
                         s265_log_file(param, S265_LOG_ERROR, "Dolby Vision RPU metadata file %s not found or error in opening file\n", optarg);
                         return true;
                     }
-                }
-                OPT("zonefile")
-                {
-                    this->zoneFile = s265_fopen(optarg, "rb");
-                    if (!this->zoneFile)
-                        s265_log_file(param, S265_LOG_ERROR, "%s zone file not found or error in opening zone file\n", optarg);
                 }
                 OPT("fullhelp")
                 {
@@ -922,58 +803,6 @@ namespace S265_NS {
         return 1;
     }
 
-    bool CLIOptions::parseZoneFile()
-    {
-        char line[256];
-        char* argLine;
-        param->rc.zonefileCount = 0;
-
-        while (fgets(line, sizeof(line), zoneFile))
-        {
-            if (!((*line == '#') || (strcmp(line, "\r\n") == 0)))
-                param->rc.zonefileCount++;
-        }
-
-        rewind(zoneFile);
-        param->rc.zones = S265_MALLOC(s265_zone, param->rc.zonefileCount);
-        for (int i = 0; i < param->rc.zonefileCount; i++)
-        {
-            while (fgets(line, sizeof(line), zoneFile))
-            {
-                if (*line == '#' || (strcmp(line, "\r\n") == 0))
-                    continue;
-                param->rc.zones[i].zoneParam = S265_MALLOC(s265_param, 1);
-                int index = (int)strcspn(line, "\r\n");
-                line[index] = '\0';
-                argLine = line;
-                while (isspace((unsigned char)*argLine)) argLine++;
-                char* start = strchr(argLine, ' ');
-                start++;
-                param->rc.zones[i].startFrame = atoi(argLine);
-                int argCount = 0;
-                char **args = (char**)malloc(256 * sizeof(char *));
-                // Adding a dummy string to avoid file parsing error
-                args[argCount++] = (char *)"s265";
-                char* token = strtok(start, " ");
-                while (token)
-                {
-                    args[argCount++] = token;
-                    token = strtok(NULL, " ");
-                }
-                args[argCount] = NULL;
-                CLIOptions cliopt;
-                if (cliopt.parseZoneParam(argCount, args, param, i))
-                {
-                    cliopt.destroy();
-                    if (cliopt.api)
-                        cliopt.api->param_free(cliopt.param);
-                    exit(1);
-                }
-                break;
-            }
-        }
-        return 1;
-    }
 #ifdef __cplusplus
 }
 #endif

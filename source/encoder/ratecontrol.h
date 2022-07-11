@@ -134,10 +134,6 @@ public:
     int         m_ncu;           /* number of CUs in a frame */
     int         m_qp;            /* updated qp for current frame */
 
-    /*Zone reconfiguration*/
-    double*     m_relativeComplexity;
-    int         m_zoneBufferIdx;
-
     bool   m_isAbr;
     bool   m_isVbv;// 是否开启了vbv
     bool   m_isCbr;
@@ -266,12 +262,9 @@ protected:
     int    m_partialResidualFrames;
     int    m_residualCost;
     int    m_partialResidualCost;
-
-    s265_zone* getZone();
     double getQScale(RateControlEntry *rce, double rateFactor);
     double rateEstimateQscale(Frame* pic, RateControlEntry *rce); // main logic for calculating QP based on ABR
     double tuneAbrQScaleFromFeedback(double qScale);
-    double tuneQScaleForZone(RateControlEntry *rce, double qScale); // Tune qScale to adhere to zone budget
     void   accumPQpUpdate();
 
     int    getPredictorType(int lowresSliceType, int sliceType);

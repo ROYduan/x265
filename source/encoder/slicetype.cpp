@@ -1642,16 +1642,6 @@ void Lookahead::slicetypeDecide()
         if (frm.bIsFadeEnd){
             frm.sliceType = m_param->bOpenGOP && m_lastKeyframe >= 0 ? S265_TYPE_I : S265_TYPE_IDR;
         }
-        if (m_param->bResetZoneConfig)
-        {
-            for (int i = 0; i < m_param->rc.zonefileCount; i++)
-            {
-                int curZoneStart = m_param->rc.zones[i].startFrame;
-                curZoneStart += curZoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
-                if (curZoneStart == frm.frameNum)
-                    frm.sliceType = S265_TYPE_IDR;
-            }
-        }
         if ((frm.sliceType == S265_TYPE_I && frm.frameNum - m_lastKeyframe >= m_param->keyframeMin) || (frm.frameNum == (m_param->chunkStart - 1)) || (frm.frameNum == m_param->chunkEnd))
         {
             if (m_param->bOpenGOP)
@@ -1676,23 +1666,7 @@ void Lookahead::slicetypeDecide()
             /* Closed GOP */
             m_lastKeyframe = frm.frameNum;
             frm.bKeyframe = true;
-            int zoneRadl = 0;
-            if (m_param->bResetZoneConfig)
-            {
-                for (int i = 0; i < m_param->rc.zonefileCount; i++)
-                {
-                    int zoneStart = m_param->rc.zones[i].startFrame;
-                    zoneStart += zoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
-                    if (zoneStart == frm.frameNum)
-                    {
-                        zoneRadl = m_param->rc.zones[i].zoneParam->radl;
-                        m_param->radl = 0;
-                        m_param->rc.zones->zoneParam->radl = i < m_param->rc.zonefileCount - 1 ? m_param->rc.zones[i + 1].zoneParam->radl : 0;
-                        break;
-                    }
-                }
-            }
-            if (bframes > 0 && !m_param->radl && !zoneRadl)
+            if (bframes > 0 && !m_param->radl)
             {
                 list[bframes - 1]->m_lowres.sliceType = S265_TYPE_P;
                 bframes--;
@@ -2818,17 +2792,6 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     }
     frames[framecnt + 1] = NULL;//结尾标志
 
-    if (m_param->bResetZoneConfig)
-    {
-        for (int i = 0; i < m_param->rc.zonefileCount; i++)
-        {
-            int curZoneStart = m_param->rc.zones[i].startFrame, nextZoneStart = 0;
-            curZoneStart += curZoneStart ? m_param->rc.zones[i].zoneParam->radl : 0;
-            nextZoneStart += (i + 1 < m_param->rc.zonefileCount) ? m_param->rc.zones[i + 1].startFrame + m_param->rc.zones[i + 1].zoneParam->radl : m_param->totalFrames;
-            if (curZoneStart <= frames[0]->frameNum && nextZoneStart > frames[0]->frameNum)
-                m_param->keyframeMax = nextZoneStart - curZoneStart;
-        }
-    }
     int keylimit = m_param->keyframeMax;
     if (frames[0]->frameNum < m_param->chunkEnd)
     {
@@ -3170,17 +3133,14 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
             }
         }
 
-
-
-        int zoneRadl = m_param->rc.zonefileCount && m_param->bResetZoneConfig ? m_param->rc.zones->zoneParam->radl : 0;
-        bool bForceRADL = zoneRadl || (m_param->radl && (m_param->keyframeMax == m_param->keyframeMin));
+        bool bForceRADL = (m_param->radl && (m_param->keyframeMax == m_param->keyframeMin));
         bool bLastMiniGop = (framecnt >= m_param->bframes + 1) ? false : true;
-        int radl = m_param->radl ? m_param->radl : zoneRadl;
+        int radl = m_param->radl ? m_param->radl : 0;
         int preRADL = m_lastKeyframe + m_param->keyframeMax - radl - 1; /*Frame preceeding RADL in POC order*/
         if (bForceRADL && (frames[0]->frameNum == preRADL) && !bLastMiniGop)
         {
             int j = 1;
-            numBFrames = m_param->radl ? m_param->radl : zoneRadl;
+            numBFrames = m_param->radl ? m_param->radl : 0;
             for (; j <= numBFrames; j++)
                 frames[j]->sliceType = S265_TYPE_B;
             frames[j]->sliceType = S265_TYPE_I;

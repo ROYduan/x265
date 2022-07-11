@@ -193,14 +193,6 @@ changes made to the parameters for auto-detection and other reasons::
 	 *      parameters to take this into account. */
     int s265_encoder_reconfig(s265_encoder *, s265_param *);
 
-**s265_encoder_reconfig_zone()** Used to reconfigure rate-contol settings of zones mid-encode::
-
-    /* s265_encoder_reconfig_zone:
-     *      Properties of the zone will be copied to encoder's param and will be used only to
-     *      influence rate-control decisions of the zone.
-     *      returns 0 on successful copy and negative on failure.*/
-    int s265_encoder_reconfig(s265_encoder *, s265_param *);
-
 **s265_get_slicetype_poc_and_scenecut()** may be used to fetch slice type, poc and scene cut information mid-encode::
 
     /* s265_get_slicetype_poc_and_scenecut:
@@ -462,7 +454,6 @@ do not perform these checks, your application is liable to crash::
 	if (api->sizeof_param != sizeof(s265_param))      /* do not use */
 	if (api->sizeof_picture != sizeof(s265_picture))  /* do not use */
 	if (api->sizeof_stats != sizeof(s265_stats))      /* do not use */
-	if (api->sizeof_zone != sizeof(s265_zone))        /* do not use */
 	etc.
 
 Note that if your application does not directly allocate or dereference

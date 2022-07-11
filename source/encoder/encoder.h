@@ -211,7 +211,6 @@ public:
     bool               m_aborted;          // fatal error detected
     bool               m_reconfigure;      // Encoder reconfigure in progress
     bool               m_reconfigureRc;
-    bool               m_reconfigureZone;
 
     int                m_saveCtuDistortionLevel;
 
@@ -261,8 +260,6 @@ public:
 
     s265_sei_payload        m_prevTonemapPayload;
 
-    int                     m_zoneIndex;
-
     /* Collect frame level feature data */
     uint64_t*               m_rdCost;
     uint64_t*               m_variance;
@@ -271,10 +268,6 @@ public:
     Lock                    m_dynamicRefineLock;
 
     bool                    m_saveCTUSize;
-
-
-    ThreadSafeInteger* zoneReadCount;
-    ThreadSafeInteger* zoneWriteCount;
 
     Encoder();
     ~Encoder()
@@ -312,8 +305,6 @@ public:
     char* statsString(EncStats&, char*);
 
     void configure(s265_param *param);
-
-    void configureZone(s265_param *p, s265_param *zone);
 
     void updateVbvPlan(RateControl* rc);
 

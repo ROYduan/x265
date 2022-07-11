@@ -95,18 +95,6 @@ inline int calcLength(uint32_t x)
 }
 
 }  // end anonymous namespace
-/* Returns the zone for the current frame */
-s265_zone* RateControl::getZone()
-{
-    for (int i = m_param->rc.zoneCount - 1; i >= 0; i--)
-    {
-        s265_zone *z = &m_param->rc.zones[i];
-        if (m_framesDone + 1 >= z->startFrame && m_framesDone < z->endFrame)
-            return z;
-    }
-    return NULL;
-}
-
 RateControl::RateControl(s265_param& p, Encoder *top)
 {
     m_param = &p;
@@ -118,7 +106,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
     m_qCompress = (m_param->rc.cuTree && !m_param->rc.hevcAq) ? 1 : m_param->rc.qCompress;
 
     // validate for param->rc, maybe it is need to add a function like s265_parameters_valiate()
-    m_zoneBufferIdx = 0;
     m_residualFrames = 0;
     m_partialResidualFrames = 0;
     m_residualCost = 0;
@@ -171,7 +158,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
     m_lastBsliceSatdCost = 0;
     m_movingAvgSum = 0.0;
     m_isNextGop = false;
-    m_relativeComplexity = NULL;
 
     // vbv initialization
     m_param->rc.vbvBufferSize = s265_clip3(0, 2000000, m_param->rc.vbvBufferSize);
@@ -313,16 +299,6 @@ bool RateControl::init(const SPS& sps)
         m_minBufferFill = m_param->minVbvFullness / 100;
         m_maxBufferFill = 1 - (m_param->maxVbvFullness / 100);
         m_initVbv = true;
-    }
-
-    if (!m_param->bResetZoneConfig && (m_relativeComplexity == NULL))
-    {
-        m_relativeComplexity = S265_MALLOC(double, m_param->reconfigWindowSize);
-        if (m_relativeComplexity == NULL)
-        {
-            s265_log(m_param, S265_LOG_ERROR, "Failed to allocate memory for m_relativeComplexity\n");
-            return false;
-        }
     }
 
     m_totalBits = 0;
@@ -519,44 +495,6 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     m_predType = getPredictorType(curFrame->m_lowres.sliceType, m_sliceType);
     rce->poc = m_curSlice->m_poc;// 输入帧的序号
 
-    if (!m_param->bResetZoneConfig && (rce->encodeOrder % m_param->reconfigWindowSize == 0))
-    {
-        int index = m_zoneBufferIdx % m_param->rc.zonefileCount;
-        int read = m_top->zoneReadCount[index].get();
-        int write = m_top->zoneWriteCount[index].get();
-        if (write <= read)
-            write = m_top->zoneWriteCount[index].waitForChange(write);
-        m_zoneBufferIdx++;
-
-        for (int i = 0; i < m_param->rc.zonefileCount; i++)
-        {
-            if (m_param->rc.zones[i].startFrame == rce->encodeOrder)
-            {
-                m_param->rc.bitrate = m_param->rc.zones[i].zoneParam->rc.bitrate;
-                m_param->rc.vbvMaxBitrate = m_param->rc.zones[i].zoneParam->rc.vbvMaxBitrate;
-                memcpy(m_relativeComplexity, m_param->rc.zones[i].relativeComplexity, sizeof(double) * m_param->reconfigWindowSize);
-                reconfigureRC();
-                m_isCbr = 1; /* Always vbvmaxrate == bitrate here*/
-                m_top->zoneReadCount[i].incr();
-            }
-        }
-    }
-    
-    
-    if (m_param->bResetZoneConfig)
-    {
-        /* change ratecontrol stats for next zone if specified */
-        for (int i = 0; i < m_param->rc.zonefileCount; i++)
-        {
-            if (m_param->rc.zones[i].startFrame == curFrame->m_encodeOrder)
-            {
-                m_param = m_param->rc.zones[i].zoneParam;
-                reconfigureRC();
-                init(*m_curSlice->m_sps);
-            }
-        }
-    }
-
     rce->isActive = true;// 标记状态
     rce->scenecut = false;
     rce->isFadeEnd = curFrame->m_lowres.bIsFadeEnd;
@@ -693,15 +631,6 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         else
             m_qp = m_qpConstant[m_sliceType];
         curEncData.m_avgQpAq = curEncData.m_avgQpRc = m_qp;
-        
-        s265_zone* zone = getZone();
-        if (zone)
-        {
-            if (zone->bForceQp)
-                m_qp += zone->qp - m_qpConstant[P_SLICE];
-            else
-                m_qp -= (int)(6.0 * S265_LOG2(zone->bitrateFactor));
-        }
     }
     if (m_sliceType != B_SLICE)
     {
@@ -767,31 +696,6 @@ double RateControl::tuneAbrQScaleFromFeedback(double qScale)
         abrBuffer *= S265_MAX(1, sqrt(timeDone));
         overflow = s265_clip3(.5, 2.0, 1.0 + (encodedBits - wantedBits) / abrBuffer);
         qScale *= overflow;
-    }
-    return qScale;
-}
-
-double RateControl::tuneQScaleForZone(RateControlEntry *rce, double qScale)
-{
-    rce->frameSizePlanned = predictSize(&m_pred[m_predType], qScale, (double)m_currentSatd);
-    int loop = 0;
-
-    double availableBits = (double)m_param->rc.bitrate * 1000 * m_relativeComplexity[rce->encodeOrder % m_param->reconfigWindowSize];
-
-    // Tune qScale to adhere to the available frame bits.
-    for (int i = 0; i < 1000 && loop != 3; i++)
-    {
-        if (rce->frameSizePlanned < availableBits)
-        {
-            qScale = qScale / 1.01;
-            loop = loop | 1;
-        }
-        else if (rce->frameSizePlanned > availableBits)
-        {
-            qScale = qScale * 1.01;
-            loop = loop | 2;
-        }
-        rce->frameSizePlanned = predictSize(&m_pred[m_predType], qScale, (double)m_currentSatd);
     }
     return qScale;
 }
@@ -966,14 +870,6 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 q = s265_qScale2qp(qScale);
             }
 
-            if (!m_param->bResetZoneConfig)
-            {
-                double lqmin = m_lmin[m_sliceType];
-                double lqmax = m_lmax[m_sliceType];
-                qScale = tuneQScaleForZone(rce, qScale);
-                qScale = s265_clip3(lqmin, lqmax, qScale);
-            }
-
             /* clip qp to permissible range after vbv-lookahead estimation to avoid possible 
                 * mispredictions by initial frame size predictors */
             qScale = clipQscale(curFrame, rce, qScale);// B 帧调用
@@ -1030,27 +926,11 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             if (m_param->rc.rateControlMode == S265_RC_CRF)
             {
                 q = getQScale(rce, m_rateFactorConstant);
-                s265_zone* zone = getZone();
-                if (zone)
-                {
-                    if (zone->bForceQp)
-                        q = s265_qp2qScale(zone->qp);
-                    else
-                        q /= zone->bitrateFactor;
-                }
             }
             else
             {
                 checkAndResetABR(rce, false);
                 double initialQScale = getQScale(rce, m_wantedBitsWindow / m_cplxrSum);
-                s265_zone* zone = getZone();
-                if (zone)
-                {
-                    if (zone->bForceQp)
-                        initialQScale = s265_qp2qScale(zone->qp);
-                    else
-                        initialQScale /= zone->bitrateFactor;
-                }
                 double tunedQScale = tuneAbrQScaleFromFeedback(initialQScale);
                 overflow = tunedQScale / initialQScale;
                 q = !m_partialResidualFrames? tunedQScale : initialQScale;
@@ -1114,12 +994,6 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             {
                 m_avgPFrameQp = m_avgPFrameQp == 0 ? rce->qpNoVbv : m_avgPFrameQp;
                 m_avgPFrameQp = (m_avgPFrameQp + rce->qpNoVbv) / 2;
-            }
-
-            if (!m_param->bResetZoneConfig)
-            {
-                q = tuneQScaleForZone(rce, q);
-                q = s265_clip3(lqmin, lqmax, q);
             }
             /* Scenecut Aware QP offsets*/
             if (m_param->bEnableSceneCutAwareQp)
@@ -1329,8 +1203,6 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
                     int predType = getPredictorType(curFrame->m_lowres.plannedType[j], type);
                     curBits = predictSize(&m_pred[predType], frameQ[type], (double)satd);
                     bufferFillCur -= curBits;
-                    if (!m_param->bResetZoneConfig && ((uint64_t)j == (m_param->reconfigWindowSize - 1)))
-                        iter = false;
                 }
                 if (rce->vbvEndAdj)
                 {
@@ -1957,8 +1829,6 @@ void RateControl::terminate()
 
 void RateControl::destroy()
 {   
-    if (m_relativeComplexity)
-        S265_FREE(m_relativeComplexity);
 
 }
 

@@ -559,20 +559,7 @@ static const char * const s265_colmatrix_names[] = { "gbr", "bt709", "unknown", 
 static const char * const s265_sar_names[] = { "unknown", "1:1", "12:11", "10:11", "16:11", "40:33", "24:11", "20:11",
                                                "32:11", "80:33", "18:11", "15:11", "64:33", "160:99", "4:3", "3:2", "2:1", 0 };
 
-struct s265_zone;
 struct s265_param;
-/* Zones: override ratecontrol for specific sections of the video.
- * If zones overlap, whichever comes later in the list takes precedence. */
-typedef struct s265_zone
-{
-    int   startFrame, endFrame; /* range of frame numbers */
-    int   bForceQp;             /* whether to use qp vs bitrate factor */
-    int   qp;
-    float bitrateFactor;
-    struct s265_param* zoneParam;
-    double* relativeComplexity;
-} s265_zone;
-    
 /* data to calculate aggregate VMAF score */
 typedef struct s265_vmaf_data
 {
@@ -1293,13 +1280,6 @@ typedef struct s265_param
         /* temporally blur complexity */
         double    complexityBlur;
 
-        /* rate-control overrides */
-        int        zoneCount;
-        s265_zone* zones;
-
-        /* number of zones in zone-file*/
-        int        zonefileCount;
-
         /* specify a text file which contains MAX_MAX_QP + 1 floating point
          * values to be copied into s265_lambda_tab and a second set of
          * MAX_MAX_QP + 1 floating point values for s265_lambda2_tab. All values
@@ -1633,12 +1613,7 @@ typedef struct s265_param
     /*Input sequence bit depth. It can be either 8bit, 10bit or 12bit.*/
     int       sourceBitDepth;
 
-    /*Size of the zone to be reconfigured in frames. Default 0. API only. */
     uint32_t  reconfigWindowSize;
-
-    /*Flag to indicate if rate-control history has to be reset during zone reconfiguration.
-      Default 1 (Enabled). API only. */
-    int       bResetZoneConfig;
 
     /* It reduces the bits spent on the inter-frames within the scenecutWindow before and / or after a scenecut
      * by increasing their QP in ratecontrol pass2 algorithm without any deterioration in visual quality.
@@ -1767,12 +1742,6 @@ void s265_param_default(s265_param *param);
 #define S265_PARAM_BAD_NAME  (-1)
 #define S265_PARAM_BAD_VALUE (-2)
 int s265_param_parse(s265_param *p, const char *name, const char *value);
-
-s265_zone *s265_zone_alloc(int zoneCount, int isZoneFile);
-
-void s265_zone_free(s265_param *param);
-
-int s265_zone_param_parse(s265_param* p, const char* name, const char* value);
 
 static const char * const s265_profile_names[] = {
     /* HEVC v1 */
@@ -1909,12 +1878,6 @@ int s265_encoder_encode(s265_encoder *encoder, s265_nal **pp_nal, uint32_t *pi_n
  *      parameters to take this into account. */
 int s265_encoder_reconfig(s265_encoder *, s265_param *);
 
-/* s265_encoder_reconfig_zone:
-*       zone settings are copied to the encoder's param.
-*       Properties of the zone will be used only to re-configure rate-control settings
-*       of the zone mid-encode. Returns 0 on success on successful copy, negative on failure.*/
-int s265_encoder_reconfig_zone(s265_encoder *, s265_zone *);
-
 /* s265_encoder_get_stats:
  *       returns encoder statistics */
 void s265_encoder_get_stats(s265_encoder *encoder, s265_stats *, uint32_t statsSizeBytes);
@@ -2010,7 +1973,6 @@ typedef struct s265_api
     int           api_build_number;     /* S265_BUILD (soname) */
     int           sizeof_param;         /* sizeof(s265_param) */
     int           sizeof_picture;       /* sizeof(s265_picture) */
-    int           sizeof_zone;          /* sizeof(s265_zone) */
     int           sizeof_stats;         /* sizeof(s265_stats) */
 
     int           bit_depth;
@@ -2030,7 +1992,6 @@ typedef struct s265_api
     s265_encoder* (*encoder_open)(s265_param*);
     void          (*encoder_parameters)(s265_encoder*, s265_param*);
     int           (*encoder_reconfig)(s265_encoder*, s265_param*);
-    int           (*encoder_reconfig_zone)(s265_encoder*, s265_zone*);
     int           (*encoder_headers)(s265_encoder*, s265_nal**, uint32_t*);
     int           (*encoder_encode)(s265_encoder*, s265_nal**, uint32_t*, s265_picture*, s265_picture*);
     void          (*encoder_get_stats)(s265_encoder*, s265_stats*, uint32_t);
@@ -2052,7 +2013,6 @@ typedef struct s265_api
     double        (*calculate_vmaf_framelevelscore)(s265_vmaf_framedata *);
     void          (*vmaf_encoder_log)(s265_encoder*, int, char**, s265_param *, s265_vmaf_data *);
 #endif
-    int           (*zone_param_parse)(s265_param*, const char*, const char*);
     /* add new pointers to the end, or increment S265_MAJOR_VERSION */
 } s265_api;
 

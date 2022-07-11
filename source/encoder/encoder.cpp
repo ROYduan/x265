@@ -133,7 +133,6 @@ Encoder::Encoder()
     m_chromaHistThreshold = 0.0;
     m_scaledEdgeThreshold = 0.0;
     m_scaledChromaThreshold = 0.0;
-    m_zoneIndex = 0;
 }
 void Encoder::create()
 {
@@ -303,12 +302,6 @@ void Encoder::create()
     m_lookahead->m_numPools = pools;// 注意这里限定了为 1
     m_dpb = new DPB(m_param);
     m_rateControl = new RateControl(*m_param, this);
-    if (!m_param->bResetZoneConfig)
-    {
-        zoneReadCount = new ThreadSafeInteger[m_param->rc.zonefileCount];
-        zoneWriteCount = new ThreadSafeInteger[m_param->rc.zonefileCount];
-    }
-
     initVPS(&m_vps);
     initSPS(&m_sps);
     initPPS(&m_pps);
@@ -604,11 +597,6 @@ void Encoder::destroy()
     }
 
     delete m_dpb;
-    if (!m_param->bResetZoneConfig && m_param->rc.zonefileCount)
-    {
-        delete[] zoneReadCount;
-        delete[] zoneWriteCount;
-    }
     if (m_rateControl)
     {
         m_rateControl->destroy();
@@ -1413,15 +1401,6 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
         //如果可以取到帧,则进一步送给编码器编码
         if (frameEnc && !pass && (!m_param->chunkEnd || (m_encodedFrameNum < m_param->chunkEnd)))
         {
-            if (m_param->bResetZoneConfig)
-            {
-                for (int i = 0; i < m_param->rc.zonefileCount; i++)
-                {
-                    if (m_param->rc.zones[i].startFrame == frameEnc->m_poc)
-                        s265_encoder_reconfig(this, m_param->rc.zones[i].zoneParam);
-                }
-            }
-
             if (frameEnc->m_reconfigureRc && m_reconfigureRc)
             {
                 s265_copy_params(m_param, m_latestParam);
@@ -1579,7 +1558,7 @@ int Encoder::encode(const s265_picture* pic_in, s265_picture* pic_out)
 
 int Encoder::reconfigureParam(s265_param* encParam, s265_param* param)
 {
-    if (isReconfigureRc(encParam, param) && !param->rc.zonefileCount)
+    if (isReconfigureRc(encParam, param))
     {
         /* VBV can't be turned ON if it wasn't ON to begin with and can't be turned OFF if it was ON to begin with*/
         if (param->rc.vbvMaxBitrate > 0 && param->rc.vbvBufferSize > 0 &&
@@ -2472,56 +2451,6 @@ void Encoder::initPPS(PPS *pps)
     pps->numRefIdxDefault[1] = 1;
 }
 
-void Encoder::configureZone(s265_param *p, s265_param *zone)
-{
-    if (m_param->bResetZoneConfig)
-    {
-        p->maxNumReferences = zone->maxNumReferences;
-        p->bEnableFastIntra = zone->bEnableFastIntra;
-        p->bEnableEarlySkip = zone->bEnableEarlySkip;
-        p->recursionSkipMode = zone->recursionSkipMode;
-        p->searchMethod = zone->searchMethod;
-        p->searchRange = zone->searchRange;
-        p->subpelRefine = zone->subpelRefine;
-        p->rdoqLevel = zone->rdoqLevel;
-        p->rdLevel = zone->rdLevel;
-        p->bEnableRectInter = zone->bEnableRectInter;
-        p->maxNumMergeCand = zone->maxNumMergeCand;
-        p->bIntraInBFrames = zone->bIntraInBFrames;
-        if (zone->scalingLists)
-            p->scalingLists = strdup(zone->scalingLists);
-
-        p->rc.aqMode = zone->rc.aqMode;
-        p->rc.aqStrength = zone->rc.aqStrength;
-        p->noiseReductionInter = zone->noiseReductionInter;
-        p->noiseReductionIntra = zone->noiseReductionIntra;
-
-        p->limitModes = zone->limitModes;
-        p->bEnableSplitRdSkip = zone->bEnableSplitRdSkip;
-        p->bCULossless = zone->bCULossless;
-        p->bEnableRdRefine = zone->bEnableRdRefine;
-        p->limitTU = zone->limitTU;
-        p->bEnableTSkipFast = zone->bEnableTSkipFast;
-        p->rdPenalty = zone->rdPenalty;
-        p->dynamicRd = zone->dynamicRd;
-        p->bEnableTransformSkip = zone->bEnableTransformSkip;
-        p->bEnableAMP = zone->bEnableAMP;
-
-        if (m_param->rc.rateControlMode == S265_RC_ABR)
-            p->rc.bitrate = zone->rc.bitrate;
-        if (m_param->rc.rateControlMode == S265_RC_CRF)
-            p->rc.rfConstant = zone->rc.rfConstant;
-        if (m_param->rc.rateControlMode == S265_RC_CQP)
-        {
-            p->rc.qp = zone->rc.qp;
-            p->rc.aqMode = S265_AQ_NONE;
-            p->rc.hevcAq = 0;
-        }
-        p->radl = zone->radl;
-    }
-    memcpy(zone, p, sizeof(s265_param));
-}
-
 void Encoder::configureDolbyVisionParams(s265_param* p)
 {
     uint32_t doviProfile = 0;
@@ -2987,7 +2916,7 @@ void Encoder::configure(s265_param *p)
         s265_log(p, S265_LOG_WARNING, "Radl requires closed gop structure. Disabling radl.\n");
     }
 
-    if ((p->chunkStart || p->chunkEnd) && p->bOpenGOP && m_param->bResetZoneConfig)
+    if ((p->chunkStart || p->chunkEnd) && p->bOpenGOP)
     {
         p->chunkStart = p->chunkEnd = 0;
         s265_log(p, S265_LOG_WARNING, "Chunking requires closed gop structure. Disabling chunking.\n");
@@ -3001,25 +2930,6 @@ void Encoder::configure(s265_param *p)
 
     if (p->dolbyProfile)     // Default disabled.
         configureDolbyVisionParams(p);
-
-    if (p->rc.zonefileCount && p->rc.zoneCount)
-    {
-        p->rc.zoneCount = 0;
-        s265_log(p, S265_LOG_WARNING, "Only zone or zonefile can be used. Enabling only zonefile\n");
-    }
-
-    if (m_param->rc.zonefileCount && p->bOpenGOP)
-    {
-        p->bOpenGOP = 0;
-        s265_log(p, S265_LOG_WARNING, "Zone encoding requires closed gop structure. Enabling closed GOP.\n");
-    }
-
-    if (m_param->rc.zonefileCount && !p->bRepeatHeaders)
-    {
-        p->bRepeatHeaders = 1;
-        s265_log(p, S265_LOG_WARNING, "Turning on repeat - headers for zone encoding\n");
-    }
-
     if (m_param->bEnableHME)
     {
         if (m_param->sourceHeight < 540)

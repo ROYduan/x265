@@ -280,9 +280,7 @@ static const struct option long_options[] =
     { "no-eos",               no_argument, NULL, 0 },
     { "info",                 no_argument, NULL, 0 },
     { "no-info",              no_argument, NULL, 0 },
-    { "zones",          required_argument, NULL, 0 },
     { "qpfile",         required_argument, NULL, 0 },
-    { "zonefile",       required_argument, NULL, 0 },
     { "lambda-file",    required_argument, NULL, 0 },
     { "b-intra",              no_argument, NULL, 0 },
     { "no-b-intra",           no_argument, NULL, 0 },
@@ -382,7 +380,6 @@ static const struct option long_options[] =
         ReconFile* recon;  // 重构文件，抽象类，定义在 \output\output.h 中
         OutputFile* output;// 输出文件，抽象类，定义在 \output\output.h 中
         FILE*       qpfile;// 量化因子文件指针
-        FILE*       zoneFile;// csv日志文件指针
         FILE*    dolbyVisionRpu;    /* File containing Dolby Vision BL RPU metadata */
         const s265_api* api;
         s265_param* param; // s265编码器参数集
@@ -407,7 +404,6 @@ static const struct option long_options[] =
             recon = NULL;
             output = NULL;
             qpfile = NULL;
-            zoneFile = NULL;
             dolbyVisionRpu = NULL;
             api = NULL;
             param = NULL;
@@ -425,9 +421,7 @@ static const struct option long_options[] =
         void destroy();
         void printStatus(uint32_t frameNum);// 打印编码状态信息
         bool parse(int argc, char **argv);// 命令行参数解析
-        bool parseZoneParam(int argc, char **argv, s265_param* globalParam, int zonefileCount);
         bool parseQPFile(s265_picture &pic_org);// 解释量化因子QP文件
-        bool parseZoneFile();// 解析分区间段的编码参数量文件
     };
 #ifdef __cplusplus
 }

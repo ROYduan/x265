@@ -97,25 +97,15 @@ s265_encoder *s265_encoder_open(s265_param *p)
     Encoder* encoder = NULL;
     s265_param* param = PARAM_NS::s265_param_alloc();
     s265_param* latestParam = PARAM_NS::s265_param_alloc();
-    s265_param* zoneParam = PARAM_NS::s265_param_alloc();
 
     if(param) PARAM_NS::s265_param_default(param);
     if(latestParam) PARAM_NS::s265_param_default(latestParam);
-    if(zoneParam) PARAM_NS::s265_param_default(zoneParam);
   
-    if (!param || !latestParam || !zoneParam)
+    if (!param || !latestParam)
         goto fail;
-    if (p->rc.zoneCount || p->rc.zonefileCount)
-    {
-        int zoneCount = p->rc.zonefileCount ? p->rc.zonefileCount : p->rc.zoneCount;
-        param->rc.zones = s265_zone_alloc(zoneCount, !!p->rc.zonefileCount);
-        latestParam->rc.zones = s265_zone_alloc(zoneCount, !!p->rc.zonefileCount);
-        zoneParam->rc.zones = s265_zone_alloc(zoneCount, !!p->rc.zonefileCount);
-    }
 
     s265_copy_params(param, p);
     s265_copy_params(latestParam, p);
-    s265_copy_params(zoneParam, p);
     s265_log(param, S265_LOG_INFO, "HEVC encoder version %s\n", PFX(version_str));
     s265_log(param, S265_LOG_INFO, "build info %s\n", PFX(build_info_str));
 
@@ -193,24 +183,6 @@ s265_encoder *s265_encoder_open(s265_param *p)
     encoder->create();
     p->frameNumThreads = encoder->m_param->frameNumThreads;
 
-    if (!param->bResetZoneConfig)
-    {
-        param->rc.zones = S265_MALLOC(s265_zone, param->rc.zonefileCount);
-        for (int i = 0; i < param->rc.zonefileCount; i++)
-        {
-            param->rc.zones[i].zoneParam = S265_MALLOC(s265_param, 1);
-            memcpy(param->rc.zones[i].zoneParam, param, sizeof(s265_param));
-            param->rc.zones[i].relativeComplexity = S265_MALLOC(double, param->reconfigWindowSize);
-        }
-    }
-
-    memcpy(zoneParam, param, sizeof(s265_param));
-    for (int i = 0; i < param->rc.zonefileCount; i++)
-    {
-        param->rc.zones[i].startFrame = -1;
-        encoder->configureZone(zoneParam, param->rc.zones[i].zoneParam);
-    }
-
     /* Try to open CSV file handle */
     if (encoder->m_param->csvfn)
     {
@@ -224,7 +196,6 @@ s265_encoder *s265_encoder_open(s265_param *p)
 
     encoder->m_latestParam = latestParam;
     s265_copy_params(latestParam, param);
-    PARAM_NS::s265_param_free(zoneParam);
     if (encoder->m_aborted)
         goto fail;
 
@@ -235,7 +206,6 @@ fail:
     delete encoder;
     PARAM_NS::s265_param_free(param);
     PARAM_NS::s265_param_free(latestParam);
-    PARAM_NS::s265_param_free(zoneParam);
     return NULL;
 }
 
@@ -309,11 +279,6 @@ int s265_encoder_reconfig(s265_encoder* enc, s265_param* param_in)
     bool isReconfigureRc = encoder->isReconfigureRc(encoder->m_latestParam, param_in);
     if ((encoder->m_reconfigure && !isReconfigureRc) || (encoder->m_reconfigureRc && isReconfigureRc)) /* Reconfigure in progress */
         return 1;
-    if (encoder->m_latestParam->rc.zoneCount || encoder->m_latestParam->rc.zonefileCount)
-    {
-        int zoneCount = encoder->m_latestParam->rc.zonefileCount ? encoder->m_latestParam->rc.zonefileCount : encoder->m_latestParam->rc.zoneCount;
-        save.rc.zones = s265_zone_alloc(zoneCount, !!encoder->m_latestParam->rc.zonefileCount);
-    }
     s265_copy_params(&save, encoder->m_latestParam);
     int ret = encoder->reconfigureParam(encoder->m_latestParam, param_in);
     if (ret)
@@ -363,40 +328,7 @@ int s265_encoder_reconfig(s265_encoder* enc, s265_param* param_in)
         }
         encoder->printReconfigureParams();
     }
-    /* Zones support modifying num of Refs. Requires determining level at each zone start*/
-    if (encoder->m_param->rc.zonefileCount)
-        determineLevel(*encoder->m_latestParam, encoder->m_vps);
     return ret;
-}
-
-
-int s265_encoder_reconfig_zone(s265_encoder* enc, s265_zone* zone_in)
-{
-    if (!enc || !zone_in)
-        return -1;
-
-    Encoder* encoder = static_cast<Encoder*>(enc);
-    int read = encoder->zoneReadCount[encoder->m_zoneIndex].get();
-    int write = encoder->zoneWriteCount[encoder->m_zoneIndex].get();
-
-    s265_zone* zone = &(encoder->m_param->rc).zones[encoder->m_zoneIndex];
-    s265_param* zoneParam = zone->zoneParam;
-
-    if (write && (read < write))
-    {
-        read = encoder->zoneReadCount[encoder->m_zoneIndex].waitForChange(read);
-    }
-
-    zone->startFrame = zone_in->startFrame;
-    zoneParam->rc.bitrate = zone_in->zoneParam->rc.bitrate;
-    zoneParam->rc.vbvMaxBitrate = zone_in->zoneParam->rc.vbvMaxBitrate;
-    memcpy(zone->relativeComplexity, zone_in->relativeComplexity, sizeof(double) * encoder->m_param->reconfigWindowSize);
-    
-    encoder->zoneWriteCount[encoder->m_zoneIndex].incr();
-    encoder->m_zoneIndex++;
-    encoder->m_zoneIndex %= encoder->m_param->rc.zonefileCount;
-
-    return 0;
 }
 
 int s265_encoder_encode(s265_encoder *enc, s265_nal **pp_nal, uint32_t *pi_nal, s265_picture *pic_in, s265_picture *pic_out)
@@ -766,33 +698,12 @@ void s265_picture_free(s265_picture *p)
     return s265_free(p);
 }
 
-s265_zone *s265_zone_alloc(int zoneCount, int isZoneFile)
-{
-    s265_zone* zone = (s265_zone*)s265_malloc(sizeof(s265_zone) * zoneCount);
-    if (isZoneFile) {
-        for (int i = 0; i < zoneCount; i++)
-            zone[i].zoneParam = (s265_param*)s265_malloc(sizeof(s265_param));
-    }
-    return zone;
-}
-
-void s265_zone_free(s265_param *param)
-{
-    if (param && param->rc.zones && (param->rc.zoneCount || param->rc.zonefileCount))
-    {
-        for (int i = 0; i < param->rc.zonefileCount; i++)
-            s265_free(param->rc.zones[i].zoneParam);
-        s265_free(param->rc.zones);
-    }
-}
-
 static const s265_api libapi =
 {
     S265_MAJOR_VERSION,
     S265_BUILD,
     sizeof(s265_param),
     sizeof(s265_picture),
-    sizeof(s265_zone),
     sizeof(s265_stats),
 
     PFX(max_bit_depth),
@@ -811,7 +722,6 @@ static const s265_api libapi =
     &s265_encoder_open,
     &s265_encoder_parameters,
     &s265_encoder_reconfig,
-    &s265_encoder_reconfig_zone,
     &s265_encoder_headers,
     &s265_encoder_encode,
     &s265_encoder_get_stats,
@@ -833,7 +743,6 @@ static const s265_api libapi =
     &s265_calculate_vmaf_framelevelscore,
     &s265_vmaf_encoder_log,
 #endif
-    &PARAM_NS::s265_zone_param_parse
 };
 
 typedef const s265_api* (*api_get_func)(int bitDepth);

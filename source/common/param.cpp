@@ -102,7 +102,6 @@ s265_param *s265_param_alloc()
 
 void s265_param_free(s265_param* p)
 {
-    s265_zone_free(p);
 #ifdef SVT_HEVC
      s265_free(p->svtHevcParam);
 #endif
@@ -292,15 +291,11 @@ void s265_param_default(s265_param* param)
     param->rc.bEncFocusedFramesOnly = 0;
     param->rc.complexityBlur = 20;
     param->rc.qblur = 0.5;
-    param->rc.zoneCount = 0;
-    param->rc.zonefileCount = 0;
-    param->rc.zones = NULL;
     param->rc.bStrictCbr = 0;
     param->rc.bEnableGrain = 0;
     param->rc.qpMin = 0;
     param->rc.qpMax = QP_MAX_MAX;
     param->rc.bEnableConstVbv = 0;
-    param->bResetZoneConfig = 1;
     param->reconfigWindowSize = 0;
     param->decoderVbvMaxRate = 0;
     param->bliveVBV2pass = 0;
@@ -661,111 +656,6 @@ static int parseName(const char* arg, const char* const* names, bool& bError)
 #define atof(str) s265_atof(str, bError)
 #define atobool(str) (s265_atobool(str, bError))
 
-int s265_zone_param_parse(s265_param* p, const char* name, const char* value)
-{
-    bool bError = false;
-    char nameBuf[64];
-
-    if (!name)
-        return S265_PARAM_BAD_NAME;
-
-    // skip -- prefix if provided
-    if (name[0] == '-' && name[1] == '-')
-        name += 2;
-
-    // s/_/-/g
-    if (strlen(name) + 1 < sizeof(nameBuf) && strchr(name, '_'))
-    {
-        char *c;
-        strcpy(nameBuf, name);
-        while ((c = strchr(nameBuf, '_')) != 0)
-            *c = '-';
-
-        name = nameBuf;
-    }
-
-    if (!strncmp(name, "no-", 3))
-    {
-        name += 3;
-        value = !value || s265_atobool(value, bError) ? "false" : "true";
-    }
-    else if (!strncmp(name, "no", 2))
-    {
-        name += 2;
-        value = !value || s265_atobool(value, bError) ? "false" : "true";
-    }
-    else if (!value)
-        value = "true";
-    else if (value[0] == '=')
-        value++;
-
-#define OPT(STR) else if (!strcmp(name, STR))
-#define OPT2(STR1, STR2) else if (!strcmp(name, STR1) || !strcmp(name, STR2))
-
-    if (0);
-    OPT("ref") p->maxNumReferences = atoi(value);
-    OPT("fast-intra") p->bEnableFastIntra = atobool(value);
-    OPT("early-skip") p->bEnableEarlySkip = atobool(value);
-    OPT("rskip") p->recursionSkipMode = atoi(value);
-    OPT("rskip-edge-threshold") p->edgeVarThreshold = atoi(value)/100.0f;
-    OPT("me") p->searchMethod = parseName(value, s265_motion_est_names, bError);
-    OPT("subme") p->subpelRefine = atoi(value);
-    OPT("merange") p->searchRange = atoi(value);
-    OPT("rect") p->bEnableRectInter = atobool(value);
-    OPT("amp") p->bEnableAMP = atobool(value);
-    OPT("max-merge") p->maxNumMergeCand = (uint32_t)atoi(value);
-    OPT("rd") p->rdLevel = atoi(value);
-    OPT("radl") p->radl = atoi(value);
-    OPT2("rdoq", "rdoq-level")
-    {
-        int bval = atobool(value);
-        if (bError || bval)
-        {
-            bError = false;
-            p->rdoqLevel = atoi(value);
-        }
-        else
-            p->rdoqLevel = 0;
-    }
-    OPT("b-intra") p->bIntraInBFrames = atobool(value);
-    OPT("scaling-list") p->scalingLists = strdup(value);
-    OPT("crf")
-    {
-        p->rc.rfConstant = atof(value);
-        p->rc.rateControlMode = S265_RC_CRF;
-    }
-    OPT("qp")
-    {
-        p->rc.qp = atoi(value);
-        p->rc.rateControlMode = S265_RC_CQP;
-    }
-    OPT("bitrate")
-    {
-        p->rc.bitrate = atoi(value);
-        p->rc.rateControlMode = S265_RC_ABR;
-    }
-    OPT("aq-mode") p->rc.aqMode = atoi(value);
-    OPT("aq-strength") p->rc.aqStrength = atof(value);
-    OPT("nr-intra") p->noiseReductionIntra = atoi(value);
-    OPT("nr-inter") p->noiseReductionInter = atoi(value);
-    OPT("limit-modes") p->limitModes = atobool(value);
-    OPT("splitrd-skip") p->bEnableSplitRdSkip = atobool(value);
-    OPT("cu-lossless") p->bCULossless = atobool(value);
-    OPT("rd-refine") p->bEnableRdRefine = atobool(value);
-    OPT("limit-tu") p->limitTU = atoi(value);
-    OPT("tskip") p->bEnableTransformSkip = atobool(value);
-    OPT("tskip-fast") p->bEnableTSkipFast = atobool(value);
-    OPT("rdpenalty") p->rdPenalty = atoi(value);
-    OPT("dynamic-rd") p->dynamicRd = atof(value);
-    else
-        return S265_PARAM_BAD_NAME;
-
-#undef OPT
-#undef OPT2
-
-    return bError ? S265_PARAM_BAD_VALUE : 0;
-}
-
 #undef atobool
 #undef atoi
 #undef atof
@@ -1057,31 +947,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
         p->rc.rateControlMode = S265_RC_CQP;
     }
     OPT("rc-grain") p->rc.bEnableGrain = atobool(value);
-    OPT("zones")
-    {
-        p->rc.zoneCount = 1;
-        const char* c;
-
-        for (c = value; *c; c++)
-            p->rc.zoneCount += (*c == '/');
-
-        p->rc.zones = S265_MALLOC(s265_zone, p->rc.zoneCount);
-        c = value;
-        for (int i = 0; i < p->rc.zoneCount; i++ )
-        {
-            int len;
-            if (3 == sscanf(c, "%d,%d,q=%d%n", &p->rc.zones[i].startFrame, &p->rc.zones[i].endFrame, &p->rc.zones[i].qp, &len))
-                p->rc.zones[i].bForceQp = 1;
-            else if (3 == sscanf(c, "%d,%d,b=%f%n", &p->rc.zones[i].startFrame, &p->rc.zones[i].endFrame, &p->rc.zones[i].bitrateFactor, &len))
-                p->rc.zones[i].bForceQp = 0;
-            else
-            {
-                bError = true;
-                break;
-            }
-            c += len + 1;
-        }
-    }
     OPT("input-res") bError |= sscanf(value, "%dx%d", &p->sourceWidth, &p->sourceHeight) != 2;
     OPT("input-csp") p->internalCsp = parseName(value, s265_source_csp_names, bError);
     OPT("me")        p->searchMethod = parseName(value, s265_motion_est_names, bError);
@@ -1965,7 +1830,7 @@ void s265_print_params(s265_param* param)
 char *s265_param2string(s265_param* p, int padx, int pady)
 {
     char *buf, *s;
-    size_t bufSize = 4000 + p->rc.zoneCount * 64;
+    size_t bufSize = 4000;
     if (p->numaPools)
         bufSize += strlen(p->numaPools);
     if (p->masteringDisplayColorVolume)
@@ -2117,19 +1982,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     s += sprintf(s, " aq-mode=%d", p->rc.aqMode);
     s += sprintf(s, " aq-strength=%.2f", p->rc.aqStrength);
     BOOL(p->rc.cuTree, "cutree");
-    s += sprintf(s, " zone-count=%d", p->rc.zoneCount);
-    if (p->rc.zoneCount)
-    {
-        for (int i = 0; i < p->rc.zoneCount; ++i)
-        {
-            s += sprintf(s, " zones: start-frame=%d end-frame=%d",
-                 p->rc.zones[i].startFrame, p->rc.zones[i].endFrame);
-            if (p->rc.zones[i].bForceQp)
-                s += sprintf(s, " qp=%d", p->rc.zones[i].qp);
-            else
-                s += sprintf(s, " bitrate-factor=%f", p->rc.zones[i].bitrateFactor);
-        }
-    }
     BOOL(p->rc.bStrictCbr, "strict-cbr");
     s += sprintf(s, " qg-size=%d", p->rc.qgSize);
     BOOL(p->rc.bEnableGrain, "rc-grain");
@@ -2400,10 +2252,7 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->rc.rfConstantMin = src->rc.rfConstantMin;
     dst->rc.qblur = src->rc.qblur;
     dst->rc.complexityBlur = src->rc.complexityBlur;
-    dst->rc.zoneCount = src->rc.zoneCount;
-    dst->rc.zonefileCount = src->rc.zonefileCount;
     dst->reconfigWindowSize = src->reconfigWindowSize;
-    dst->bResetZoneConfig = src->bResetZoneConfig;
     dst->decoderVbvMaxRate = src->decoderVbvMaxRate;
 
     dst->mctf.enable = src->mctf.enable;
@@ -2417,29 +2266,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->mctf.method = src->mctf.method;
     dst->mctf.mvMatch = src->mctf.mvMatch;
     dst->mctf.range = src->mctf.range;
-
-
-    if (src->rc.zonefileCount && src->rc.zones && src->bResetZoneConfig)
-    {
-        for (int i = 0; i < src->rc.zonefileCount; i++)
-        {
-            dst->rc.zones[i].startFrame = src->rc.zones[i].startFrame;
-            memcpy(dst->rc.zones[i].zoneParam, src->rc.zones[i].zoneParam, sizeof(s265_param));
-        }
-    }
-    else if (src->rc.zoneCount && src->rc.zones)
-    {
-        for (int i = 0; i < src->rc.zoneCount; i++)
-        {
-            dst->rc.zones[i].startFrame = src->rc.zones[i].startFrame;
-            dst->rc.zones[i].endFrame = src->rc.zones[i].endFrame;
-            dst->rc.zones[i].bForceQp = src->rc.zones[i].bForceQp;
-            dst->rc.zones[i].qp = src->rc.zones[i].qp;
-            dst->rc.zones[i].bitrateFactor = src->rc.zones[i].bitrateFactor;
-        }
-    }
-    else
-        dst->rc.zones = NULL;
 
     if (src->rc.lambdaFileName) dst->rc.lambdaFileName = strdup(src->rc.lambdaFileName);
     else dst->rc.lambdaFileName = NULL;

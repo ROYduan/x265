@@ -42,7 +42,6 @@ Enhancements to existing features
 Encoder enhancements
 --------------------
 1. Faster ARM64 encodes enabled by ASM contributions from Huawei. The speed-up over no-asm version for 1080p encodes @ medium preset is ~15% in a 16 core H/W.
-2. Strict VBV conformance in zone encoding.
 
 Bug fixes
 ---------
@@ -71,17 +70,15 @@ Encoder enhancements
 
 API changes
 -----------
-1. New API function **s265_encoder_reconfig_zone()** to invoke zone reconfiguration dynamically.  
-2. Renamed :option:`--hdr` to :option:`--hdr10`. :option:`--hdr` will be deprecated in the upcoming major release. 
-3. Renamed :option:`--hdr-opt` to :option:`--hdr10-opt`. :option:`--hdr-opt` will be deprecated in the upcoming major release.
-4. Additions to **s265_param** structure to support the newly added features and encoder enhancements.
+1. Renamed :option:`--hdr` to :option:`--hdr10`. :option:`--hdr` will be deprecated in the upcoming major release. 
+2. Renamed :option:`--hdr-opt` to :option:`--hdr10-opt`. :option:`--hdr-opt` will be deprecated in the upcoming major release.
+3. Additions to **s265_param** structure to support the newly added features and encoder enhancements.
 
 Bug fixes
 ---------
 1. Output change in :option:`--analysis-load` at inter-refine levels 2 and 3.
-2. Encoder crash with zones.
-3. Integration issues with SVT v1.4.1.
-4. Fixed bug in :option:`--limit-tu` 3 and 4 while loading co-located CU's TU depth.
+2. Integration issues with SVT v1.4.1.
+3. Fixed bug in :option:`--limit-tu` 3 and 4 while loading co-located CU's TU depth.
 
 Version 3.2
 ===========
@@ -108,10 +105,9 @@ API changes
 
 Bug fixes
 ---------
-1. Fixed encoder crash with :option:`--zonefile` during failures in encoder_open().
-2. Fixed JSON11 build errors with HDR10+ on MacOS high sierra.
-3. Signalling out of range scaling list data fixed.
-4. Inconsistent output fix for 2-pass rate-control with cutree ON.
+1. Fixed JSON11 build errors with HDR10+ on MacOS high sierra.
+2. Signalling out of range scaling list data fixed.
+3. Inconsistent output fix for 2-pass rate-control with cutree ON.
 
 Known issues
 ------------
@@ -139,10 +135,9 @@ Encoder enhancements
 
 Bug fixes
 ---------
-1. Bug fixes for zones.
-2. Fixed wrap-around from MV structure overflow occurred around 8K pixels or over.
-3. Fixed issues in configuring cbQpOffset and crQpOffset for 444 input
-4. Fixed cutree offset computation in 2nd pass encodes.
+1. Fixed wrap-around from MV structure overflow occurred around 8K pixels or over.
+2. Fixed issues in configuring cbQpOffset and crQpOffset for 444 input
+3. Fixed cutree offset computation in 2nd pass encodes.
 
 Known issues
 ------------
@@ -161,11 +156,9 @@ New features
 2. option:: '--dolby-vision-rpu' File containing Dolby Vision RPU metadata. If given, s265's Dolby Vision metadata parser will fill the RPU field of input pictures with the metadata
     read from the file. The library will interleave access units with RPUs in the bitstream. Default NULL (disabled).	
 
-3. option:: '--zonefile <filename>' specifies a text file which contains the boundaries of the zones where each of zones are configurable.
+3. option:: '--qp-adaptation-range'	Delta-QP range by QP adaptation based on a psycho-visual model. Default 1.0. 
 
-4. option:: '--qp-adaptation-range'	Delta-QP range by QP adaptation based on a psycho-visual model. Default 1.0. 
-
-5. Experimental feature option:: '--hevc-aq' enables adaptive quantization
+4. Experimental feature option:: '--hevc-aq' enables adaptive quantization
 	It scales the quantization step size according to the spatial activity of one coding unit relative to frame average spatial activity. This AQ method utilizes
 	the minimum variance of sub-unit in each coding unit to represent the coding unit’s spatial complexity. 
 

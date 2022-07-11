@@ -51,7 +51,6 @@ void s265_param_default(s265_param *param);
 int s265_param_default_preset(s265_param *, const char *preset, const char *tune);
 int s265_param_apply_profile(s265_param *, const char *profile);
 int s265_param_parse(s265_param *p, const char *name, const char *value);
-int s265_zone_param_parse(s265_param* p, const char* name, const char* value);
 #define PARAM_NS S265_NS
 #endif
 }
