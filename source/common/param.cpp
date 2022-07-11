@@ -146,7 +146,6 @@ void s265_param_default(s265_param* param)
     param->bEnableAccessUnitDelimiters = 0;
     param->bEnableEndOfBitstream = 0;
     param->bEnableEndOfSequence = 0;
-    param->bEmitHRDSEI = 0;
     param->bEmitInfoSEI = 1;
     param->bEmitHDRSEI = 0; /*Deprecated*/
     param->bEmitHDR10SEI = 0;
@@ -916,7 +915,6 @@ int s265_param_parse(s265_param* p, const char* name, const char* value)
     OPT("aud") p->bEnableAccessUnitDelimiters = atobool(value);
     OPT("info") p->bEmitInfoSEI = atobool(value);
     OPT("b-pyramid") p->bBPyramid = atoi(value);
-    OPT("hrd") p->bEmitHRDSEI = atobool(value);
     OPT2("ipratio", "ip-factor") p->rc.ipFactor = atof(value);
     OPT2("pbratio", "pb-factor") p->rc.pbFactor = atof(value);
     OPT("qcomp") p->rc.qCompress = atof(value);
@@ -1661,7 +1659,6 @@ int s265_check_params(s265_param* param)
         param->bEmitHDR10SEI = 1;
 
     bool isSingleSEI = (param->bRepeatHeaders
-                     || param->bEmitHRDSEI
                      || param->bEmitInfoSEI
                      || param->bEmitHDR10SEI
                      || param->bEmitIDRRecoverySEI
@@ -1872,7 +1869,6 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bEnableAccessUnitDelimiters, "aud");
     BOOL(p->bEnableEndOfBitstream, "eob");
     BOOL(p->bEnableEndOfSequence, "eos");
-    BOOL(p->bEmitHRDSEI, "hrd");
     BOOL(p->bEmitInfoSEI, "info");
     s += sprintf(s, " hash=%d", p->decodedPictureHashSEI);
     BOOL(p->bEnableTemporalSubLayers, "temporal-layers");
@@ -2319,7 +2315,6 @@ void s265_copy_params(s265_param* dst, s265_param* src)
     dst->bSsimRd = src->bSsimRd;
     dst->dynamicRd = src->dynamicRd;
     dst->bEmitHDR10SEI = src->bEmitHDR10SEI;
-    dst->bEmitHRDSEI = src->bEmitHRDSEI;
     dst->bHDROpt = src->bHDROpt; /*DEPRECATED*/
     dst->bHDR10Opt = src->bHDR10Opt;
     dst->bLimitSAO = src->bLimitSAO;

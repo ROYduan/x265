@@ -52,7 +52,6 @@ const char g_sliceTypeToChar[] = {'B', 'P', 'I'};
 /* Dolby Vision profile specific settings */
 typedef struct
 {
-    int bEmitHRDSEI;
     int bEnableVideoSignalTypePresentFlag;
     int bEnableColorDescriptionPresentFlag;
     int bEnableAccessUnitDelimiters;
@@ -70,9 +69,9 @@ typedef struct
 
 DolbyVisionProfileSpec dovi[] =
 {
-    { 1, 1, 1, 1, 1, 5, 1,  2, 2, 2, 50 },
-    { 1, 1, 1, 1, 1, 5, 0, 16, 9, 9, 81 },
-    { 1, 1, 1, 1, 1, 5, 0,  1, 1, 1, 82 }
+    { 1, 1, 1, 1, 5, 1,  2, 2, 2, 50 },
+    { 1, 1, 1, 1, 5, 0, 16, 9, 9, 81 },
+    { 1, 1, 1, 1, 5, 0,  1, 1, 1, 82 }
 };
 
 }
@@ -401,9 +400,6 @@ void Encoder::create()
         m_frameEncoder[i]->m_done.wait(); /* 1 对应 duwait for thread to initialize */
     }
 
-    if (m_param->bEmitHRDSEI)
-        m_rateControl->initHRD(m_sps);
-
     if (!m_rateControl->init(m_sps))
         m_aborted = true;
     if (!m_lookahead->create())
@@ -632,7 +628,9 @@ void Encoder::destroy()
         PARAM_NS::s265_param_free(m_param);
     }
 }
-
+//每一次调用的线程 都需要对其他所有在活frameEcoder进行更新统计
+// 由frameEncoder 在每一帧编码前 进行调用
+// 按照严格的顺序，保证了任何时候不会有两个线程同时调用
 void Encoder::updateVbvPlan(RateControl* rc)
 {
     for (int i = 0; i < m_param->frameNumThreads; i++)
@@ -1566,13 +1564,8 @@ int Encoder::reconfigureParam(s265_param* encParam, s265_param* param)
         {
             m_reconfigureRc |= encParam->rc.vbvMaxBitrate != param->rc.vbvMaxBitrate;
             m_reconfigureRc |= encParam->rc.vbvBufferSize != param->rc.vbvBufferSize;
-            if (m_reconfigureRc && m_param->bEmitHRDSEI)
-                s265_log(m_param, S265_LOG_WARNING, "VBV parameters cannot be changed when HRD is in use.\n");
-            else
-            {
-                encParam->rc.vbvMaxBitrate = param->rc.vbvMaxBitrate;
-                encParam->rc.vbvBufferSize = param->rc.vbvBufferSize;
-            }
+            encParam->rc.vbvMaxBitrate = param->rc.vbvMaxBitrate;
+            encParam->rc.vbvBufferSize = param->rc.vbvBufferSize;
         }
         m_reconfigureRc |= encParam->rc.bitrate != param->rc.bitrate;
         encParam->rc.bitrate = param->rc.bitrate;
@@ -2309,15 +2302,6 @@ void Encoder::getStreamHeaders(NALList& list, Entropy& sbacCoder, Bitstream& bs)
             S265_FREE(opts);
         }
     }
-
-    if (m_param->bEmitHRDSEI)
-    {
-        /* Picture Timing and Buffering Period SEI require the SPS to be "activated" */
-        SEIActiveParameterSets sei;
-        sei.m_selfContainedCvsFlag = true;
-        sei.m_noParamSetUpdateFlag = true;
-        sei.writeSEImessages(bs, m_sps, NAL_UNIT_PREFIX_SEI, list, m_param->bSingleSeiNal);
-    }
 }
 
 void Encoder::getEndNalUnits(NALList& list, Bitstream& bs)
@@ -2407,7 +2391,7 @@ void Encoder::initSPS(SPS *sps)
     vui.defaultDisplayWindow.topOffset = m_param->vui.defDispWinTopOffset;
     vui.defaultDisplayWindow.bottomOffset = m_param->vui.defDispWinBottomOffset;
     vui.defaultDisplayWindow.leftOffset = m_param->vui.defDispWinLeftOffset;
-    vui.hrdParametersPresentFlag = m_param->bEmitHRDSEI;
+    vui.hrdParametersPresentFlag = 0;
 
     vui.timingInfo.numUnitsInTick = m_param->fpsDenom;
     vui.timingInfo.timeScale = m_param->fpsNum;
@@ -2458,7 +2442,6 @@ void Encoder::configureDolbyVisionParams(s265_param* p)
     while (dovi[doviProfile].doviProfileId != p->dolbyProfile && doviProfile + 1 < sizeof(dovi) / sizeof(dovi[0]))
         doviProfile++;
 
-    p->bEmitHRDSEI = dovi[doviProfile].bEmitHRDSEI;
     p->vui.bEnableVideoSignalTypePresentFlag = dovi[doviProfile].bEnableVideoSignalTypePresentFlag;
     p->vui.bEnableColorDescriptionPresentFlag = dovi[doviProfile].bEnableColorDescriptionPresentFlag;
     p->bEnableAccessUnitDelimiters = dovi[doviProfile].bEnableAccessUnitDelimiters;

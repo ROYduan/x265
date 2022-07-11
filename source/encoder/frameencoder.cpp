@@ -95,12 +95,6 @@ void FrameEncoder::destroy()
     S265_FREE(m_nr);
 
     m_frameFilter.destroy();
-
-    if (m_param->bEmitHRDSEI)
-    {
-        delete m_rce.picTimingSEI;
-        delete m_rce.hrdTiming;
-    }
 }
 
 bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
@@ -176,15 +170,6 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     }
     //帧级filter 任务的初始化
     m_frameFilter.init(top, this, numRows, numCols);
-
-    // initialize HRD parameters of SPS
-    if (m_param->bEmitHRDSEI)
-    {
-        m_rce.picTimingSEI = new SEIPictureTiming;
-        m_rce.hrdTiming = new HRDTiming;
-
-        ok &= m_rce.picTimingSEI && m_rce.hrdTiming;
-    }
 
     if (m_param->noiseReductionIntra || m_param->noiseReductionInter)
         m_nr = S265_MALLOC(NoiseReduction, 1);
@@ -645,22 +630,6 @@ void FrameEncoder::compressFrame()
 
     if (m_frame->m_lowres.bKeyframe)// I 帧
     {
-        if (m_param->bEmitHRDSEI)
-        {
-            SEIBufferingPeriod* bpSei = &m_top->m_rateControl->m_bufPeriodSEI;
-
-            // since the temporal layer HRD is not ready, we assumed it is fixed
-            bpSei->m_auCpbRemovalDelayDelta = 1;
-            bpSei->m_cpbDelayOffset = 0;
-            bpSei->m_dpbDelayOffset = 0;
-            bpSei->m_concatenationFlag = (m_param->bEnableHRDConcatFlag && !m_frame->m_poc) ? true : false;
-
-            // hrdFullness() calculates the initial CPB removal delay and offset
-            m_top->m_rateControl->hrdFullness(bpSei);
-            bpSei->writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_PREFIX_SEI, m_nalList, m_param->bSingleSeiNal);
-
-            m_top->m_lastBPSEI = m_rce.encodeOrder;
-        }
 
         if (m_frame->m_lowres.sliceType == S265_TYPE_IDR && m_param->bEmitIDRRecoverySEI)
         {
@@ -671,26 +640,6 @@ void FrameEncoder::compressFrame()
             sei.m_brokenLinkFlag = false;
             sei.writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_PREFIX_SEI, m_nalList, m_param->bSingleSeiNal);
         }
-    }
-
-    if (m_param->bEmitHRDSEI)
-    {
-        SEIPictureTiming *sei = m_rce.picTimingSEI;
-        const VUI *vui = &slice->m_sps->vuiParameters;
-        const HRDInfo *hrd = &vui->hrdParameters;
-        int poc = slice->m_poc;
-
-        if (vui->hrdParametersPresentFlag)
-        {
-            // The m_aucpbremoval delay specifies how many clock ticks the
-            // access unit associated with the picture timing SEI message has to
-            // wait after removal of the access unit with the most recent
-            // buffering period SEI message
-            sei->m_auCpbRemovalDelay = S265_MIN(S265_MAX(1, m_rce.encodeOrder - prevBPSEI), (1 << hrd->cpbRemovalDelayLength));
-            sei->m_picDpbOutputDelay = slice->m_sps->numReorderPics + poc - m_rce.encodeOrder;
-        }
-
-        sei->writeSEImessages(m_bs, *slice->m_sps, NAL_UNIT_PREFIX_SEI, m_nalList, m_param->bSingleSeiNal);
     }
 
     if (m_param->preferredTransferCharacteristics > -1 && slice->isIRAP())
@@ -726,7 +675,7 @@ void FrameEncoder::compressFrame()
             s265_log(m_param, S265_LOG_ERROR, "Unrecognized SEI type\n");
     }
 
-    bool isSei = ((m_frame->m_lowres.bKeyframe && m_param->bRepeatHeaders) || m_param->bEmitHRDSEI ||
+    bool isSei = ((m_frame->m_lowres.bKeyframe && m_param->bRepeatHeaders) ||
                   (m_frame->m_lowres.sliceType == S265_TYPE_IDR && m_param->bEmitIDRRecoverySEI) ||
                    m_frame->m_userSEI.numPayloads);
 

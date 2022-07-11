@@ -173,7 +173,7 @@ public:
     int64_t m_currentSatd;
     int     m_qpConstant[3];
     int     m_lastNonBPictType;
-    int     m_framesDone;        /* # of frames passed through RateCotrol already */
+    int     m_framesDone;        /* # of frames passed through RateCotrol already 完成了ratecontrolstart调用后的帧数*/
 
     double  m_cplxrSum;          /* sum of bits*qscale/rceq */
     double  m_wantedBitsWindow;  /* target bitrate * window */
@@ -235,7 +235,6 @@ public:
 
     RateControl(s265_param& p, Encoder *enc);
     bool init(const SPS& sps);
-    void initHRD(SPS& sps);
     void reconfigureRC();
 
     void setFinalFrameCount(int count);

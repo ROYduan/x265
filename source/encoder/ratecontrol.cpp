@@ -52,24 +52,6 @@ using namespace S265_NS;
 const int RateControl::s_slidingWindowFrames = 20;
 
 namespace {
-#define CMP_OPT_FIRST_PASS(opt, param_val)\
-{\
-    bErr = 0;\
-    p = strstr(opts, opt "=");\
-    char* q = strstr(opts, "no-" opt " ");\
-    if (p && sscanf(p, opt "=%d" , &i) && param_val != i)\
-        bErr = 1;\
-    else if (!param_val && !q && !p)\
-        bErr = 1;\
-    else if (param_val && (q || !strstr(opts, opt)))\
-        bErr = 1;\
-    if (bErr)\
-    {\
-        s265_log(m_param, S265_LOG_ERROR, "different " opt " setting than first pass (%d vs %d)\n", param_val, i);\
-        return false;\
-    }\
-}
-
 inline int calcScale(uint32_t x)
 {
     static uint8_t lut[16] = {4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0};
@@ -207,11 +189,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
         s265_log(m_param, S265_LOG_WARNING, "vbv-end requires VBV parameters, ignored\n");
         m_param->vbvBufferEnd = 0;
     }
-    if (m_param->bEmitHRDSEI && !m_isVbv)
-    {
-        s265_log(m_param, S265_LOG_WARNING, "NAL HRD parameters require VBV parameters, ignored\n");
-        m_param->bEmitHRDSEI = 0;
-    }
     m_isCbr = m_param->rc.rateControlMode == S265_RC_ABR && m_isVbv && m_param->rc.vbvMaxBitrate <= m_param->rc.bitrate;
     if (m_param->rc.bStrictCbr && !m_isCbr)
     {
@@ -275,12 +252,6 @@ bool RateControl::init(const SPS& sps)
         int vbvBufferSize = m_param->rc.vbvBufferSize * 1000;
         int vbvMaxBitrate = m_param->rc.vbvMaxBitrate * 1000;
 
-        if (m_param->bEmitHRDSEI && !m_param->decoderVbvMaxRate)
-        {
-            const HRDInfo* hrd = &sps.vuiParameters.hrdParameters;
-            vbvBufferSize = hrd->cpbSizeValue << (hrd->cpbSizeScale + CPB_SHIFT);
-            vbvMaxBitrate = hrd->bitRateValue << (hrd->bitRateScale + BR_SHIFT);
-        }
         m_bufferRate = vbvMaxBitrate / m_fps;
         m_vbvMaxRate = vbvMaxBitrate;
         m_bufferSize = vbvBufferSize;
@@ -409,43 +380,6 @@ void RateControl::reconfigureRC()
     m_bitrate = (double)m_param->rc.bitrate * 1000;
 }
 
-void RateControl::initHRD(SPS& sps)
-{
-    int vbvBufferSize = m_param->rc.vbvBufferSize * 1000;
-    int vbvMaxBitrate = m_param->rc.vbvMaxBitrate * 1000;
-
-    // Init HRD
-    HRDInfo* hrd = &sps.vuiParameters.hrdParameters;
-    hrd->cbrFlag = m_isCbr;
-    if (m_param->reconfigWindowSize) {
-        hrd->cbrFlag = 0;
-        vbvMaxBitrate = m_param->decoderVbvMaxRate * 1000;
-    }
-
-    // normalize HRD size and rate to the value / scale notation
-    hrd->bitRateScale = s265_clip3(0, 15, calcScale(vbvMaxBitrate) - BR_SHIFT);
-    hrd->bitRateValue = (vbvMaxBitrate >> (hrd->bitRateScale + BR_SHIFT));
-
-    hrd->cpbSizeScale = s265_clip3(0, 15, calcScale(vbvBufferSize) - CPB_SHIFT);
-    hrd->cpbSizeValue = (vbvBufferSize >> (hrd->cpbSizeScale + CPB_SHIFT));
-    int bitRateUnscale = hrd->bitRateValue << (hrd->bitRateScale + BR_SHIFT);
-    int cpbSizeUnscale = hrd->cpbSizeValue << (hrd->cpbSizeScale + CPB_SHIFT);
-
-    // arbitrary
-    #define MAX_DURATION 0.5
-
-    TimingInfo *time = &sps.vuiParameters.timingInfo;
-    int maxCpbOutputDelay = (int)(S265_MIN(m_param->keyframeMax * MAX_DURATION * time->timeScale / time->numUnitsInTick, INT_MAX));
-    int maxDpbOutputDelay = (int)(sps.maxDecPicBuffering * MAX_DURATION * time->timeScale / time->numUnitsInTick);
-    int maxDelay = (int)(90000.0 * cpbSizeUnscale / bitRateUnscale + 0.5);
-
-    hrd->initialCpbRemovalDelayLength = 2 + s265_clip3(4, 22, 32 - calcLength(maxDelay));
-    hrd->cpbRemovalDelayLength = s265_clip3(4, 31, 32 - calcLength(maxCpbOutputDelay));
-    hrd->dpbOutputDelayLength = s265_clip3(4, 31, 32 - calcLength(maxDpbOutputDelay));
-
-    #undef MAX_DURATION
-}
-
 void RateControl::initFramePredictors()
 {
     /* Frame Predictors used in vbv */
@@ -470,6 +404,7 @@ void RateControl::initFramePredictors()
     }
 }
 // 每个帧编码线程在编码一帧前调用 called by frameEncode threads
+// 按照严格的顺序调用，保证不会有两帧同时调用
 int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encoder* enc)
 {
     int orderValue = m_startEndOrder.get();// 从主线程获取start end order值
@@ -1146,7 +1081,8 @@ void RateControl::hrdFullness(SEIBufferingPeriod *seiBP)
     seiBP->m_initialCpbRemovalDelay = (uint32_t)(num * cpbState / denom);
     seiBP->m_initialCpbRemovalDelayOffset = (uint32_t)(num * cpbSize / denom - seiBP->m_initialCpbRemovalDelay);
 }
-
+// 由frameEncoder 在每一帧编码前 进行调用
+// 按照严格的顺序，抱枕了任何时候不会有两个线程同时调用
 void RateControl::updateVbvPlan(Encoder* enc)
 {
     m_bufferFill = m_bufferFillFinal;
@@ -1601,6 +1537,7 @@ void RateControl::updatePredictor(Predictor *p, double q, double var, double bit
     p->offset += new_offset;//系数累加
 }
 // called by frameEncoder threads
+// called by rateControlEnd
 // bits: 当前帧编码实际产生的bits
 // updateVbv 和 rateControlStart rateControlEnd 一样 按照严格的顺序执行
 // 虽然会被不同的线程执行，但不会有竞争的现象
@@ -1771,32 +1708,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_isVbv)
     {
-        *filler = updateVbv(actualBits, rce);
-        if (m_param->bEmitHRDSEI)
-        {
-            const VUI *vui = &curEncData.m_slice->m_sps->vuiParameters;
-            const HRDInfo *hrd = &vui->hrdParameters;
-            const TimingInfo *time = &vui->timingInfo;
-            if (!curFrame->m_poc)
-            {
-                // first access unit initializes the HRD
-                rce->hrdTiming->cpbInitialAT = 0;
-                rce->hrdTiming->cpbRemovalTime = m_nominalRemovalTime = (double)m_bufPeriodSEI.m_initialCpbRemovalDelay / 90000;
-            }
-            else
-            {
-                rce->hrdTiming->cpbRemovalTime = m_nominalRemovalTime + (double)rce->picTimingSEI->m_auCpbRemovalDelay * time->numUnitsInTick / time->timeScale;
-                double cpbEarliestAT = rce->hrdTiming->cpbRemovalTime - (double)m_bufPeriodSEI.m_initialCpbRemovalDelay / 90000;
-                if (!curFrame->m_lowres.bKeyframe)
-                    cpbEarliestAT -= (double)m_bufPeriodSEI.m_initialCpbRemovalDelayOffset / 90000;
-
-                rce->hrdTiming->cpbInitialAT = hrd->cbrFlag ? m_prevCpbFinalAT : S265_MAX(m_prevCpbFinalAT, cpbEarliestAT);
-            }
-            int filler_bits = *filler ? (*filler - START_CODE_OVERHEAD * 8)  : 0; 
-            uint32_t cpbsizeUnscale = hrd->cpbSizeValue << (hrd->cpbSizeScale + CPB_SHIFT);
-            rce->hrdTiming->cpbFinalAT = m_prevCpbFinalAT = rce->hrdTiming->cpbInitialAT + (actualBits + filler_bits)/ cpbsizeUnscale;
-            rce->hrdTiming->dpbOutputTime = (double)rce->picTimingSEI->m_picDpbOutputDelay * time->numUnitsInTick / time->timeScale + rce->hrdTiming->cpbRemovalTime;
-        }
+        *filler = updateVbv(actualBits, rce);// 有rateCOntrolEnd调用
     }
     rce->isActive = false;
     // Allow rateControlStart of next frame only when rateControlEnd of previous frame is over

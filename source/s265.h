@@ -800,10 +800,6 @@ typedef struct s265_param
      * NAL at the start of every access unit. Default false */
     int       bEnableAccessUnitDelimiters;
 
-    /* Enables the buffering period SEI and picture timing SEI to signal the HRD
-     * parameters. Default is disabled */
-    int       bEmitHRDSEI;
-
     /* Enables the emission of a user data SEI with the stream headers which
      * describes the encoder version, build info, and parameters. This is
      * very helpful for debugging, but may interfere with regression tests.
