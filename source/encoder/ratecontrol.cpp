@@ -51,32 +51,7 @@ using namespace S265_NS;
 
 const int RateControl::s_slidingWindowFrames = 20;
 
-namespace {
-inline int calcScale(uint32_t x)
-{
-    static uint8_t lut[16] = {4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0};
-    int y, z = (((x & 0xffff) - 1) >> 27) & 16;
-    x >>= z;
-    z += y = (((x & 0xff) - 1) >> 28) & 8;
-    x >>= y;
-    z += y = (((x & 0xf) - 1) >> 29) & 4;
-    x >>= y;
-    return z + lut[x&0xf];
-}
-
-inline int calcLength(uint32_t x)
-{
-    static uint8_t lut[16] = {4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0};
-    int y, z = (((x >> 16) - 1) >> 27) & 16;
-    x >>= z ^ 16;
-    z += y = ((x - 0x100) >> 28) & 8;
-    x >>= y ^ 8;
-    z += y = ((x - 0x10) >> 29) & 4;
-    x >>= y ^ 4;
-    return z + lut[x];
-}
-
-}  // end anonymous namespace
+// 编码器全局上层码空对象，每个编码器一个
 RateControl::RateControl(s265_param& p, Encoder *top)
 {
     m_param = &p;
@@ -239,7 +214,7 @@ RateControl::RateControl(s265_param& p, Encoder *top)
 //一个encoder 对应一个有个RateControl 来把控全局码率
 bool RateControl::init(const SPS& sps)
 {
-    if (m_isVbv && !m_initVbv)
+    if (m_isVbv && !m_initVbv)//如果启用了vbv 并且vbv还没有被初始化
     {
         /* We don't support changing the ABR bitrate right now,
          * so if the stream starts as CBR, keep it CBR. */
@@ -315,6 +290,7 @@ bool RateControl::init(const SPS& sps)
     initFramePredictors();// 首次init predictor 在此处
     return true;
 }
+// 用于编码器码率控制参数重置
 void RateControl::reconfigureRC()
 {
     if (m_isVbv)
@@ -379,7 +355,7 @@ void RateControl::reconfigureRC()
     }
     m_bitrate = (double)m_param->rc.bitrate * 1000;
 }
-
+// 预测初始化 首次 或者 在遇到场景切换帧编码之前由 rateControlStart 调用
 void RateControl::initFramePredictors()
 {
     /* Frame Predictors used in vbv */
@@ -591,7 +567,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
 
     return m_qp;
 }
-
+//统计 在ratecontrolStart中给出的 帧级qp,用于场景切换后的帧的qp预测
 void RateControl::accumPQpUpdate()
 {
     m_accumPQp   *= .95;
@@ -602,7 +578,7 @@ void RateControl::accumPQpUpdate()
     else//PB帧 直接相加
         m_accumPQp += m_qp;
 }
-
+// 帧的类型 I/P/B 决定使用那种预测器
 int RateControl::getPredictorType(int lowresSliceType, int sliceType)
 {
     /* Use a different predictor for B Ref and B frames for vbv frame size predictions */
@@ -610,14 +586,14 @@ int RateControl::getPredictorType(int lowresSliceType, int sliceType)
         return 3;
     return sliceType;// 0/1/2 分别为 B帧/P帧/I帧
 }
-
+// 在帧编码前，对 由ratecontrolstart 给出来的qsacle 在abr下时 进行调整
 double RateControl::tuneAbrQScaleFromFeedback(double qScale)
 {
     double abrBuffer = 2 * m_rateTolerance * m_bitrate;
     /* use framesDone instead of POC as poc count is not serial with bframes enabled */
     double overflow = 1.0;
     double timeDone = (double)(m_framesDone - m_param->frameNumThreads + 1) * m_frameDuration;
-    double wantedBits = timeDone * m_bitrate;
+    double wantedBits = timeDone * m_bitrate;//整个时间内应流入的bits（注意非abr时，m_bitrate = 0）
     int64_t encodedBits = m_totalBits;
     if (m_param->totalFrames && m_param->totalFrames <= 2 * m_fps)
     {
@@ -634,7 +610,7 @@ double RateControl::tuneAbrQScaleFromFeedback(double qScale)
     }
     return qScale;
 }
-
+// only used for m_isGrainEnabled
 double RateControl::tuneQScaleForGrain(double rcOverflow)
 {
     double qpstep = rcOverflow > 1.1 ? rcOverflow : m_lstep;
@@ -652,6 +628,8 @@ double RateControl::tuneQScaleForGrain(double rcOverflow)
 }
 // 每个帧编码线程在编码一帧前 由 rateControlStart调用
 // 在并行编码的过程中，rateControlStart 按照严格的顺序调用
+// 先给出一帧编码的估计qp（pqnovbv）然后在通过调用clipqscale
+// 对qp 进行vbv 限制，最后通过predictor 得到 frameSizePlanned
 double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 {
     double q;
@@ -680,8 +658,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         }
 
         rce->movingAvgSum = m_movingAvgSum;//更新滑动窗口相关数据
-        m_lastRemovedSatdCost = m_satdCostWindow[pos];
-        m_satdCostWindow[pos] = rce->lastSatd;
+        m_lastRemovedSatdCost = m_satdCostWindow[pos]; //更新最老旧的satd
+        m_satdCostWindow[pos] = rce->lastSatd;//保存最新的satd
         m_sliderPos++;
     }
 
@@ -739,7 +717,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             q = q0;
         else if(m_isGrainEnabled)
                 q = q1;
-            else
+        else
             q = (q0 * dt1 + q1 * dt0) / (dt0 + dt1);
 
         double crf_factor = 0.5;
@@ -759,8 +737,9 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             double minScenecutQscale =s265_qp2qScale(ABR_SCENECUT_INIT_QP_MIN); 
             m_lastQScaleFor[P_SLICE] = S265_MAX(minScenecutQscale, m_lastQScaleFor[P_SLICE]);
         }
+        //qp-->qscale
         double qScale = s265_qp2qScale(q);
-        rce->qpNoVbv = q;
+        rce->qpNoVbv = q;// 该qp 没有进经过vbv
         double lmin = 0, lmax = 0;
         if (m_isGrainEnabled && m_isFirstMiniGop)
         {
@@ -807,6 +786,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 
             /* clip qp to permissible range after vbv-lookahead estimation to avoid possible 
                 * mispredictions by initial frame size predictors */
+            // apply vbv 的过程   
             qScale = clipQscale(curFrame, rce, qScale);// B 帧调用
 
             if (m_pred[m_predType].count == 1)
@@ -834,7 +814,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         return qScale;
     }
     else
-    {
+    {// P_SLICE/I_SLICE
         {
             /* 1pass ABR */
 
@@ -859,13 +839,14 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             rce->sliceType = m_sliceType;
 
             if (m_param->rc.rateControlMode == S265_RC_CRF)
-            {
+            {   // (crf+vbv下 q = qscale )
                 q = getQScale(rce, m_rateFactorConstant);
             }
             else
             {
                 checkAndResetABR(rce, false);
                 double initialQScale = getQScale(rce, m_wantedBitsWindow / m_cplxrSum);
+                // just used for abr 
                 double tunedQScale = tuneAbrQScaleFromFeedback(initialQScale);
                 overflow = tunedQScale / initialQScale;
                 q = !m_partialResidualFrames? tunedQScale : initialQScale;
@@ -944,6 +925,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 q = s265_clip3(qmin, qmax, q);
                 rce->qpNoVbv = s265_qScale2qp(q);
             }
+            // apply vbv的过程
             q = clipQscale(curFrame, rce, q);// I/P 帧调用
 
             rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
@@ -1018,13 +1000,13 @@ void RateControl::rateControlUpdateStats(RateControlEntry* rce)
     // 主要用于同步
     if (m_param->rc.rateControlMode == S265_RC_ABR || m_isVbv)
     {
-        m_startEndOrder.incr();//  码空 update+1 by workthreads
+        m_startEndOrder.incr();//  码控 update+1 by workthreads
 
         if (rce->encodeOrder < m_param->frameNumThreads - 1)
-            m_startEndOrder.incr(); // 码空提前 end+1 by workthreads   Start faked rateControlEnd calls for negative frames
+            m_startEndOrder.incr(); // 码控提前 end+1 by workthreads   Start faked rateControlEnd calls for negative frames
     }
 }
-
+// used only for abr， nouse for crf/crf_vbv
 void RateControl::checkAndResetABR(RateControlEntry* rce, bool isFrameDone)
 {
     double abrBuffer = 2 * m_rateTolerance * m_bitrate;
@@ -1082,7 +1064,7 @@ void RateControl::hrdFullness(SEIBufferingPeriod *seiBP)
     seiBP->m_initialCpbRemovalDelayOffset = (uint32_t)(num * cpbSize / denom - seiBP->m_initialCpbRemovalDelay);
 }
 // 由frameEncoder 在每一帧编码前 进行调用
-// 按照严格的顺序，抱枕了任何时候不会有两个线程同时调用
+// 按照严格的顺序，保证了任何时候不会有两个线程同时调用
 void RateControl::updateVbvPlan(Encoder* enc)
 {
     m_bufferFill = m_bufferFillFinal;
@@ -1093,7 +1075,9 @@ double RateControl::predictSize(Predictor *p, double q, double var)
 {
     return (p->coeff * var + p->offset) / (q * p->count);
 }
-
+//called by frameEncode threads
+//由 ratecontrolStart --> rateEstimateQscale -->  调用
+// 相当于帧级vbv过程
 double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
 {
     // B-frames are not directly subject to VBV,
@@ -1243,7 +1227,8 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
     }
     return s265_clip3(lmin, lmax, q);
 }
-
+// 动态统计当前帧已经产生的bits，
+// 并返回 已经产生的bits+剩余未编码CTU的预测bits之和
 double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, double qpVbv, int32_t& encodedBitsSoFar)
 {
     uint32_t rowSatdCostSoFar = 0, totalSatdBits = 0;
@@ -1256,17 +1241,17 @@ double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, d
 
     uint32_t maxRows = curEncData.m_slice->m_sps->numCuInHeight;
     uint32_t maxCols = curEncData.m_slice->m_sps->numCuInWidth;
-
+    // 整帧范围内考虑
     for (uint32_t row = 0; row < maxRows; row++)
     {
-        encodedBitsSoFar += curEncData.m_rowStat[row].encodedBits;
-        rowSatdCostSoFar = curEncData.m_rowStat[row].rowSatd;
+        encodedBitsSoFar += curEncData.m_rowStat[row].encodedBits;// 统计所有行已经产生的bits
+        rowSatdCostSoFar = curEncData.m_rowStat[row].rowSatd;//该行已经累加了的cost
         // 该行的satd 总数 减去已经编码统计到的ctu的satd
-        uint32_t satdCostForPendingCus = curEncData.m_rowStat[row].satdForVbv - rowSatdCostSoFar;
+        uint32_t satdCostForPendingCus = curEncData.m_rowStat[row].satdForVbv - rowSatdCostSoFar;// 总的 -已经累计得倒的
         satdCostForPendingCus >>= S265_DEPTH - 8;
         if (satdCostForPendingCus  > 0)//该行还有一些ctu未被统计到
         {
-            double pred_s = predictSize(rce->rowPred[0], qScale, satdCostForPendingCus);
+            double pred_s = predictSize(rce->rowPred[0], qScale, satdCostForPendingCus);//未被编码的ctu对应着多少bits
             uint32_t refRowSatdCost = 0, refRowBits = 0, intraCostForPendingCus = 0;
             double refQScale = 0;
 
@@ -1275,16 +1260,16 @@ double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, d
                 FrameData& refEncData = *refFrame->m_encData;
                 uint32_t endCuAddr = maxCols * (row + 1);
                 uint32_t startCuAddr = curEncData.m_rowStat[row].numEncodedCUs;
-                if (startCuAddr)
+                if (startCuAddr)// 当前帧该行已经有部分被编码了
                 {
                     for (uint32_t cuAddr = startCuAddr + 1 ; cuAddr < endCuAddr; cuAddr++)
-                    {
+                    {//只统计还没有被编码的ctu对应的reflist0 ref0 中相同位置的ctu 的cost 和bits作为ref数据
                         refRowSatdCost += refEncData.m_cuStat[cuAddr].vbvCost;
                         refRowBits += refEncData.m_cuStat[cuAddr].totalBits;
                     }
                 }
-                else
-                {
+                else//当前帧该行还没有被编码
+                {    //当前行的ref数据直接ref帧对应行的整行数据
                     refRowBits = refEncData.m_rowStat[row].encodedBits;
                     refRowSatdCost = refEncData.m_rowStat[row].satdForVbv;
                 }
@@ -1295,27 +1280,31 @@ double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, d
 
             if (picType == I_SLICE || qScale >= refQScale)
             {
+                // qp要大时 使用 pred_s 预测器
                 if (picType == P_SLICE 
                     && refFrame 
-                    && refFrame->m_encData->m_slice->m_sliceType == picType
+                    && refFrame->m_encData->m_slice->m_sliceType == picType // 当前帧和其list0的ref0 同为P帧
                     && refQScale > 0
                     && refRowBits > 0
                     && !m_param->rc.bEnableConstVbv)
                 {
                     if (abs((int32_t)(refRowSatdCost - satdCostForPendingCus)) < (int32_t)satdCostForPendingCus / 2)
                     {
+                        //通过比例公式计算 totalSatdBits 
                         double predTotal = refRowBits * satdCostForPendingCus / refRowSatdCost * refQScale / qScale;
-                        totalSatdBits += (int32_t)((pred_s + predTotal) * 0.5);
-                        continue;
+                        totalSatdBits += (int32_t)((pred_s + predTotal) * 0.5);//(预测预测与比例预测 进行平均）
+                        continue;// 跳到下一行
                     }
                 }
                 totalSatdBits += (int32_t)pred_s;
             }
             else if (picType == P_SLICE)
             {
+                // 剩余为编码的ctu 的stadcost
                 intraCostForPendingCus = curEncData.m_rowStat[row].intraSatdForVbv - curEncData.m_rowStat[row].rowIntraSatd;
                 intraCostForPendingCus >>= S265_DEPTH - 8;
                 /* Our QP is lower than the reference! */
+                // 当前qp 比refqp要小预测，使用intra 预测器
                 double pred_intra = predictSize(rce->rowPred[1], qScale, intraCostForPendingCus);
                 /* Sum: better to overestimate than underestimate by using only one of the two predictors. */
                 totalSatdBits += (int32_t)(pred_intra + pred_s);
@@ -1331,6 +1320,7 @@ double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, d
 // 只有在rowInSlice == col 的ctu 编码完成后，rowEncoder才进行调用，
 // 也就是说每一行调用的位置点不一样，也不是所有的行都会调用
 // 对应一个frame/一个slice 同一时刻只有一个线程调用该函数
+// 行级vbv
 int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId)
 {
     FrameData& curEncData = *curFrame->m_encData;
@@ -1346,7 +1336,7 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         Frame* refFrame = curEncData.m_slice->m_refFrameList[0][0];
         if (qpVbv < refFrame->m_encData->m_rowStat[row].rowQp)
         {
-            //当前检查点使用的qp < 参考帧向同行的行纪qp时，更新该FrameEncoder的 pred_intra 预测器
+            //当前检查点使用的qp < 参考帧向同行的行级qp时，更新该FrameEncoder的 pred_intra 预测器
             uint64_t intraRowSatdCost = curEncData.m_rowStat[row].rowIntraSatd;
             intraRowSatdCost >>= S265_DEPTH - 8;
             updatePredictor(rce->rowPred[1], qScaleVbv, (double)intraRowSatdCost, encodedBits);
@@ -1377,17 +1367,18 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         /* More threads means we have to be more cautious in letting ratecontrol use up extra bits. */
         double rcTol = bufferLeftPlanned / m_param->frameNumThreads * m_rateTolerance;
         int32_t encodedBitsSoFar = 0;
+        // 返回的是实际编码产生的bits + 未编码部分的预测bits
         double accFrameBits = predictRowsSizeSum(curFrame, rce, qpVbv, encodedBitsSoFar);
         double vbvEndBias = 0.95;
 
         /* * Don't increase the row QPs until a sufficent amount of the bits of
          * the frame have been processed, in case a flat area at the top of the
          * frame was measured inaccurately. */
-        if (encodedBitsSoFar < 0.05f * rce->frameSizePlanned)
+        if (encodedBitsSoFar < 0.05f * rce->frameSizePlanned)// 实际产生的bits比例较小时，qp 不往上调整
             qpMax = qpAbsoluteMax = prevRowQp;
 
         if (rce->sliceType != I_SLICE || (m_param->rc.bStrictCbr && rce->poc > 0))
-            rcTol *= 0.5;
+            rcTol *= 0.5;//非I帧tolerance 减小一半
 
         if (!m_isCbr)
             qpMin = S265_MAX(qpMin, rce->qpNoVbv);
@@ -1397,25 +1388,25 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
             totalBitsNeeded = (m_param->totalFrames * m_bitrate) / m_fps;
         double abrOvershoot = (accFrameBits + m_totalBits - m_wantedBitsWindow) / totalBitsNeeded;
 
-        while (qpVbv < qpMax
-               && (((accFrameBits > rce->frameSizePlanned + rcTol) ||
-                   (rce->bufferFill - accFrameBits < bufferLeftPlanned * 0.5) ||
-                   (accFrameBits > rce->frameSizePlanned && qpVbv < rce->qpNoVbv) ||
+        while (qpVbv < qpMax //qpvbv 还有上调空间
+               && (((accFrameBits > rce->frameSizePlanned + rcTol) || //实际消耗部分+ 剩余预估消耗部分 已经超tolerance了
+                   (rce->bufferFill - accFrameBits < bufferLeftPlanned * 0.5) ||//动态预估的bufferfill < 计划的bufferfill的一半了
+                   (accFrameBits > rce->frameSizePlanned && qpVbv < rce->qpNoVbv) ||// 动态预估的已经比计划消耗的大了并且qpvbv已经是qpnovbv下调过了的了
                    (rce->vbvEndAdj && ((rce->bufferFill - accFrameBits) < (rce->targetFill * vbvEndBias))))
                    && (!m_param->rc.bStrictCbr ? 1 : abrOvershoot > 0.1)))
-        {
+        {   //vbv 有下溢的风险了，上调qp，并重新动态预估 accFrameBits
             qpVbv += stepSize;
             accFrameBits = predictRowsSizeSum(curFrame, rce, qpVbv, encodedBitsSoFar);
             abrOvershoot = (accFrameBits + m_totalBits - m_wantedBitsWindow) / totalBitsNeeded;
         }
 
-        while (qpVbv > qpMin
-               && (qpVbv > curEncData.m_rowStat[0].rowQp || m_singleFrameVbv)
-               && (((accFrameBits < rce->frameSizePlanned * 0.8f && qpVbv <= prevRowQp)
-                   || accFrameBits < (rce->bufferFill - m_bufferSize + m_bufferRate) * 1.1
+        while (qpVbv > qpMin // qpvbv 还有下调空间
+               && (qpVbv > curEncData.m_rowStat[0].rowQp || m_singleFrameVbv)// qpvbv 比首行rowqp（实际上为帧级 m_avgQpRc） 要大 或者单帧vbv
+               && (((accFrameBits < rce->frameSizePlanned * 0.8f && qpVbv <= prevRowQp) //动态预估的bits比planed的0.8 还要小,且qpvbv已经被调小过了
+                   || accFrameBits < (rce->bufferFill - m_bufferSize + m_bufferRate) * 1.1 //
                    || (rce->vbvEndAdj && ((rce->bufferFill - accFrameBits) > (rce->targetFill * vbvEndBias))))
                    && (!m_param->rc.bStrictCbr ? 1 : abrOvershoot < 0)))
-        {
+        {   //vbv 有上溢的风险了，下调qp，并重新动态预估 accFrameBits
             qpVbv -= stepSize;
             accFrameBits = predictRowsSizeSum(curFrame, rce, qpVbv, encodedBitsSoFar);
             abrOvershoot = (accFrameBits + m_totalBits - m_wantedBitsWindow) / totalBitsNeeded;
@@ -1440,20 +1431,21 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         }
 
         /* avoid VBV underflow or MinCr violation */
-        while ((qpVbv < qpAbsoluteMax)
-               && ((rce->bufferFill - accFrameBits < m_bufferRate * maxFrameError) ||
+        while ((qpVbv < qpAbsoluteMax)//qpvbv 还有上调空间
+               && ((rce->bufferFill - accFrameBits < m_bufferRate * maxFrameError) ||// 有下溢风险
                    (rce->frameSizeMaximum - accFrameBits < rce->frameSizeMaximum * maxFrameError)))
         {
             qpVbv += stepSize;
             accFrameBits = predictRowsSizeSum(curFrame, rce, qpVbv, encodedBitsSoFar);
         }
 
-        rce->frameSizeEstimated = accFrameBits;
+        rce->frameSizeEstimated = accFrameBits;//动态更新 frameSizeEstimated
 
         /* If the current row was large enough to cause a large QP jump, try re-encoding it. */
         if (qpVbv > qpMax && prevRowQp < qpMax && canReencodeRow)
-        {
+        {//vbv之前 qp < qpmax,vbv之后 qp > qpmax
             /* Bump QP to halfway in between... close enough. */
+            //调大qp 但不能小于之前编码用的qp + 1.0f, 也不能大于qpmax 然后重新编码该行
             qpVbv = s265_clip3(prevRowQp + 1.0f, qpMax, (prevRowQp + qpVbv) * 0.5);
             return -1;
         }
@@ -1461,7 +1453,8 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         if (m_param->rc.rfConstantMin)
         {
             if (qpVbv < qpMin && prevRowQp > qpMin && canReencodeRow)
-            {
+            {   //vbv之前 qp > qpmin,vbv之后 qp < qpmin
+                //调小qp, 但不能小于qpmin，也不能大于 之前编码用的qp 重新编码
                 qpVbv = s265_clip3(qpMin, prevRowQp, (prevRowQp + qpVbv) * 0.5);
                 return -1;
             }
@@ -1470,13 +1463,15 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
     else// 该slice 的最后一行
     {
         int32_t encodedBitsSoFar = 0;
+        //返回动态估计的framebits
         rce->frameSizeEstimated = predictRowsSizeSum(curFrame, rce, qpVbv, encodedBitsSoFar);
 
         /* Last-ditch attempt: if the last row of the frame underflowed the VBV,
          * try again. */
+        // 下溢 风险
         if ((rce->frameSizeEstimated > (rce->bufferFill - m_bufferRate * maxFrameError) &&
              qpVbv < qpMax && canReencodeRow))
-        {
+        {   //令 qpvbv 为qpmax 重新编码该行
             qpVbv = qpMax;
             return -1;
         }
@@ -1708,7 +1703,7 @@ int RateControl::rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry*
 
     if (m_isVbv)
     {
-        *filler = updateVbv(actualBits, rce);// 有rateCOntrolEnd调用
+        *filler = updateVbv(actualBits, rce);// 由rateCOntrolEnd调用
     }
     rce->isActive = false;
     // Allow rateControlStart of next frame only when rateControlEnd of previous frame is over
@@ -1743,7 +1738,7 @@ void RateControl::destroy()
 {   
 
 }
-
+// 一般不用，调节 位于场景切换帧后面帧的qscale
 double RateControl::forwardMasking(Frame* curFrame, double q)
 {
     double qp = s265_qScale2qp(q);
@@ -1810,6 +1805,7 @@ double RateControl::forwardMasking(Frame* curFrame, double q)
 
     return s265_qp2qScale(qp);
 }
+// 一般不用，调节位于场景切换帧前面帧的qscale
 double RateControl::backwardMasking(Frame* curFrame, double q)
 {
     double qp = s265_qScale2qp(q);

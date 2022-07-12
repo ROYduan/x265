@@ -1482,6 +1482,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         }
 
         // Completed CU processing
+        //为啥不用加锁？？？？
         curRow.completed++;//已完成编码的ctu数量++ （注意不需要管 deblock 和sao)
 
         // 统计
@@ -1535,7 +1536,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 {// 需要重新编码
                     s265_log(m_param, S265_LOG_DEBUG, "POC %d row %d - encode restart required for VBV, to %.2f from %.2f\n",
                         m_frame->m_poc, row, qpBase, curEncData.m_cuStat[cuAddr].baseQp);
-
+                    // 非wpp 下 相当于一个线程老老实实一行一行编码，所以无需加锁
                     m_vbvResetTriggerRow[curRow.sliceId] = row;//设置当前ctu所属slice需要从当前行开始重新编码
                     m_outStreams[0].copyBits(&m_backupStreams[0]);//恢复输出bit 状态为初始状态
 
@@ -1658,12 +1659,13 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             (!m_bAllRowsStop[curRow.sliceId] || intRow + 1 < m_vbvResetTriggerRow[curRow.sliceId]))
         {   //wpp下 该行已经编码了2个ctu，该行不是slice最后一行 并且 该slice没有被标记为需要stop 或者 虽有标记了但是下一行还没有到达重新编码的的起始行
             /* activate next row */
-            ScopedLock below(m_rows[row + 1].lock);
+            // 注意每次编码完一个ctu 都会拿一下后边一行的锁
+            ScopedLock below(m_rows[row + 1].lock);// // 锁 m_rows[row + 1].active 与 busy
 
-            if (m_rows[row + 1].active == false &&
+            if (m_rows[row + 1].active == false &&// 如果后边一行已经被标记为false了/或者还没有开始编码/或者中途停止了
                 m_rows[row + 1].completed + 2 <= curRow.completed)//wpp 条件满足了
             {
-                m_rows[row + 1].active = true;
+                m_rows[row + 1].active = true;// 重新激活
                 // 编码下一行所需的内部依赖解决了,清除内部依赖
                 enqueueRowEncoder(m_row_to_idx[row + 1]);
                 //wpp下 入口2://-->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 encode 任务)
@@ -1671,7 +1673,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             }
         }
 
-        ScopedLock self(curRow.lock);
+        ScopedLock self(curRow.lock); // 锁 curRow.active 与 busy
         if ((m_bAllRowsStop[curRow.sliceId] && intRow > m_vbvResetTriggerRow[curRow.sliceId]) ||
             (!bFirstRowInSlice && ((curRow.completed < numCols - 1) || (m_rows[row - 1].completed < numCols)) && m_rows[row - 1].completed < curRow.completed + 2))
         { // 如果该slice 被标记为需要从某一行开始（m_vbvResetTriggerRow）重新编码 && 且当前行刚好位于该行之后 或者
