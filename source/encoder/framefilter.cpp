@@ -297,7 +297,7 @@ static void origCUSampleRestoration(const CUData* cu, const CUGeom& cuGeom, Fram
     if (cu->m_tqBypass[absPartIdx])
         restoreOrigLosslessYuv(cu, frame, absPartIdx);
 }
-
+//拷贝
 void FrameFilter::ParallelFilter::copySaoAboveRef(const CUData *ctu, PicYuv* reconPic, uint32_t cuAddr, int col)
 {
     // Copy SAO Top Reference Pixels
@@ -441,43 +441,46 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
     const CUGeom* cuGeoms = m_frameFilter->m_frameEncoder->m_cuGeoms;
     const uint32_t* ctuGeomMap = m_frameFilter->m_frameEncoder->m_ctuGeomMap;
     PicYuv* reconPic = m_encData->m_reconPic;
-    const int colStart = m_lastCol.get();
+    const int colStart = m_lastCol.get();//当前行从哪里开始做垂直滤波（完了后会做其前一个ctu的水平滤波）
     const int numCols = m_frameFilter->m_numCols;
     // TODO: Waiting previous row finish or simple clip on it?
-    int colEnd = m_allowedCol.get();
+    int colEnd = m_allowedCol.get();//当前行滤波到哪里结束
 
     // Avoid threading conflict
+    //当前可滤波位置肯定得比其前一行已经滤波后的位置要小于等于
     if (!m_encData->getPicCTU(m_rowAddr)->m_bFirstRowInSlice && colEnd > m_prevRow->m_lastDeblocked.get())
         colEnd = m_prevRow->m_lastDeblocked.get();
 
-    if (colStart >= colEnd)
+    if (colStart >= colEnd)//起始ctu >= 结束ctu 直接返回
         return;
-
+/*对于deblock而言，一次滤波包括当前ctu的垂直滤波和其左侧ctu的水平滤波*/
     for (uint32_t col = (uint32_t)colStart; col < (uint32_t)colEnd; col++)
     {
-        const uint32_t cuAddr = m_rowAddr + col;
+        const uint32_t cuAddr = m_rowAddr + col;//行内col到frame内ctuaddr
         const CUData* ctu = m_encData->getPicCTU(cuAddr);
 
         if (m_frameFilter->m_param->bEnableLoopFilter)
         {
+            //当前ctu左侧和内部的垂直边界滤波
             deblockCTU(ctu, cuGeoms[ctuGeomMap[cuAddr]], Deblock::EDGE_VER);
         }
-
+        // 如果 col 不是首列位置，则其左侧的ctu的上边届和内部水平边界可滤波
         if (col >= 1)
         {
             const CUData* ctuPrev = m_encData->getPicCTU(cuAddr - 1);
             if (m_frameFilter->m_param->bEnableLoopFilter)
             {
-                deblockCTU(ctuPrev, cuGeoms[ctuGeomMap[cuAddr - 1]], Deblock::EDGE_HOR);
+                deblockCTU(ctuPrev, cuGeoms[ctuGeomMap[cuAddr - 1]], Deblock::EDGE_HOR);// 左侧ctu的上面和内部水平边界滤波
 
                 // When SAO Disable, setting column counter here
                 if (!m_frameFilter->m_useSao & !ctuPrev->m_bFirstRowInSlice)
-                    m_prevRow->processPostCu(col - 1);
+                    m_prevRow->processPostCu(col - 1);// 无需sao时,该行的col-1位置ctu已经完成水平滤波（完成全部滤波）则其上一行在col-1位置ctu，已经可以输出
             }
 
             if (m_frameFilter->m_useSao)
             {
                 // Save SAO bottom row reference pixels
+                //将左侧ctu的上边一行deblocked的数据拷贝到行buffer中
                 copySaoAboveRef(ctuPrev, reconPic, cuAddr - 1, col - 1);
 
                 // SAO Decide
@@ -493,34 +496,34 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
                 if (!ctu->m_bFirstRowInSlice && col >= 3)
                 {
                     // Must delay 1 row to avoid thread data race conflict
-                    m_prevRow->processSaoCTU(saoParam, col - 3);
-                    m_prevRow->processPostCu(col - 3);
+                    m_prevRow->processSaoCTU(saoParam, col - 3);//上一行往左退3个col位置的ctu 进行sao处理
+                    m_prevRow->processPostCu(col - 3);//sao完后对应输出
                 }
             }
 
-            m_lastDeblocked.set(col);
+            m_lastDeblocked.set(col);//当前col-ctu完成了垂直滤波，前一个ctu-col完成了水平滤波
         }
         m_lastCol.incr();
     }
 
-    if (colEnd == numCols)
+    if (colEnd == numCols)// 最后一列位置的处理
     {
         const uint32_t cuAddr = m_rowAddr + numCols - 1;
         const CUData* ctuPrev = m_encData->getPicCTU(cuAddr);
 
         if (m_frameFilter->m_param->bEnableLoopFilter)
         {
-            deblockCTU(ctuPrev, cuGeoms[ctuGeomMap[cuAddr]], Deblock::EDGE_HOR);
+            deblockCTU(ctuPrev, cuGeoms[ctuGeomMap[cuAddr]], Deblock::EDGE_HOR);//最后一列 还需要完成自身水平滤波 （垂直滤波在上一阶段已经做了）
 
             // When SAO Disable, setting column counter here
             if (!m_frameFilter->m_useSao & !ctuPrev->m_bFirstRowInSlice)
-                m_prevRow->processPostCu(numCols - 1);
+                m_prevRow->processPostCu(numCols - 1);// 最后一列ctu 可以输出了
         }
 
         // TODO: move processPostCu() into processSaoUnitCu()
         if (m_frameFilter->m_useSao)
         {
-            const CUData* ctu = m_encData->getPicCTU(m_rowAddr + numCols - 2);
+            const CUData* ctu = m_encData->getPicCTU(m_rowAddr + numCols - 2);//最右侧一列ctu的左侧ctu
 
             // Save SAO bottom row reference pixels
             copySaoAboveRef(ctuPrev, reconPic, cuAddr, numCols - 1);
@@ -534,19 +537,19 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
                 m_sao.rdoSaoUnitCu(saoParam, (ctuPrev->m_bFirstRowInSlice ? 0 : m_rowAddr), numCols - 1, cuAddr);
 
             // Process Previous Rows SAO CU
-            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 3))
+            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 3))//前一行右侧倒数第3列ctu sao 处理
             {
                 m_prevRow->processSaoCTU(saoParam, numCols - 3);
                 m_prevRow->processPostCu(numCols - 3);
             }
 
-            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 2))
+            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 2))//前一行右侧倒数第2列ctu sao 处理
             {
                 m_prevRow->processSaoCTU(saoParam, numCols - 2);
                 m_prevRow->processPostCu(numCols - 2);
             }
 
-            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 1))
+            if (!ctuPrev->m_bFirstRowInSlice & (numCols >= 1))//前一行右侧倒数第1列ctu sao 处理
             {
                 m_prevRow->processSaoCTU(saoParam, numCols - 1);
                 m_prevRow->processPostCu(numCols - 1);

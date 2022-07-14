@@ -1082,7 +1082,7 @@ void s265_csvlog_frame(const s265_param* param, const s265_picture* pic)
     if (param->rc.rateControlMode == S265_RC_CRF)
         fprintf(param->csvfpt, "%.3lf,", frameStats->rateFactor);
     if (param->rc.vbvBufferSize)
-        fprintf(param->csvfpt, "%.3lf, %.3lf,", frameStats->bufferFill, frameStats->bufferFillFinal);
+        fprintf(param->csvfpt, "%.3lf,", frameStats->bufferFillFinal);
     if (param->rc.vbvBufferSize && param->csvLogLevel >= 2)
         fprintf(param->csvfpt, "%.3lf,", frameStats->unclippedBufferFillFinal);
     if (param->bEnablePsnr)

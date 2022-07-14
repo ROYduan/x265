@@ -159,14 +159,14 @@ public:
     double m_rateFactorMaxIncrement; /* Don't allow RF above (CRF + this value). */
     double m_rateFactorMaxDecrement; /* don't allow RF below (this value). */
     double m_avgPFrameQp;
-    double m_bufferFillActual;
     double m_bufferExcess;
     double m_minBufferFill;
     double m_maxBufferFill;
     bool   m_isFirstMiniGop;
-    Predictor m_pred[4];       /* Slice predictors to preidct bits for each Slice type - I,P,Bref and B */
+    Predictor m_pred[3][4];       /* [3]:SIMPLE/NORMAL/COMPLEX Slice predictors to preidct bits for each Slice type - [4]:I,P,Bref and B */
     int64_t m_leadingNoBSatd;
-    int     m_predType;       /* Type of slice predictors to be used - depends on the slice type */
+    int     m_predType;       /* Type of slice predictors to be used - depends on the slice type b/p/I/Bref */
+    int     m_sceneType;
     double  m_ipOffset;
     double  m_pbOffset;
     int64_t m_bframeBits;
@@ -179,10 +179,10 @@ public:
     double  m_wantedBitsWindow;  /* target bitrate * window */
     double  m_accumPQp;          /* for determining I-frame quant */
     double  m_accumPNorm;
-    double  m_lastQScaleFor[3];  /* last qscale for a specific pict type, used for max_diff & ipb factor stuff */
+    double  m_lastQScaleFor[4];  /* last qscale for a specific m_predType, used for max_diff & ipb factor stuff */
     double  m_lstep;
-    double  m_lmin[3];
-    double  m_lmax[3];
+    double  m_lmin[4];
+    double  m_lmax[4];
     double  m_shortTermCplxSum;
     double  m_shortTermCplxCount;
     double  m_lastRceq;
@@ -245,7 +245,7 @@ public:
     int  rateControlStart(Frame* curFrame, RateControlEntry* rce, Encoder* enc);
     void rateControlUpdateStats(RateControlEntry* rce);
     int  rateControlEnd(Frame* curFrame, int64_t bits, RateControlEntry* rce, int *filler);
-    int  rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId);
+    int  rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId, uint32_t wppFlag);
     void hrdFullness(SEIBufferingPeriod* sei);
 
     double forwardMasking(Frame* curFrame, double q);
@@ -269,6 +269,7 @@ protected:
     int    getPredictorType(int lowresSliceType, int sliceType);
     int    updateVbv(int64_t bits, RateControlEntry* rce);
     void   updatePredictor(Predictor *p, double q, double var, double bits);
+    void   calculateFrameQ(double frameQ[], double q, int predType);
     double clipQscale(Frame* pic, RateControlEntry* rce, double q);
     void   updateVbvPlan(Encoder* enc);
     double predictSize(Predictor *p, double q, double var);

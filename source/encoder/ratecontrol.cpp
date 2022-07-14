@@ -187,7 +187,7 @@ RateControl::RateControl(s265_param& p, Encoder *top)
 #define ABR_INIT_QP_GRAIN_MAX (33)
 #define ABR_SCENECUT_INIT_QP_MIN (12)
 #define CRF_INIT_QP (int)m_param->rc.rfConstant
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
     {
         m_lastQScaleFor[i] = s265_qp2qScale(m_param->rc.rateControlMode == S265_RC_CRF ? CRF_INIT_QP : ABR_INIT_QP_MIN);
         m_lmin[i] = s265_qp2qScale(m_param->rc.qpMin);
@@ -240,7 +240,6 @@ bool RateControl::init(const SPS& sps)
             m_param->vbvEndFrameAdjust = s265_clip3(0.0, 1.0, m_param->vbvEndFrameAdjust);
         m_param->rc.vbvBufferInit = s265_clip3(0.0, 1.0, S265_MAX(m_param->rc.vbvBufferInit, m_bufferRate / m_bufferSize));
         m_bufferFillFinal = m_bufferSize * m_param->rc.vbvBufferInit;
-        m_bufferFillActual = m_bufferFillFinal;
         m_bufferExcess = 0;
         m_minBufferFill = m_param->minVbvFullness / 100;
         m_maxBufferFill = 1 - (m_param->maxVbvFullness / 100);
@@ -272,7 +271,7 @@ bool RateControl::init(const SPS& sps)
     m_isGrainEnabled = false;
     if(m_param->rc.bEnableGrain) // tune for grainy content OR equal p-b frame sizes
         m_isGrainEnabled = true;
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 4; i++)
         m_lastQScaleFor[i] = s265_qp2qScale(m_param->rc.rateControlMode == S265_RC_CRF ? CRF_INIT_QP : ABR_INIT_QP_MIN);
     m_avgPFrameQp = 0 ;
 
@@ -359,24 +358,26 @@ void RateControl::reconfigureRC()
 void RateControl::initFramePredictors()
 {
     /* Frame Predictors used in vbv */
-    for (int i = 0; i < 4; i++)
-    {
-        m_pred[i].coeffMin = 1.0 / 4;
-        m_pred[i].coeff = 1.0;
-        m_pred[i].count = 1.0;
-        m_pred[i].decay = 0.5;
-        m_pred[i].offset = 0.0;
-    }
-    //预测器类型 0位b  1为p  2为I  3为Bref
-    //这里修改 b/Bref 帧使用的预测器系数
-    m_pred[0].coeff = m_pred[3].coeff = 0.75;
-    m_pred[0].coeffMin = m_pred[3].coeffMin = 0.75 / 4;
-    if (m_isGrainEnabled) // when tuned for grain 
-    {
-        m_pred[1].coeffMin = 0.75 / 4;
-        m_pred[1].coeff = 0.75;
-        m_pred[0].coeff = m_pred[3].coeff = 0.75;
-        m_pred[0].coeffMin = m_pred[3].coeffMin = 0.75 / 4;
+    for (int32_t scene = 0; scene < 3; scene++) {
+        for (int i = 0; i < 4; i++)
+        {
+            m_pred[scene][i].coeffMin = 1.0 / 4;
+            m_pred[scene][i].coeff = 1.0;
+            m_pred[scene][i].count = 1.0;
+            m_pred[scene][i].decay = 0.5;
+            m_pred[scene][i].offset = 0.0;
+        }
+        //预测器类型 0位b  1为p  2为I  3为Bref
+        //这里修改 b/Bref 帧使用的预测器系数
+        m_pred[scene][0].coeff = m_pred[scene][3].coeff = 0.75;
+        m_pred[scene][0].coeffMin = m_pred[scene][3].coeffMin = 0.75 / 4;
+        if (m_isGrainEnabled) // when tuned for grain
+        {
+            m_pred[scene][1].coeffMin = 0.75 / 4;
+            m_pred[scene][1].coeff = 0.75;
+            m_pred[scene][0].coeff = m_pred[scene][3].coeff = 0.75;
+            m_pred[scene][0].coeffMin = m_pred[scene][3].coeffMin = 0.75 / 4;
+        }
     }
 }
 // 每个帧编码线程在编码一帧前调用 called by frameEncode threads
@@ -404,6 +405,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     rce->keptAsRef = IS_REFERENCED(curFrame);
     //预测器类型 0位b  1为p 2为I  3为Bref   
     m_predType = getPredictorType(curFrame->m_lowres.sliceType, m_sliceType);
+    m_sceneType = 1; // 简单场景  正常场景  复杂场景 sceneDetect(fenc, 0, 0, fenc->m_lowres->m_simpleScene);
     rce->poc = m_curSlice->m_poc;// 输入帧的序号
 
     rce->isActive = true;// 标记状态
@@ -557,10 +559,10 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
         if (m_isAbr)
         {
             rce->qpNoVbv = rce->qpaRc;
-            m_lastQScaleFor[m_sliceType] = s265_qp2qScale(rce->qpaRc);
+            m_lastQScaleFor[m_predType] = s265_qp2qScale(rce->qpaRc);
             if (rce->poc == 0)
-                 m_lastQScaleFor[P_SLICE] = m_lastQScaleFor[m_sliceType] * fabs(m_param->rc.ipFactor);
-            rce->frameSizePlanned = predictSize(&m_pred[m_predType], m_qp, (double)m_currentSatd);
+                 m_lastQScaleFor[1] = m_lastQScaleFor[m_predType] * fabs(m_param->rc.ipFactor);
+            rce->frameSizePlanned = predictSize(&m_pred[m_sceneType][m_predType], m_qp, (double)m_currentSatd);
         }
     }
     m_framesDone++;
@@ -573,10 +575,14 @@ void RateControl::accumPQpUpdate()
     m_accumPQp   *= .95;
     m_accumPNorm *= .95;
     m_accumPNorm += 1;
-    if (m_sliceType == I_SLICE)
+    if (m_predType == I_SLICE)
         m_accumPQp += m_qp + m_ipOffset;
-    else//PB帧 直接相加
+    else if (m_predType == P_SLICE )//P帧 直接相加
         m_accumPQp += m_qp;
+    else if (m_predType == B_SLICE)
+        m_accumPQp += S265_MAX(0, m_qp - m_pbOffset);
+    else// Bref
+        m_accumPQp += S265_MAX(0, m_qp - m_pbOffset/2);
 }
 // 帧的类型 I/P/B 决定使用那种预测器
 int RateControl::getPredictorType(int lowresSliceType, int sliceType)
@@ -760,8 +766,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         /* Scenecut Aware QP offsets*/
         if (m_param->bEnableSceneCutAwareQp)
         {
-            double lqmin = m_lmin[m_sliceType];
-            double lqmax = m_lmax[m_sliceType];
+            double lqmin = m_lmin[m_predType];
+            double lqmax = m_lmax[m_predType];
             if (m_param->bEnableSceneCutAwareQp & FORWARD)
                 qScale = forwardMasking(curFrame, qScale);
             if (m_param->bEnableSceneCutAwareQp & BACKWARD)
@@ -786,15 +792,17 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
 
             /* clip qp to permissible range after vbv-lookahead estimation to avoid possible 
                 * mispredictions by initial frame size predictors */
-            // apply vbv 的过程   
-            qScale = clipQscale(curFrame, rce, qScale);// B 帧调用
+            // apply vbv 的过程
+            // 忽略b帧vbv过程
+            if(!curFrame->m_lowres.i_temporal_id)
+                qScale = clipQscale(curFrame, rce, qScale);// B 帧调用
 
-            if (m_pred[m_predType].count == 1)
+            if (m_pred[m_sceneType][m_predType].count == 1)
                 qScale = s265_clip3(lmin, lmax, qScale);
-            m_lastQScaleFor[m_sliceType] = qScale;
+            m_lastQScaleFor[m_predType] = qScale;
         }
 
-        rce->frameSizePlanned = predictSize(&m_pred[m_predType], qScale, (double)m_currentSatd);
+        rce->frameSizePlanned = predictSize(&m_pred[m_sceneType][m_predType], qScale, (double)m_currentSatd);
 
         /* Limit planned size by MinCR */
         if (m_isVbv)
@@ -829,8 +837,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
              * tolerances, the bit distribution approaches that of 2pass. */
 
             double overflow = 1;
-            double lqmin = m_lmin[m_sliceType];
-            double lqmax = m_lmax[m_sliceType];
+            double lqmin = m_lmin[m_predType];
+            double lqmax = m_lmax[m_predType];
             m_shortTermCplxSum *= 0.5;
             m_shortTermCplxCount *= 0.5;
             m_shortTermCplxSum += m_currentSatd / (CLIP_DURATION(m_frameDuration) / BASE_FRAME_DURATION);
@@ -874,8 +882,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             {
                 if (m_param->rc.rateControlMode != S265_RC_CRF)
                 {
-                    lqmin = m_lastQScaleFor[m_sliceType] / m_lstep;
-                    lqmax = m_lastQScaleFor[m_sliceType] * m_lstep;
+                    lqmin = m_lastQScaleFor[m_predType] / m_lstep;
+                    lqmax = m_lastQScaleFor[m_predType] * m_lstep;
                     if (!m_partialResidualFrames || m_isGrainEnabled)
                     {
                         if (overflow > 1.1 && m_framesDone > 3)
@@ -914,8 +922,8 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             /* Scenecut Aware QP offsets*/
             if (m_param->bEnableSceneCutAwareQp)
             {
-                double qmin = m_lmin[m_sliceType];
-                double qmax = m_lmax[m_sliceType];
+                double qmin = m_lmin[m_predType];
+                double qmax = m_lmax[m_predType];
 
                 if (m_param->bEnableSceneCutAwareQp & FORWARD)
                     q = forwardMasking(curFrame, q);
@@ -928,7 +936,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             // apply vbv的过程
             q = clipQscale(curFrame, rce, q);// I/P 帧调用
 
-            rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+            rce->frameSizePlanned = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
 
             /*  clip qp to permissible range after vbv-lookahead estimation to avoid possible
              * mispredictions by initial frame size predictors, after each scenecut */
@@ -936,11 +944,11 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             if (m_isVbv && isFrameAfterScenecut)
                 q = s265_clip3(lqmin, lqmax, q);
         }
-        m_lastQScaleFor[m_sliceType] = q;
+        m_lastQScaleFor[m_predType] = q;
         if ((m_curSlice->m_poc == 0 || m_lastQScaleFor[P_SLICE] < q))
             m_lastQScaleFor[P_SLICE] = q * fabs(m_param->rc.ipFactor);
 
-        rce->frameSizePlanned = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+        rce->frameSizePlanned = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
 
         /* Always use up the whole VBV in this case. */
         if (m_singleFrameVbv)
@@ -1075,6 +1083,40 @@ double RateControl::predictSize(Predictor *p, double q, double var)
 {
     return (p->coeff * var + p->offset) / (q * p->count);
 }
+
+void RateControl::calculateFrameQ(double frameQ[], double q, int predType)
+{
+    //0/1/2/3: b/p/i/Bref
+   double qp_cur = s265_qScale2qp(q);
+  if (predType == 0)
+  { // cur: b
+    frameQ[0] = q;
+    frameQ[1] = s265_qp2qScale(qp_cur - m_pbOffset); //p
+    frameQ[2] = s265_qp2qScale(qp_cur - m_pbOffset - m_ipOffset); //I
+    frameQ[3] = s265_qp2qScale(qp_cur - m_pbOffset / 2); //Bref
+  }
+  else if (predType == 1)
+  { // cur:p
+    frameQ[0] = s265_qp2qScale(qp_cur + m_pbOffset);
+    frameQ[1] = q;
+    frameQ[2] = s265_qp2qScale(qp_cur - m_ipOffset);
+    frameQ[3] = s265_qp2qScale(qp_cur + m_pbOffset / 2);
+  }
+  else if (predType == 2)
+  { //cur:I
+    frameQ[0] = s265_qp2qScale(qp_cur + m_ipOffset + m_pbOffset);
+    frameQ[1] = s265_qp2qScale(qp_cur + m_ipOffset);
+    frameQ[2] = q;
+    frameQ[3] = s265_qp2qScale(qp_cur + m_ipOffset +  m_pbOffset / 2);
+  }
+  else if (predType == 3)
+  { //cur:Bref
+    frameQ[0] = s265_qp2qScale(qp_cur + m_pbOffset / 2);
+    frameQ[1] = s265_qp2qScale(qp_cur - m_pbOffset / 2);
+    frameQ[2] = s265_qp2qScale(qp_cur - m_pbOffset / 2 - m_ipOffset);
+    frameQ[3] = q;
+  }
+}
 //called by frameEncode threads
 //由 ratecontrolStart --> rateEstimateQscale -->  调用
 // 相当于帧级vbv过程
@@ -1096,17 +1138,18 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
             * is in a reasonable state by the end of the lookahead. */
             int loopTerminate = 0;
             /* Avoid an infinite loop. */
+            bool adaptPbRatio = (m_predType == I_SLICE || m_predType == P_SLICE || (curFrame->m_param->bBPyramid == S265_B_PYRAMID_HIER && !curFrame->m_lowres.i_temporal_id ) );
             for (int iterations = 0; iterations < 1000 && loopTerminate != 3; iterations++)
             {
-                double frameQ[3];
+
+                double frameQ[4];//0:b 1:p 2:I 3:Bref
                 double curBits;
-                curBits = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+                curBits = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
                 double bufferFillCur = m_bufferFill - curBits;
                 double targetFill;
                 double totalDuration = m_frameDuration;
-                frameQ[P_SLICE] = m_sliceType == I_SLICE ? q * m_param->rc.ipFactor : (m_sliceType == B_SLICE ? q / m_param->rc.pbFactor : q);
-                frameQ[B_SLICE] = frameQ[P_SLICE] * m_param->rc.pbFactor;
-                frameQ[I_SLICE] = frameQ[P_SLICE] / m_param->rc.ipFactor;
+                calculateFrameQ(frameQ, q, m_predType);
+
                 /* Loop over the planned future frames. */
                 bool iter = true;
                 for (int j = 0; bufferFillCur >= 0 && iter ; j++)
@@ -1120,8 +1163,9 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
                         bufferFillCur += wantedFrameSize;
                     int64_t satd = curFrame->m_lowres.plannedSatd[j] >> (S265_DEPTH - 8);
                     type = IS_S265_TYPE_I(type) ? I_SLICE : IS_S265_TYPE_B(type) ? B_SLICE : P_SLICE;
-                    int predType = getPredictorType(curFrame->m_lowres.plannedType[j], type);
-                    curBits = predictSize(&m_pred[predType], frameQ[type], (double)satd);
+                    int predType = getPredictorType(curFrame->m_lowres.plannedType[j], type);// 0/1/2/3 分别为 b帧/P帧/I帧/Bref
+                    int sceneType = 1; // 简单场景  正常场景  复杂场景 sceneDetect(curFrame, j, 1, curFrame->m_lowres->plannedSimpleScene[j]);
+                    curBits = predictSize(&m_pred[sceneType][predType], frameQ[predType], (double)satd);
                     bufferFillCur -= curBits;
                 }
                 if (rce->vbvEndAdj)
@@ -1184,7 +1228,7 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
             }
             // Now a hard threshold to make sure the frame fits in VBV.
             // This one is mostly for I-frames.
-            double bits = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+            double bits = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
 
             // For small VBVs, allow the frame to use up the entire VBV.
             double maxFillFactor;
@@ -1201,14 +1245,14 @@ double RateControl::clipQscale(Frame* curFrame, RateControlEntry* rce, double q)
                 bits *= qf;
                 if (bits < m_bufferRate / minFillFactor)
                     q *= bits * minFillFactor / m_bufferRate;
-                bits = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+                bits = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
             }
 
             q = S265_MAX(q0, q);
         }
 
         /* Apply MinCR restrictions */
-        double pbits = predictSize(&m_pred[m_predType], q, (double)m_currentSatd);
+        double pbits = predictSize(&m_pred[m_sceneType][m_predType], q, (double)m_currentSatd);
         if (pbits > rce->frameSizeMaximum)
             q *= pbits / rce->frameSizeMaximum;
         /* To detect frames that are more complex in SATD costs compared to prev window, yet 
@@ -1321,13 +1365,17 @@ double RateControl::predictRowsSizeSum(Frame* curFrame, RateControlEntry* rce, d
 // 也就是说每一行调用的位置点不一样，也不是所有的行都会调用
 // 对应一个frame/一个slice 同一时刻只有一个线程调用该函数
 // 行级vbv
-int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId)
+int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEntry* rce, double& qpVbv, uint32_t* m_sliceBaseRow, uint32_t sliceId, uint32_t wppFlag)
 {
     FrameData& curEncData = *curFrame->m_encData;
     double qScaleVbv = s265_qp2qScale(qpVbv);
     uint64_t rowSatdCost = curEncData.m_rowStat[row].rowSatd;
     double encodedBits = curEncData.m_rowStat[row].encodedBits;
-
+    if ((row == m_sliceBaseRow[sliceId] + 1) && wppFlag)
+    {
+        rowSatdCost += curEncData.m_rowStat[row - 1].rowSatd;
+        encodedBits += curEncData.m_rowStat[row - 1].encodedBits;
+    }
     rowSatdCost >>= S265_DEPTH - 8;
     //更新frameEncoder的 pred_s 预测器
     updatePredictor(rce->rowPred[0], qScaleVbv, (double)rowSatdCost, encodedBits);
@@ -1338,6 +1386,10 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         {
             //当前检查点使用的qp < 参考帧向同行的行级qp时，更新该FrameEncoder的 pred_intra 预测器
             uint64_t intraRowSatdCost = curEncData.m_rowStat[row].rowIntraSatd;
+            if ((row == m_sliceBaseRow[sliceId] + 1) && wppFlag)
+            {
+                intraRowSatdCost += curEncData.m_rowStat[row - 1].rowIntraSatd;
+            }
             intraRowSatdCost >>= S265_DEPTH - 8;
             updatePredictor(rce->rowPred[1], qScaleVbv, (double)intraRowSatdCost, encodedBits);
         }
@@ -1497,7 +1549,7 @@ double RateControl::getQScale(RateControlEntry *rce, double rateFactor)
 
     // avoid NaN's in the Rceq
     if (rce->lastSatd == 0)
-        q = m_lastQScaleFor[rce->sliceType];
+        q = m_lastQScaleFor[m_predType];
     else
     {
         m_lastRceq = q; //更新rceq 看起来 rceq 是定值
@@ -1540,10 +1592,9 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
 {
     int predType = rce->sliceType;
     int filler = 0;
-    double bufferBits;
     predType = rce->sliceType == B_SLICE && rce->keptAsRef ? 3 : predType;
     if (rce->lastSatd >= m_ncu && rce->encodeOrder >= m_lastPredictorReset)
-        updatePredictor(&m_pred[predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);
+        updatePredictor(&m_pred[m_sceneType][predType], s265_qp2qScale(rce->qpaRc), (double)rce->lastSatd, (double)bits);
 
     m_bufferFillFinal -= bits;
 
@@ -1563,9 +1614,9 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
             filler += FILLER_OVERHEAD * 8;
         }
         m_bufferFillFinal -= filler;
-        bufferBits = S265_MIN(bits + filler + m_bufferExcess, rce->bufferRate);
-        m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits + filler, 0);
-        m_bufferFillActual += bufferBits - bits - filler;
+        //bufferBits = S265_MIN(bits + filler + m_bufferExcess, rce->bufferRate);
+        //m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits + filler, 0);
+        //m_bufferFillActual += bufferBits - bits - filler;
     }
     else
     {
@@ -1577,10 +1628,10 @@ int RateControl::updateVbv(int64_t bits, RateControlEntry* rce)
             //如果 bits + 之前整个多用了的 < bufferRate了 ,则 bufferBits 取值为 实际消耗的+之前整个多用了的，m_bufferExcess 跟新为0 m_bufferFillActual 向上调整
             //如果 bits + 之前整个多用了的 > bufferRate了,则 bufferBits 取值为 bufferRate， m_bufferExcess将变小留给后面继续调整，m_bufferFillActual 向上调整
             //直到 m_bufferExcess 跟新为0 为了 m_bufferFillActual 不在调整
-        bufferBits = S265_MIN(bits + m_bufferExcess, rce->bufferRate);//本次实际用掉的bits+之前多用的bits（如果之前还有多用了的） 最多不超过bufferRate,表示实际流入vbv 的bits
-        m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits, 0);// 下次进来时 还需要考虑的剩余了的多用的bits
-        m_bufferFillActual += bufferBits - bits;//alctual fill + 应流入 - 实际输出的bits
-        m_bufferFillActual = S265_MIN(m_bufferFillActual, m_bufferSize);
+        //bufferBits = S265_MIN(bits + m_bufferExcess, rce->bufferRate);//本次实际用掉的bits+之前多用的bits（如果之前还有多用了的） 最多不超过bufferRate,表示实际流入vbv 的bits
+        //m_bufferExcess = S265_MAX(m_bufferExcess - bufferBits + bits, 0);// 下次进来时 还需要考虑的剩余了的多用的bits
+        //m_bufferFillActual += bufferBits - bits;//alctual fill + 应流入 - 实际输出的bits
+        //m_bufferFillActual = S265_MIN(m_bufferFillActual, m_bufferSize);
     }
     return filler;// 返回需要填充的bits
 }

@@ -1357,6 +1357,7 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
                     if (qp_offset)
                     {
                         double qpOffset;
+                        int factor = 1;
                         if (m_param->rc.qgSize == 8)
                             qpOffset = (qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4] +
                             qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + 1] +
@@ -1364,14 +1365,15 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
                             qp_offset[lowresCol * 2 + lowresRow * widthInLowresCu * 4 + curFrame->m_lowres.maxBlocksInRowFullRes + 1]) / 4;
                         else
                             qpOffset = qp_offset[lowresCuIdx];
-                        lowresCuCost = (uint16_t)((lowresCuCost * s265_exp2fix8(qpOffset) + 128) >> 8);//cost 考率qpdelta 的缩放影响
+                        factor = s265_exp2fix8(qpOffset);
+                        lowresCuCost = (uint16_t)((lowresCuCost * factor + 128) >> 8);//cost 考率qpdelta 的缩放影响
                         int32_t intraCuCost = curFrame->m_lowres.intraCost[lowresCuIdx];
-                        curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * s265_exp2fix8(qpOffset) + 128) >> 8;// intra cost 考虑qpdelta 的缩放影响
+                        curFrame->m_lowres.intraCost[lowresCuIdx] = (intraCuCost * factor + 128) >> 8;// intra cost 考虑qpdelta 的缩放影响
                     }
                     if (m_param->bIntraRefresh && slice->m_sliceType == S265_TYPE_P)
-                        for (uint32_t x = curFrame->m_encData->m_pir.pirStartCol; x <= curFrame->m_encData->m_pir.pirEndCol; x++)
+                        if (lowresCol >= curFrame->m_encData->m_pir.pirStartCol*scale && lowresCol < curFrame->m_encData->m_pir.pirEndCol*scale)
                             diff += curFrame->m_lowres.intraCost[lowresCuIdx] - lowresCuCost;
-                    curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;// 覆盖掉原有的lowresCosts
+                    curFrame->m_lowres.lowresCostForRc[lowresCuIdx] = lowresCuCost;// 覆盖掉原有的lowresCosts 这里不在 & LOWRES_COST_MASK 因为cutree 和aqmotion 中用到的 listUsed 已经都完了
                     sum += lowresCuCost;// 一个lowrescu行 cost 累加
                     intraSum += curFrame->m_lowres.intraCost[lowresCuIdx];
                 }
@@ -1432,7 +1434,7 @@ static void set_gop_info_internal(  Lowres *cur_frame, int32_t *gop_id, int32_t 
      {
          cur_frame->i_bref = 1;
          cur_frame->i_temporal_id = 0;
-         cur_frame->i_gop_id = *gop_id;
+         cur_frame->i_gop_id = *gop_id = 1;
          cur_frame->i_level = 0;
      }
      else
@@ -1690,9 +1692,14 @@ void Lookahead::slicetypeDecide()
             frm.i_bref = 1;
             break;
         }
-            
     }
-
+    if( m_param->bBPyramid == S265_B_PYRAMID_HIER && frames[bframes + 1]->i_gop_size != bframes + 1 )
+    {
+       //gop_size changed! incase an I frame inserted!
+       int gop_id = 1;
+       set_gop_info_internal(frames[bframes + 1], &gop_id, bframes + 1, 0);
+       set_gop_info_random_access(frames, &gop_id, 1, bframes, bframes + 1, 1);
+    }
     if (bframes)
         list[bframes - 1]->m_lowres.bLastMiniGopBFrame = true;
     list[bframes]->m_lowres.leadingBframes = bframes;
@@ -1912,10 +1919,10 @@ void Lookahead::vbvLookahead(Lowres **frames, int numFrames, int keyframe)
     int nextNonB = keyframe ? prevNonB : curNonB;
     int nextB = prevNonB + 1;
     int nextBRef = 0, curBRef = 0;
-    if (m_param->bBPyramid && curNonB - prevNonB > 1)
-        curBRef = (prevNonB + curNonB + 1) / 2;
+    if (m_param->bBPyramid && curNonB - prevNonB > 2)
+        curBRef = (prevNonB + curNonB ) / 2;
     int miniGopEnd = keyframe ? prevNonB : curNonB;
-    while (curNonB <= numFrames)
+    while (curNonB <  numFrames + !keyframe)
     {
         /* P/I cost: This shouldn't include the cost of nextNonB */
         if (nextNonB != curNonB)
@@ -1937,39 +1944,74 @@ void Lookahead::vbvLookahead(Lowres **frames, int numFrames, int keyframe)
         }
 
         /* Handle the B-frames: coded order */
-        if (m_param->bBPyramid && curNonB - prevNonB > 1)
-            nextBRef = (prevNonB + curNonB + 1) / 2;
+        if (m_param->bBPyramid && curNonB - prevNonB > 2)
+            nextBRef = (prevNonB + curNonB) / 2;
 
-        for (int i = prevNonB + 1; i < curNonB; i++, idx++)
+        for (int i = prevNonB + 1, gopId = 2; i < curNonB; i++, idx++, gopId++)
         {
             int64_t satdCost = 0;
-            int type = S265_TYPE_B;
-            if (nextBRef)
+
+            if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
             {
-                if (i == nextBRef)
+                int p0, p1;
+                int b = -1;
+                for( int32_t cur = prevNonB + 1; cur < curNonB; cur++ )
                 {
-                    satdCost = vbvFrameCost(frames, prevNonB, curNonB, nextBRef);
-                    type = S265_TYPE_BREF;
+                    if( frames[cur]->i_gop_id == gopId )
+                    {
+                        b = cur;
+                        break;
+                    }
                 }
-                else if (i < nextBRef)
-                    satdCost = vbvFrameCost(frames, prevNonB, nextBRef, i);
-                else
-                    satdCost = vbvFrameCost(frames, nextBRef, curNonB, i);
+                assert(b >= prevNonB + 1 && b < curNonB);
+
+                p0 = p1 = b;
+                for (p1 = b + 1; p1 <= curNonB && frames[p1]->i_level >= frames[b]->i_level; p1++)
+                    ; // find new bref or p level lower than cur b
+                for (p0 = b - 1; p0 >= prevNonB && frames[p0]->i_level >= frames[b]->i_level; p0--)
+                    ; // find new bref or p level lower than cur b
+                satdCost = vbvFrameCost(frames, p0, p1, b);
+                frames[nextNonB]->plannedSatd[idx] = satdCost;
+                frames[nextNonB]->plannedType[idx] = frames[i]->sliceType;
+                /* Save the nextB Cost in each B frame of the current miniGop */
+
+                for (int j = nextB; j < miniGopEnd; j++)
+                {
+                    if (b < miniGopEnd && frames[b]->i_gop_id <= frames[j]->i_gop_id)
+                        continue;
+                    frames[j]->plannedSatd[frames[j]->indB] = satdCost;
+                    frames[j]->plannedType[frames[j]->indB++] = frames[i]->sliceType;
+                }
             }
             else
-                satdCost = vbvFrameCost(frames, prevNonB, curNonB, i);
-            frames[nextNonB]->plannedSatd[idx] = satdCost;
-            frames[nextNonB]->plannedType[idx] = type;
-            /* Save the nextB Cost in each B frame of the current miniGop */
-
-            for (int j = nextB; j < miniGopEnd; j++)
             {
-                if (curBRef && curBRef == i)
-                    break;
-                if (j >= i && j !=nextBRef)
-                    continue;
-                frames[j]->plannedSatd[frames[j]->indB] = satdCost;
-                frames[j]->plannedType[frames[j]->indB++] = type;
+                if (nextBRef)
+                {
+                    if (i == nextBRef)
+                    {
+                        satdCost = vbvFrameCost(frames, prevNonB, curNonB, nextBRef);
+                    }
+                    else if (i < nextBRef)
+                        satdCost = vbvFrameCost(frames, prevNonB, nextBRef, i);
+                    else
+                        satdCost = vbvFrameCost(frames, nextBRef, curNonB, i);
+                }
+                else
+                    satdCost = vbvFrameCost(frames, prevNonB, curNonB, i);
+
+                frames[nextNonB]->plannedSatd[idx] = satdCost;
+                frames[nextNonB]->plannedType[idx] = frames[i]->sliceType;
+                /* Save the nextB Cost in each B frame of the current miniGop */
+
+                for (int j = nextB; j < miniGopEnd; j++)
+                {
+                    if (curBRef && curBRef == i)
+                        break;
+                    if (j >= i && j !=nextBRef)
+                        continue;
+                    frames[j]->plannedSatd[frames[j]->indB] = satdCost;
+                    frames[j]->plannedType[frames[j]->indB++] = frames[i]->sliceType;
+                }
             }
         }
         prevNonB = curNonB;
@@ -2963,6 +3005,13 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
         }
         m_isSceneTransition = sceneTransition;
     }
+
+    if (!m_param->bIntraRefresh)
+        for (int j = keyintLimit + 1; j <= numFrames; j += m_param->keyframeMax)
+        {
+            frames[j]->sliceType = S265_TYPE_I;
+        }
+
     if (m_param->bframes)
     {
         if (m_param->bFrameAdaptive == S265_B_ADAPT_OPTIMAL_FAST)
@@ -3175,6 +3224,21 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     {
         int bframes = 0;
         int curNonB = 0;
+        int firstGopsize = S265_MIN( numBFrames + 1, numAnalyzed );
+        //Check scenecut on the second minigop as mbtree conduct on it
+        for (int j = firstGopsize + 1; j < S265_MIN( firstGopsize + m_param->bframes + 1, origNumFrames) + 1; j++)
+        {
+            if (!IS_S265_TYPE_B(frames[j]->sliceType))
+            {
+                break;
+            }
+            else if (m_param->scenecutThreshold && scenecut(frames, j, j + 1, 0, origNumFrames))
+            {
+                printf("hit------------\n");
+                frames[j]->sliceType = S265_TYPE_P;
+                break;
+            }
+        }
         for (int j = 1; j <= numFrames; j++)
         {
             assert(frames[j]->sliceType != S265_TYPE_AUTO);
@@ -3221,18 +3285,6 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     if (m_param->gopLookahead && (keyFrameLimit >= 0) && (keyFrameLimit <= m_param->bframes + 1) && !m_extendGopBoundary)
         keyintLimit = keyFrameLimit;
 
-    if (!m_param->bIntraRefresh)
-        for (int j = keyintLimit + 1; j <= numFrames; j += m_param->keyframeMax)
-        {
-            frames[j]->sliceType = S265_TYPE_I;
-            frames[j]->i_level = 0;
-            frames[j]->i_gop_size = 1;
-            frames[j]->i_bref = 1;
-            frames[j]->i_max_depth = 0;
-            frames[j]->i_gop_id = 1;
-            frames[j]->i_temporal_id = 0;
-            resetStart = S265_MIN(resetStart, j + 1);
-        }
 
     if (bIsVbvLookahead)
         vbvLookahead(frames, numFrames, bKeyframe);
@@ -3242,12 +3294,12 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
     for (int j = resetStart; j <= numFrames; j++)
     {
         frames[j]->sliceType = S265_TYPE_AUTO;
-        frames[j]->i_level = 0;
+        frames[j]->i_level = -1;
         frames[j]->i_gop_size = 1;
         frames[j]->i_bref = 0;
         frames[j]->i_max_depth = 0;
         frames[j]->i_gop_id = 1;
-        frames[j]->i_temporal_id = 0;
+        frames[j]->i_temporal_id = -1;
 
         /* If any frame marked as scenecut is being restarted for sliceDecision, 
          * undo scene Transition flag */
@@ -4303,6 +4355,7 @@ void Lookahead::cuTreeFinish(Lowres *frame, double averageDuration, int ref0Dist
 
 /* If MB-tree changes the quantizers, we need to recalculate the frame cost without
  * re-running lookahead. */
+/*内部会重新计算rowSatd*/
 int64_t Lookahead::frameCostRecalculate(Lowres** frames, int p0, int p1, int b)
 {
 
@@ -4576,7 +4629,6 @@ int64_t CostEstimateGroup::estimateFrameCost(LookaheadTLD& tld, int p0, int p1, 
 
                 for (int cuX = m_lookahead.m_8x8Width - 1; cuX >= 0; cuX--)
                     estimateCUCost(tld, cuX, cuY, p0, p1, b, bDoSearch, lastRow, -1, 0);
-
                 lastRow = false;
             }
         }

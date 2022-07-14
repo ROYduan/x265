@@ -99,20 +99,6 @@ typedef struct s265_nal
 
 #define S265_LOOKAHEAD_MAX 250
 
-typedef struct s265_lookahead_data
-{
-    int64_t   plannedSatd[S265_LOOKAHEAD_MAX + 1];
-    uint32_t  *vbvCost;
-    uint32_t  *intraVbvCost;
-    uint32_t  *satdForVbv;
-    uint32_t  *intraSatdForVbv;
-    int       keyframe;
-    int       lastMiniGopBFrame;
-    int       plannedType[S265_LOOKAHEAD_MAX + 1];
-    int64_t   dts;
-    int64_t   reorderedPts;
-} s265_lookahead_data;
-
 typedef struct s265_analysis_MV
 {
     union{
@@ -193,7 +179,6 @@ typedef struct s265_frame_stats
     double           avgPsyEnergy;
     double           avgResEnergy;
     double           avgLumaLevel;
-    double           bufferFill;
     uint64_t         bits;
     int              encoderOrder;
     int              poc;

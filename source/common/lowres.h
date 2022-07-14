@@ -210,6 +210,7 @@ struct Lowres : public ReferencePlanes
     /* used for vbvLookahead */
     int       plannedType[S265_LOOKAHEAD_MAX + 1];
     int64_t   plannedSatd[S265_LOOKAHEAD_MAX + 1];
+    int64_t   plannedSatdIntra[S265_LOOKAHEAD_MAX + 1];
     int       indB;
     int       bframes;
 

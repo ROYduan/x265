@@ -52,7 +52,6 @@ struct RcStats
     double   qScale;
     double   cumulativePQp;
     double   cumulativePNorm;
-    double   lastQScaleFor[3];
     int      mvBits;
     int      miscBits;
     int      coeffBits;

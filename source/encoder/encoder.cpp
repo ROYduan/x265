@@ -2054,7 +2054,6 @@ void Encoder::finishFrameStats(Frame* curFrame, FrameEncoder *curEncoder, s265_f
         frameStats->bScenecut = curFrame->m_lowres.bScenecut;
         if (m_param->csvLogLevel >= 2)
             frameStats->ipCostRatio = curFrame->m_lowres.ipCostRatio;
-        frameStats->bufferFill = m_rateControl->m_bufferFillActual;
         frameStats->bufferFillFinal = m_rateControl->m_bufferFillFinal;
         if (m_param->csvLogLevel >= 2)
             frameStats->unclippedBufferFillFinal = m_rateControl->m_unclippedBufferFillFinal;

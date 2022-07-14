@@ -626,7 +626,6 @@ void FrameEncoder::compressFrame()
     }
 
     m_rce.encodeOrder = m_frame->m_encodeOrder;
-    int prevBPSEI = m_rce.encodeOrder ? m_top->m_lastBPSEI : 0;
 
     if (m_frame->m_lowres.bKeyframe)// I 帧
     {
@@ -1444,16 +1443,18 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 // Delay one row to avoid intra prediction conflict
                 if (m_pool && !bFirstRowInSlice)
                 {// 线程池 并且非slice首行时
-                    int allowCol = col;
+                    int allowCol = col; //第1行（从0开始算法）时,允许第0行deblock到当前第1行完成compress的col位置
 
                     // avoid race condition on last column
-                    if (rowInSlice >= 2)//从slice的第2行开始(从0开始算法)
-                    {   // 如果改ctu 是row的最后一列，则允许上一行从其更上一行的已经完成了所有deblock的ctu相同位置的ctu开始进行deblock
+                    if (rowInSlice >= 2) //从slice的第2行开始(从0开始算法)
+                    {   // 如果改ctu 是row的最后一列，则允许上一行滤波到从其更上一行的已经完成了所有deblock的ctu相同位置的ctu位置截止
                         // 否则不是最后一列，则允许上一行从其更上一行中准备处理的ctu的相同位置ctu进行滤波处理
                         allowCol = S265_MIN(((col == numCols - 1) ? m_frameFilter.m_parallelFilter[row - 2].m_lastDeblocked.get()
                                                                   : m_frameFilter.m_parallelFilter[row - 2].m_lastCol.get()), (int)col);
+                        // 首先上一行允许滤波的ctu位置肯定要小于等于当前行刚刚完成的编码clo位置
+                        // 其次上一行与许的滤波的ctu位置还要小于等于其更上一行已经完成了deblock的位置
                     }
-                    //设置当前行的上一行所允许的滤波col 位置
+                    //设置当前行的上一行所允许的滤波的截止col 位置
                     m_frameFilter.m_parallelFilter[row - 1].m_allowedCol.set(allowCol);
                 }
 
@@ -1528,7 +1529,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             { //非wpp下，ctu行最后一个ctu编码完成
                 double qpBase = curEncData.m_cuStat[cuAddr].baseQp;
                 //检查是否需要重新编码
-                curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId);
+                curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId, 0);
                 qpBase = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, qpBase);
                 curEncData.m_rowStat[row].rowQp = qpBase;
                 curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(qpBase);
@@ -1584,7 +1585,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
                 }
                 double qpBase = curEncData.m_cuStat[cuAddr].baseQp;
                 //wpp下 在对角线上的ctu上检查是否满足vbv
-                curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId);
+                curRow.reEncode = m_top->m_rateControl->rowVbvRateControl(m_frame, row, &m_rce, qpBase, m_sliceBaseRow, sliceId, 1);
                 qpBase = s265_clip3((double)m_param->rc.qpMin, (double)m_param->rc.qpMax, qpBase);
                 curEncData.m_rowStat[row].rowQp = qpBase;
                 curEncData.m_rowStat[row].rowQpScale = s265_qp2qScale(qpBase);
@@ -1684,7 +1685,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             return;
         }
 
-    }// 完成了 第 rowInSlice 行ctu的编码了
+    }// 完成了 第 rowInSlice 行ctu的重构编码了
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
@@ -1757,14 +1758,14 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
 
     /* Processing left Deblock block with current threading */
-    if ((m_param->bEnableLoopFilter | slice->m_bUseSao) & (rowInSlice >= 2))
+    if ((m_param->bEnableLoopFilter | slice->m_bUseSao) & (rowInSlice >= 2))// 如果当前已经完成重构的行大于等于第3行
     {
         /* Check conditional to start previous row process with current threading */
-        if (m_frameFilter.m_parallelFilter[row - 2].m_lastDeblocked.get() == (int)numCols)
+        if (m_frameFilter.m_parallelFilter[row - 2].m_lastDeblocked.get() == (int)numCols)// 往上退两行如果已经全部完成deblock
         {
             /* stop threading on current row and restart it */
-            m_frameFilter.m_parallelFilter[row - 1].m_allowedCol.set(numCols);
-            m_frameFilter.m_parallelFilter[row - 1].processTasks(-1);
+            m_frameFilter.m_parallelFilter[row - 1].m_allowedCol.set(numCols);//设置上一行位置的截止deblcok位置为其末尾
+            m_frameFilter.m_parallelFilter[row - 1].processTasks(-1);//处理上一行位置的filter任务
         }
     }
 
