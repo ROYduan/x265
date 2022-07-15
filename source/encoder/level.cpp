@@ -301,7 +301,7 @@ bool enforceLevel(s265_param& param, VPS& vps)
     {
         //S265_B_PYRAMID_HIER 通过小心使用，能够保证6个参考帧的情况下PDB不超过8
         if (param.bBPyramid == S265_B_PYRAMID_HIER)
-            param.maxNumReferences = 6;
+            param.maxNumReferences = s265_min(param.maxNumReferences, 6);
         else
             param.maxNumReferences = 8 - vps.numReorderPics;
     }

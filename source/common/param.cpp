@@ -648,16 +648,6 @@ static int parseName(const char* arg, const char* const* names, bool& bError)
 
     return s265_atoi(arg, bError);
 }
-/* internal versions of string-to-int with additional error checking */
-#undef atoi
-#undef atof
-#define atoi(str) s265_atoi(str, bError)
-#define atof(str) s265_atof(str, bError)
-#define atobool(str) (s265_atobool(str, bError))
-
-#undef atobool
-#undef atoi
-#undef atof
 
 /* internal versions of string-to-int with additional error checking */
 #undef atoi

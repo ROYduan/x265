@@ -99,15 +99,6 @@ typedef struct s265_nal
 
 #define S265_LOOKAHEAD_MAX 250
 
-typedef struct s265_analysis_MV
-{
-    union{
-        struct { int32_t x, y; };
-
-        int64_t word;
-    };
-}s265_analysis_MV;
-
 typedef struct s265_weight_param
 {
     uint32_t log2WeightDenom;

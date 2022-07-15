@@ -127,8 +127,6 @@ protected:
     uint8_t*                   m_reuseModes;
     uint8_t*                   m_reusePartSize;
     uint8_t*                   m_reuseMergeFlag;
-    s265_analysis_MV*          m_reuseMv[2];
-    uint8_t*             m_reuseMvpIdx[2];
 
     uint32_t             m_splitRefIdx[4];
     uint64_t*            cacheCost;

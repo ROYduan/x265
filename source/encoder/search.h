@@ -310,7 +310,6 @@ public:
 
     // estimation inter prediction (non-skip)
     void     predInterSearch(Mode& interMode, const CUGeom& cuGeom, bool bChromaMC, uint32_t masks[2]);
-    void     searchMV(Mode& interMode, int list, int ref, MV& outmv, MV mvp[3], int numMvc, MV* mvc);
     // encode residual and compute rd-cost for inter mode
     void     encodeResAndCalcRdInterCU(Mode& interMode, const CUGeom& cuGeom);
     void     encodeResAndCalcRdSkipCU(Mode& interMode);

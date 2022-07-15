@@ -2165,31 +2165,6 @@ void Search::singleMotionEstimation(Search& master, Mode& interMode, const Predi
         bestME[list].mvCost  = mvCost;
     }
 }
-void Search::searchMV(Mode& interMode, int list, int ref, MV& outmv, MV mvp[3], int numMvc, MV* mvc)
-{
-    CUData& cu = interMode.cu;
-    MV mv, mvmin, mvmax;
-    int cand = 0, bestcost = INT_MAX;
-    while (cand < m_param->mvRefine)
-    {
-        if ((cand && mvp[cand] == mvp[cand - 1]) || (cand == 2 && (mvp[cand] == mvp[cand - 2] || mvp[cand] == mvp[cand - 1])))
-        {
-            cand++;
-            continue;
-        }
-        MV bestMV;
-        mv = mvp[cand++];
-        cu.clipMv(mv);
-        setSearchRange(cu, mv, m_param->searchRange, mvmin, mvmax);
-        int cost = m_me.motionEstimate(&m_slice->m_mref[list][ref], mvmin, mvmax, mv, numMvc, mvc, m_param->searchRange, bestMV, m_param->maxSlices,
-        m_param->bSourceReferenceEstimation ? m_slice->m_refFrameList[list][ref]->m_fencPic->getLumaAddr(0) : 0);
-        if (bestcost > cost)
-        {
-            bestcost = cost;
-            outmv = bestMV;
-        }
-    }
-}
 /* find the best inter prediction for each PU of specified mode */
 void Search::predInterSearch(Mode& interMode, const CUGeom& cuGeom, bool bChromaMC, uint32_t refMasks[2])
 {
@@ -2216,8 +2191,6 @@ void Search::predInterSearch(Mode& interMode, const CUGeom& cuGeom, bool bChroma
         MotionData* bestME = interMode.bestME[puIdx];
         PredictionUnit pu(cu, cuGeom, puIdx);
         m_me.setSourcePU(*interMode.fencYuv, pu.ctuAddr, pu.cuAbsPartIdx, pu.puAbsPartIdx, pu.width, pu.height, m_param->searchMethod, m_param->subpelRefine, bChromaMC);
-        int cuIdx;
-        cuIdx = (interMode.cu.m_cuAddr * m_param->num4x4Partitions) + cuGeom.absPartIdx;
         /* find best cost merge candidate. note: 2Nx2N merge and bidir are handled as separate modes */
         uint32_t mrgCost = numPart == 1 ? MAX_UINT : mergeEstimation(cu, cuGeom, pu, puIdx, merge);
         bestME[0].cost = MAX_UINT;

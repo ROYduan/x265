@@ -174,7 +174,6 @@ RateControl::RateControl(s265_param& p, Encoder *top)
         m_rateTolerance = 0.7;
 
     m_bframeBits = 0;
-    m_leadingNoBSatd = 0;
     m_ipOffset = 6.0 * S265_LOG2(m_param->rc.ipFactor);
     m_pbOffset = 6.0 * S265_LOG2(m_param->rc.pbFactor);
 
@@ -548,9 +547,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     if (m_sliceType != B_SLICE)
     {
         m_lastNonBPictType = m_sliceType;
-        m_leadingNoBSatd = m_currentSatd;
     }
-    rce->leadingNoBSatd = m_leadingNoBSatd;
     if (curFrame->m_forceqp)
     {
         m_qp = (int32_t)(curFrame->m_forceqp + 0.5) - 1;

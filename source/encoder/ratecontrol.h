@@ -75,7 +75,6 @@ struct RateControlEntry
 
     int64_t currentSatd;
     int64_t lastSatd;      /* Contains the picture cost of the previous frame, required for resetAbr and VBV */
-    int64_t leadingNoBSatd;
     int64_t rowTotalBits;  /* update cplxrsum and totalbits at the end of 2 rows */
     double  blurredComplexity;
     double  qpaRc;
@@ -164,7 +163,6 @@ public:
     double m_maxBufferFill;
     bool   m_isFirstMiniGop;
     Predictor m_pred[3][4];       /* [3]:SIMPLE/NORMAL/COMPLEX Slice predictors to preidct bits for each Slice type - [4]:I,P,Bref and B */
-    int64_t m_leadingNoBSatd;
     int     m_predType;       /* Type of slice predictors to be used - depends on the slice type b/p/I/Bref */
     int     m_sceneType;
     double  m_ipOffset;
