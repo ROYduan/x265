@@ -441,7 +441,7 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
     {
         if (rce->rowPreds[0][0].count == 0)//B帧使用的用于pred_s 的预测器参数重置，注意第一次也在这里初始化
         {
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 for (int j = 0; j < 2; j++)
                 {
@@ -453,8 +453,8 @@ int RateControl::rateControlStart(Frame* curFrame, RateControlEntry* rce, Encode
                 }
             }
         }
-        rce->rowPred[0] = &rce->rowPreds[m_sliceType][0];
-        rce->rowPred[1] = &rce->rowPreds[m_sliceType][1];
+        rce->rowPred[0] = &rce->rowPreds[m_predType][0];
+        rce->rowPred[1] = &rce->rowPreds[m_predType][1];
         updateVbvPlan(enc);//根据所有在活frameEncoder 的预估消耗bits与整段时间内应注入bits 更新总体m_bufferFill
         rce->bufferFill = m_bufferFill;//总体m_bufferFill 赋给该帧的rce的bufferFill
         rce->vbvEndAdj = false;
@@ -1439,7 +1439,6 @@ int RateControl::rowVbvRateControl(Frame* curFrame, uint32_t row, RateControlEnt
         if (m_param->totalFrames)
             totalBitsNeeded = (m_param->totalFrames * m_bitrate) / m_fps;
         double abrOvershoot = (accFrameBits + m_totalBits - m_wantedBitsWindow) / totalBitsNeeded;
-
         while (qpVbv < qpMax //qpvbv 还有上调空间
                && (((accFrameBits > rce->frameSizePlanned + rcTol) || //实际消耗部分+ 剩余预估消耗部分 已经超tolerance了
                    (rce->bufferFill - accFrameBits < bufferLeftPlanned * 0.5) ||//动态预估的bufferfill < 计划的bufferfill的一半了
