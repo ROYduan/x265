@@ -690,7 +690,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 q0 = q1;
             }
         }
-        int is_hier = m_param->rc.pyQpMethod&&(m_param->bBPyramid == S265_B_PYRAMID_HIER);
+        /*int is_hier = m_param->rc.pyQpMethod&&(m_param->bBPyramid == S265_B_PYRAMID_HIER);
         if(m_param->rc.pyQpMethod == 2 && m_param->rc.rfConstant<30)
         {
             is_hier = false;
@@ -704,7 +704,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
                 i1 = m_curSlice->m_refFrameList[1][0]->m_lowres.i_temporal_id == 0;
             }
         }
-        else
+        else*/
         {
             if (prevRefSlice->m_sliceType == B_SLICE && IS_REFERENCED(m_curSlice->m_refFrameList[0][0]))
                 q0 -= m_pbOffset / 2;
@@ -719,7 +719,7 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         else if (i1)
             q = q0;
         else if(m_isGrainEnabled)
-                q = q1;
+            q = q1;
         else
             q = (q0 * dt1 + q1 * dt0) / (dt0 + dt1);
 
@@ -727,13 +727,12 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
         if (is_hier && m_param->rc.pyQpMethod==3)
             crf_factor = m_param->rc.rfConstant * 1.1 / 15 - 1.2;
 
-        if (IS_REFERENCED(curFrame) || is_hier)
-            //q += m_pbOffset / 2;
-            q += m_pbOffset * crf_factor;
+        if (IS_REFERENCED(curFrame))
+            q += m_pbOffset / 2;
         else
             q += m_pbOffset;
-
-                /* Set a min qp at scenechanges and transitions */
+        q = T265_MAX(q, q1 - 4);
+         /* Set a min qp at scenechanges and transitions */
         if (m_isSceneTransition)
         {
             q = S265_MAX(ABR_SCENECUT_INIT_QP_MIN, q);
