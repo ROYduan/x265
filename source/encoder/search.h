@@ -100,8 +100,8 @@ struct MotionData
 struct Mode
 {
     CUData     cu;
-    const Yuv* fencYuv;// 指向了外部buff （buff大小 一个ctu 大小）
-    Yuv        predYuv;
+    const Yuv* fencYuv;//  指向了外部buff （buff大小 一个 8x8/16x16/32x32/64x64 大小对应的三个buffer）
+    Yuv        predYuv;// 内部有三个实际大小的空间
     Yuv        reconYuv;
     Entropy    contexts;
 

@@ -432,11 +432,12 @@ struct EncoderPrimitives
 extern EncoderPrimitives primitives;
 
 /* Returns a LumaPU enum for the given size, always expected to return a valid enum */
+/*通过 w  h 得倒一个 表征pu 大小的 enum量*/
 inline int partitionFromSizes(int width, int height)
 {
     S265_CHECK(((width | height) & ~(4 | 8 | 16 | 32 | 64)) == 0, "Invalid block width/height\n");
     extern const uint8_t lumaPartitionMapTable[];
-    int w = (width >> 2) - 1;
+    int w = (width >> 2) - 1;//   0:4    1:8   2:12  3: 16  4:20 ...  15:64
     int h = (height >> 2) - 1;
     int part = (int)lumaPartitionMapTable[(w << 4) + h];
     S265_CHECK(part != 255, "Invalid block width %d height %d\n", width, height);

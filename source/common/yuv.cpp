@@ -37,7 +37,7 @@ Yuv::Yuv()
     m_buf[1] = NULL;
     m_buf[2] = NULL;
 }
-
+// 主要是 get yige sizexsize 对应打partition 大小的 bufffer m_buf[3]/m_buf[1]/m_buf[2]/
 bool Yuv::create(uint32_t size, int csp)
 {
     m_csp = csp;
@@ -45,7 +45,7 @@ bool Yuv::create(uint32_t size, int csp)
     m_vChromaShift = CHROMA_V_SHIFT(csp);
 
     m_size  = size;
-    m_part = partitionFromSizes(size, size);
+    m_part = partitionFromSizes(size, size); // size xsize 的partion大小
 
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < MAX_NUM_REF; j++)
@@ -69,7 +69,7 @@ bool Yuv::create(uint32_t size, int csp)
         S265_CHECK((sizeC & 15) == 0, "invalid size");
 
         // memory allocation (padded for SIMD reads)
-        CHECKED_MALLOC(m_buf[0], pixel, sizeL + sizeC * 2 + 8);
+        CHECKED_MALLOC(m_buf[0], pixel, sizeL + sizeC * 2 + 8);// 加多一个 8 for simd
         m_buf[1] = m_buf[0] + sizeL;
         m_buf[2] = m_buf[0] + sizeL + sizeC;
         return true;

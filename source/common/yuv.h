@@ -51,7 +51,7 @@ public:
 
     Yuv();
 
-    bool   create(uint32_t size, int csp);
+    bool   create(uint32_t size, int csp);// 得到一个 sizexsize 大小对应的yuv的三个buffer m_buf[3];
     void   destroy();
 
     // Copy YUV buffer to picture buffer

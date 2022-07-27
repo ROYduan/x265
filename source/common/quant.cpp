@@ -190,8 +190,8 @@ Quant::Quant()
 
 bool Quant::init(double psyScale, const ScalingList& scalingList, Entropy& entropy)
 {
-    m_entropyCoder = &entropy;
-    m_psyRdoqScale = (int32_t)(psyScale * 256.0);
+    m_entropyCoder = &entropy;// 初始化熵编码器
+    m_psyRdoqScale = (int32_t)(psyScale * 256.0);// 针对RDOQ的心理视觉优化
     S265_CHECK((psyScale * 256.0) < (double)MAX_INT, "psyScale value too large\n");
     m_scalingList  = &scalingList;
     m_resiDctCoeff = S265_MALLOC(int16_t, MAX_TR_SIZE * MAX_TR_SIZE * 2);
@@ -394,15 +394,28 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
     return numSig;
 }
 
+/** 函数功能       ： 对残差块进行变换、量化
+* \参数 cu         ：CUData对象
+* \参数 fenc       ：原始图像
+* \参数 fencStride ：原始图像块的stride
+* \参数 residual   ：残差数据
+* \参数 resiStride ：残差数据的stride
+* \参数 coeff      ：存储残差经过变换、量化后的系数
+* \参数 log2TrSize ：TU尺寸
+* \参数 ttype      ：数据分量类型（亮度/色度）
+* \参数 absPartIdx ：CU地址
+* \参数 useTransformSkip ：是否使用变换跳过模式
+* \返回            ：量化后非零系数的个数
+**/
 uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencStride, const int16_t* residual, uint32_t resiStride,
                              coeff_t* coeff, uint32_t log2TrSize, TextType ttype, uint32_t absPartIdx, bool useTransformSkip)
 {
     const uint32_t sizeIdx = log2TrSize - 2;
 
     if (cu.m_tqBypass[0])
-    {
+    {// 如果使用 变换/量化的bypass模式，即跳过变换/量化，则直接将残差块拷贝到变换系数块
         S265_CHECK(log2TrSize >= 2 && log2TrSize <= 5, "Block size mistake!\n");
-        return primitives.cu[sizeIdx].copy_cnt(coeff, residual, resiStride);
+        return primitives.cu[sizeIdx].copy_cnt(coeff, residual, resiStride);// 拷贝残差块到变换系数块coeff，返回非零系数的个数
     }
 
     bool isLuma  = ttype == TEXT_LUMA;
@@ -410,11 +423,11 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
     int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; // Represents scaling through forward transform
 
     S265_CHECK((cu.m_slice->m_sps->quadtreeTULog2MaxSize >= log2TrSize), "transform size too large\n");
-    if (useTransformSkip)
+    if (useTransformSkip)// 如果应用"跳过变换"模式，则只需将残差进行相应的移位，无需进行其他操作
     {
 #if S265_DEPTH <= 10
         S265_CHECK(transformShift >= 0, "invalid transformShift\n");
-        primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);
+        primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);// 将残差数据进行左移操作
 #else
         if (transformShift >= 0)
             primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);
@@ -422,11 +435,11 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
             primitives.cu[sizeIdx].cpy2Dto1D_shr(m_resiDctCoeff, residual, resiStride, -transformShift);
 #endif
     }
-    else
+    else// 进行常规变换
     {
         bool isIntra = cu.isIntra(absPartIdx);
 
-        if (!sizeIdx && isLuma && isIntra) //sizeIdx 为 0 表示的是4x4
+        if (!sizeIdx && isLuma && isIntra) //sizeIdx 为 0 表示的是4x4  如果变换块是4x4(sizeIdx=0)，且是亮度块、intra预测模式，则使用4x4的dst变换
             primitives.dst4x4(residual, m_resiDctCoeff, resiStride);
         else // 其他size 对residual进行dct 结果写入m_resiDctCoeff
             primitives.cu[sizeIdx].dct(residual, m_resiDctCoeff, resiStride);
@@ -451,24 +464,26 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
         }
     }
 
-    if (m_rdoqLevel)
+    if (m_rdoqLevel)// 如果RDOQ的级别大于0，才进行RDOQ量化，否则使用常规（均匀）量化
         return (this->*rdoQuant_func[log2TrSize - 2])(cu, coeff, ttype, absPartIdx, usePsy);
     else
     {
-        int deltaU[32 * 32];
+        int deltaU[32 * 32];// 用于存储量化误差矩阵，在常规量化中，deltaU只用于进行符号位隐藏的操作
 
-        int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;
+        int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;// 根据预测模式和亮度/色度分量得到 前向量化表的类型，用于选择不同的前向量化表
         int rem = m_qpParam[ttype].rem;
         int per = m_qpParam[ttype].per;
-        const int32_t* quantCoeff = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem];
+        const int32_t* quantCoeff = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem];// 根据TU的尺寸、前向量化类型和Qp余数部分，选择对应的量化表
 
-        int qbits = QUANT_SHIFT + per + transformShift;
-        int add = (cu.m_slice->m_sliceType == I_SLICE ? 171 : 85) << (qbits - 9);
+        int qbits = QUANT_SHIFT + per + transformShift;// 量化右移的位数，由3部分组成：1.量化带来的位数增加 2.Qp/6部分带来的位数增加 3.前向变换所带来的位数增加
+        int add = (cu.m_slice->m_sliceType == I_SLICE ? 171 : 85) << (qbits - 9);// 量化后右移可能会带来低位上的损失，这里对右移可能带来的损失进行补偿，HEVC规定I_SLICE补偿1/3，其他类型SLICE补偿1/6
+                                                                                 // 结合量化公式，I_SLICE中的add实际相当于： add >> qbits = (171 << (qbits-9))>>qbits = 171>>9 = 171/512 = 1/3
+                                                                                 // 非I_SLICE中add实际相当于： add >> qbits = (85 << (qbits-9))>>qbits = 85>>9 = 85/512 = 1/6
         int numCoeff = 1 << (log2TrSize * 2);// 总共有多少个coefficients
         // 使用量化表quantCoeff 对dct变换后的系数m_resiDctCoeff进行 量化，量化结果写入coeff，返回量化后的非零系数的个数
-        uint32_t numSig = primitives.quant(m_resiDctCoeff, quantCoeff, deltaU, coeff, qbits, add, numCoeff);
+        uint32_t numSig = primitives.quant(m_resiDctCoeff, quantCoeff, deltaU, coeff, qbits, add, numCoeff);// 进行常规量化，参看C版本函数 quant_c，返回值为量化后非零系数的个数
 
-        if (numSig >= 2 && cu.m_slice->m_pps->bSignHideEnabled)
+        if (numSig >= 2 && cu.m_slice->m_pps->bSignHideEnabled)// 假如非零系数的个数大于等于2，并且使能符号位隐藏，则进行符号位隐藏的操作
         {
             TUEntropyCodingParameters codeParams;
             cu.getTUEntropyCodingParameters(codeParams, absPartIdx, log2TrSize, isLuma);
@@ -605,60 +620,75 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
     }
 }
 
+
+/** 函数功能       ： 使用RDO（率失真优化）技术对变换后的系数进行量化
+ **                  RDOQ主要可以分成三步：
+ **                      step1. 对每个系数单独做RDO优化，找到率失真意义上的最优量化值
+ **                      step2. 对每一个系数组（Coefficient Group，下面都缩写为CG）进行优化，试图将整个CG都设置为0
+ **                      step3. 找到最优的最后一个非零系数的位置，尝试从最后一个非零位置开始将量化后的系数设置为0
+ **  调用范围       ：只在Quant::transformNxN函数中被调用
+* \参数 cu         ：CUData对象
+* \参数 dstCoeff   ：需要进行RDOQ量化后的系数（变换后的系数存储在m_resiDctCoeff中）
+* \参数 log2TrSize ：TU尺寸
+* \参数 ttype      ：数据分量类型（亮度/色度）
+* \参数 absPartIdx ：CU地址
+* \参数 usePsy     ：是否使用心理视觉量化
+* \返回            ：非零系数的个数
+**/
 /* Rate distortion optimized quantization for entropy coding engines using
  * probability models like CABAC */
 template<uint32_t log2TrSize>
 uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, uint32_t absPartIdx, bool usePsy)
 {
-    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; /* Represents scaling through forward transform */
-    int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;
-    const uint32_t usePsyMask = usePsy ? -1 : 0;
+    const int transformShift = MAX_TR_DYNAMIC_RANGE - S265_DEPTH - log2TrSize; // 前变换的需要的右移位数，需要在量化中完成 /* Represents scaling through forward transform */
+    int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;// 根据预测类型(Intra/Inter)和当前分量(Y/U/V)判断使用的扫描类型
+    const uint32_t usePsyMask = usePsy ? -1 : 0;// 是否使用心理视觉量化
 
-    S265_CHECK(scalingListType < 6, "scaling list type out of range\n");
+    S265_CHECK(scalingListType < 6, "scaling list type out of range\n");//scalingListType 最大为5
 
-    int rem = m_qpParam[ttype].rem;
-    int per = m_qpParam[ttype].per;
-    int qbits = QUANT_SHIFT + per + transformShift; /* Right shift of non-RDOQ quantizer level = (coeff*Q + offset)>>q_bits */
-    int add = (1 << (qbits - 1));
-    const int32_t* qCoef = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem];
+    int rem = m_qpParam[ttype].rem; // 得到Qp的余数部分，=Qp%6
+    int per = m_qpParam[ttype].per; // 得到Qp的整数部分，=Qp/6
+    int qbits = QUANT_SHIFT + per + transformShift; // 常规量化中需要右移的位数 /* Right shift of non-RDOQ quantizer level = (coeff*Q + offset)>>q_bits */
+    int add = (1 << (qbits - 1));// 常规量化中右移前需要补偿的加数
+    const int32_t* qCoef = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem]; // 得到常规量化使用的量化乘数
 
-    const int numCoeff = 1 << (log2TrSize * 2);
-    uint32_t numSig = primitives.nquant(m_resiDctCoeff, qCoef, dstCoeff, qbits, add, numCoeff);
-    S265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(dstCoeff), "numSig differ\n");
-    if (!numSig)
+    const int numCoeff = 1 << (log2TrSize * 2); // 当前TU中系数的个数
+    uint32_t numSig = primitives.nquant(m_resiDctCoeff, qCoef, dstCoeff, qbits, add, numCoeff);// 对变换系数进行常规量化，参考C语言版本的函数 nquant_c
+    S265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(dstCoeff), "numSig differ\n");// 再次统计量化后的非零系数个数，并判断与常规量化的结果是否一致
+    if (!numSig)// 如果常规量化后系数为全零，则跳过RDOQ过程（这是RDOQ提前终止的快速算法）
         return 0;
-    const uint32_t trSize = 1 << log2TrSize;
-    int64_t lambda2 = m_qpParam[ttype].lambda2;
-    int64_t psyScale = ((int64_t)m_psyRdoqScale * m_qpParam[ttype].lambda);
+    const uint32_t trSize = 1 << log2TrSize;// 得到TU大小
+    int64_t lambda2 = m_qpParam[ttype].lambda2; // 得到RDO中的lambda
+    int64_t psyScale = ((int64_t)m_psyRdoqScale * m_qpParam[ttype].lambda);// 得到心理视觉量化系数
     /* unquant constants for measuring distortion. Scaling list quant coefficients have a (1 << 4)
      * scale applied that must be removed during unquant. Note that in real dequant there is clipping
      * at several stages. We skip the clipping for simplicity when measuring RD cost */
-    const int32_t* unquantScale = m_scalingList->m_dequantCoef[log2TrSize - 2][scalingListType][rem];
-    int unquantShift = QUANT_IQUANT_SHIFT - QUANT_SHIFT - transformShift + (m_scalingList->m_bEnabled ? 4 : 0);
-    int unquantRound = (unquantShift > per) ? 1 << (unquantShift - per - 1) : 0;
+    const int32_t* unquantScale = m_scalingList->m_dequantCoef[log2TrSize - 2][scalingListType][rem];// 得到反量化乘数
+    int unquantShift = QUANT_IQUANT_SHIFT - QUANT_SHIFT - transformShift + (m_scalingList->m_bEnabled ? 4 : 0);// 得到反量化右移位数
+    int unquantRound = (unquantShift > per) ? 1 << (unquantShift - per - 1) : 0;// 反量化右移时补偿加数
     const int scaleBits = SCALE_BITS - 2 * transformShift;
 
 #define UNQUANT(lvl)    (((lvl) * (unquantScale[blkPos] << per) + unquantRound) >> unquantShift)
 #define SIGCOST(bits)   ((lambda2 * (bits)) >> 8)
 #define RDCOST(d, bits) ((((int64_t)d * d) << scaleBits) + SIGCOST(bits))
 #define PSYVALUE(rec)   ((psyScale * (rec)) >> S265_MAX(0, (2 * transformShift + 1)))
-
-    int64_t costCoeff[trSize * trSize];   /* d*d + lambda * bits */
-    int64_t costUncoded[trSize * trSize]; /* d*d + lambda * 0    */
-    int64_t costSig[trSize * trSize];     /* lambda * bits       */
+    // 以下是系数级别的变量，即每个系数都占用一个存储单元
+    int64_t costCoeff[trSize * trSize];   // 每一个系数花费  /* d*d + lambda * bits */
+    int64_t costUncoded[trSize * trSize]; // 每一个系数被量化为0的花费（Z型顺序存储 /* d*d + lambda * 0    */
+    int64_t costSig[trSize * trSize];     // 每一个系数的是否为0标记(sig_coeff_flag)的花费 /* lambda * bits       */
 
     int rateIncUp[trSize * trSize];      /* signal overhead of increasing level */
     int rateIncDown[trSize * trSize];    /* signal overhead of decreasing level */
-    int sigRateDelta[trSize * trSize];   /* signal difference between zero and non-zero */
+    int sigRateDelta[trSize * trSize];   // 将系数量化为0和量化为非0，系数标记（sig_coeff_flag）的花费差异 /* signal difference between zero and non-zero */
+    // 以下是系数组（CG）级别的变量
+    int64_t costCoeffGroupSig[MLS_GRP_NUM];  // 每一个系数组CG的花费 //* lambda * bits of group coding cost */
+    uint64_t sigCoeffGroupFlag64 = 0; // CG的非零标记，每一位代表一个CG，某一位为1代表对应的CG不是全0，反之代表对应的CG为全0
 
-    int64_t costCoeffGroupSig[MLS_GRP_NUM]; /* lambda * bits of group coding cost */
-    uint64_t sigCoeffGroupFlag64 = 0;
-
-    const uint32_t cgSize = (1 << MLS_CG_SIZE); /* 4x4 num coef = 16 */
-    bool bIsLuma = ttype == TEXT_LUMA;
+    const uint32_t cgSize = (1 << MLS_CG_SIZE); // 一个系数组CG中的系数个数 /* 4x4 num coef = 16 *//* 4x4 num coef = 16 */
+    bool bIsLuma = ttype == TEXT_LUMA;// 当前是否是亮度分量
 
     /* total rate distortion cost of transform block, as CBF=0 */
-    int64_t totalUncodedCost = 0;
+    int64_t totalUncodedCost = 0;// 当前块都被量化为0时的cost
 
     /* Total rate distortion cost of this transform block, counting te distortion of uncoded blocks,
      * the distortion and signal cost of coded blocks, and the coding cost of significant
@@ -666,23 +696,25 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
     int64_t totalRdCost = 0;
 
     TUEntropyCodingParameters codeParams;
-    cu.getTUEntropyCodingParameters(codeParams, absPartIdx, log2TrSize, bIsLuma);
+    cu.getTUEntropyCodingParameters(codeParams, absPartIdx, log2TrSize, bIsLuma);// 得到熵编码参数
     const uint32_t log2TrSizeCG = log2TrSize - 2;
-    const uint32_t cgNum = 1 << (log2TrSizeCG * 2);
-    const uint32_t cgStride = (trSize >> MLS_CG_LOG2_SIZE);
+    const uint32_t cgNum = 1 << (log2TrSizeCG * 2); // TU中的系数组CG的个数
+    const uint32_t cgStride = (trSize >> MLS_CG_LOG2_SIZE);// TU中CG的stride
 
-    uint8_t coeffNum[MLS_GRP_NUM];      // value range[0, 16]
-    uint16_t coeffSign[MLS_GRP_NUM];    // bit mask map for non-zero coeff sign
-    uint16_t coeffFlag[MLS_GRP_NUM];    // bit mask map for non-zero coeff
+    uint8_t coeffNum[MLS_GRP_NUM];      // 每个CG中的非零系数的个数 // value range[0, 16]
+    uint16_t coeffSign[MLS_GRP_NUM];    // 每个CG中的非零系数的符号 // bit mask map for non-zero coeff sign
+    uint16_t coeffFlag[MLS_GRP_NUM];    // 每个CG中的非零系数的标记 // bit mask map for non-zero coeff
 
 #if CHECKED_BUILD || _DEBUG
     // clean output buffer, the asm version of scanPosLast Never output anything after latest non-zero coeff group
     memset(coeffNum, 0, sizeof(coeffNum));
-    memset(coeffSign, 0, sizeof(coeffNum));
+    memset(coeffSign, 0, sizeof(coeffNum));// 这里size应该是写错了，应该改为 sizeof(coeffSign)，下面也是一样
     memset(coeffFlag, 0, sizeof(coeffNum));
 #endif
-    const int lastScanPos = primitives.scanPosLast(codeParams.scan, dstCoeff, coeffSign, coeffFlag, coeffNum, numSig, g_scan4x4[codeParams.scanType], trSize);
-    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);
+    // 统计每个CG中的非零系数的符号、非零系数的标志（是否是非零系数）、非零系数个数，以及最后一个非零系数的扫描位置（lastScanPos）
+    const int lastScanPos = primitives.scanPosLast(codeParams.scan, dstCoeff, coeffSign, coeffFlag, coeffNum, numSig, g_scan4x4[codeParams.scanType], trSize);// 参看 scanPosLast_c
+    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);// 得到最后一个非零系数的扫描位置（lastScanPos）所对应的系数组CG的位置
+                                                                  // 但是如果 lastScanPos%(2^LOG2_SCAN_SET_SIZE) != 0，即如果最后一个非零系数位置并不能被16整除，这里得到的实际上倒数第二个非零CG的位置
 
 
     /* TODO: update bit estimates if dirty */
@@ -694,14 +726,14 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
     // process trail all zero Coeff Group
 
     /* coefficients after lastNZ have no distortion signal cost */
-    const int zeroCG = cgNum - 1 - cgLastScanPos;
-    memset(&costCoeff[(cgLastScanPos + 1) << MLS_CG_SIZE], 0, zeroCG * MLS_CG_BLK_SIZE * sizeof(int64_t));
-    memset(&costSig[(cgLastScanPos + 1) << MLS_CG_SIZE], 0, zeroCG * MLS_CG_BLK_SIZE * sizeof(int64_t));
+    const int zeroCG = cgNum - 1 - cgLastScanPos;// 得到全零CG的个数
+    memset(&costCoeff[(cgLastScanPos + 1) << MLS_CG_SIZE], 0, zeroCG * MLS_CG_BLK_SIZE * sizeof(int64_t));// 将全零CG中的每个系数花费都设置为0
+    memset(&costSig[(cgLastScanPos + 1) << MLS_CG_SIZE], 0, zeroCG * MLS_CG_BLK_SIZE * sizeof(int64_t));// 将全零CG中的每个系数的标记花费设置为0
 
     /* sum zero coeff (uncodec) cost */
 
     // TODO: does we need these cost?
-    if (usePsyMask)
+    if (usePsyMask)// 如果使用心理视觉量化
     {
         for (int cgScanPos = cgLastScanPos + 1; cgScanPos < (int)cgNum ; cgScanPos++)
         {
@@ -723,14 +755,14 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
 #endif
         }
     }
-    else
+    else// 不使用心理视觉量化，对量化为全零的CG计算每个系数的cost
     {
         // non-psy path
-        for (int cgScanPos = cgLastScanPos + 1; cgScanPos < (int)cgNum ; cgScanPos++)
+        for (int cgScanPos = cgLastScanPos + 1; cgScanPos < (int)cgNum ; cgScanPos++)// 遍历每一个全零的CG
         {
-            S265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");
-            uint32_t scanPosBase = (cgScanPos << MLS_CG_SIZE);
-            uint32_t blkPos      = codeParams.scan[scanPosBase];
+            S265_CHECK(coeffNum[cgScanPos] == 0, "count of coeff failure\n");// 再次确认是否该CG中非零系数的个数是0
+            uint32_t scanPosBase = (cgScanPos << MLS_CG_SIZE);// 得到每个CG的首地址（这里的CG顺序是Z型扫描，而不是按照选择的scan模式扫描）
+            uint32_t blkPos      = codeParams.scan[scanPosBase];// 找到一个CG首地址对应的扫描位置
             primitives.cu[log2TrSize - 2].nonPsyRdoQuant(m_resiDctCoeff, costUncoded, &totalUncodedCost, &totalRdCost, blkPos);
         }
     }
@@ -774,13 +806,14 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
     };
 
     /* iterate over coding groups in reverse scan order */
-    for (int cgScanPos = cgLastScanPos; cgScanPos >= 0; cgScanPos--)
+    // step1. 对每个系数单独做RDO优化，找到率失真意义上的最优量化值
+    for (int cgScanPos = cgLastScanPos; cgScanPos >= 0; cgScanPos--)// 从最后一非零CG开始遍历每个CG，从最后一个到第一个
     {
         uint32_t ctxSet = (cgScanPos && bIsLuma) ? 2 : 0;
-        const uint32_t cgBlkPos = codeParams.scanCG[cgScanPos];
-        const uint32_t cgPosY   = cgBlkPos >> log2TrSizeCG;
-        const uint32_t cgPosX   = cgBlkPos & ((1 << log2TrSizeCG) - 1);
-        const uint64_t cgBlkPosMask = ((uint64_t)1 << cgBlkPos);
+        const uint32_t cgBlkPos = codeParams.scanCG[cgScanPos];// 得到CG的扫描位置
+        const uint32_t cgPosY   = cgBlkPos >> log2TrSizeCG;// CG扫描位置的Y坐标
+        const uint32_t cgPosX   = cgBlkPos & ((1 << log2TrSizeCG) - 1);// CG扫描位置的X坐标
+        const uint64_t cgBlkPosMask = ((uint64_t)1 << cgBlkPos);// 当前CG的位置，使用cgBlkPosMask中1的位置来表示
         const int patternSigCtx = calcPatternSigCtx(sigCoeffGroupFlag64, cgPosX, cgPosY, cgBlkPos, cgStride);
         const int ctxSigOffset = codeParams.firstSignificanceMapContext + (cgScanPos && bIsLuma ? 3 : 0);
 
@@ -788,12 +821,12 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             ctxSet++;
         c1 = 1;
 
-        if (cgScanPos && (coeffNum[cgScanPos] == 0))
-        {
+        if (cgScanPos && (coeffNum[cgScanPos] == 0))// 如果当前CG不是第一个CG，并且CG系数为全零，即在最后一个非全零CG可能还会存在全零的CG
+        {                                           // 如果发现全零的CG，处理方法与上文中，最后一个非零CG之后的CG的处理方法相同；但是对这些系数又计算了量化为0和非零时，系数标记的花费，这是为了之后进行step2、step3的优化
             // TODO: does we need zero-coeff cost?
             const uint32_t scanPosBase = (cgScanPos << MLS_CG_SIZE);
             uint32_t blkPos = codeParams.scan[scanPosBase];
-            if (usePsyMask)
+            if (usePsyMask)// 如果使用心理视觉量化
             {
 #if S265_ARCH_X86
                 bool enable512 = detect512();
@@ -813,7 +846,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 {
                     for (int x = 0; x < MLS_CG_SIZE; x++)
                     {
-                        const uint32_t scanPosOffset =  y * MLS_CG_SIZE + x;
+                        const uint32_t scanPosOffset =  y * MLS_CG_SIZE + x; // 得到变换系数
                         const uint32_t ctxSig = table_cnt[patternSigCtx][g_scan4x4[codeParams.scanType][scanPosOffset]] + ctxSigOffset;
                         S265_CHECK(trSize > 4, "trSize check failure\n");
                         S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
@@ -825,12 +858,12 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                     blkPos += trSize;
                 }
             }
-            else
+            else// 不使用心理视觉量化，对量化为全零的CG计算每个系数的cost
             {
                 // non-psy path
                 primitives.cu[log2TrSize - 2].nonPsyRdoQuant(m_resiDctCoeff, costUncoded, &totalUncodedCost, &totalRdCost, blkPos);
                 blkPos = codeParams.scan[scanPosBase];
-                for (int y = 0; y < MLS_CG_SIZE; y++)
+                for (int y = 0; y < MLS_CG_SIZE; y++)// 对整个CG进行遍历
                 {
                     for (int x = 0; x < MLS_CG_SIZE; x++)
                     {
@@ -839,9 +872,9 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         S265_CHECK(trSize > 4, "trSize check failure\n");
                         S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, codeParams.scan[scanPosBase + scanPosOffset], bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
 
-                        costSig[scanPosBase + scanPosOffset] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);
-                        costCoeff[scanPosBase + scanPosOffset] = costUncoded[blkPos + x];
-                        sigRateDelta[blkPos + x] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];
+                        costSig[scanPosBase + scanPosOffset] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);// 计算系数标记的cost，实际上全零的CG没有这部分的花费
+                        costCoeff[scanPosBase + scanPosOffset] = costUncoded[blkPos + x]; // 对于全零的CG，每个系数的花费就是量化为0的distortion部分
+                        sigRateDelta[blkPos + x] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];// 计算系数被量化为0和非0，系数标记的bit花费差异
                     }
                     blkPos += trSize;
                 }
@@ -850,7 +883,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             /* there were no coded coefficients in this coefficient group */
             {
                 uint32_t ctxSig = getSigCoeffGroupCtxInc(sigCoeffGroupFlag64, cgPosX, cgPosY, cgBlkPos, cgStride);
-                costCoeffGroupSig[cgScanPos] = SIGCOST(estBitsSbac.significantCoeffGroupBits[ctxSig][0]);
+                costCoeffGroupSig[cgScanPos] = SIGCOST(estBitsSbac.significantCoeffGroupBits[ctxSig][0]);// 得到CG的非零标记的cos
                 totalRdCost += costCoeffGroupSig[cgScanPos];  /* add cost of 0 bit in significant CG bitmap */
             }
             continue;
@@ -859,33 +892,33 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
         coeffGroupRDStats cgRdStats;
         memset(&cgRdStats, 0, sizeof(coeffGroupRDStats));
 
-        uint32_t subFlagMask = coeffFlag[cgScanPos];
+        uint32_t subFlagMask = coeffFlag[cgScanPos];// 得到一个CG内系数的标记
         int    c2            = 0;
         uint32_t goRiceParam = 0;
         uint32_t levelThreshold = 3;
         uint32_t c1Idx       = 0;
         uint32_t c2Idx       = 0;
         /* iterate over coefficients in each group in reverse scan order */
-        for (int scanPosinCG = cgSize - 1; scanPosinCG >= 0; scanPosinCG--)
+        for (int scanPosinCG = cgSize - 1; scanPosinCG >= 0; scanPosinCG--)// 扫描CG内部的每一个系数
         {
-            scanPos              = (cgScanPos << MLS_CG_SIZE) + scanPosinCG;
-            uint32_t blkPos      = codeParams.scan[scanPos];
-            uint32_t maxAbsLevel = dstCoeff[blkPos];                  /* abs(quantized coeff) */
-            int signCoef         = m_resiDctCoeff[blkPos];            /* pre-quantization DCT coeff */
-            int predictedCoef    = m_fencDctCoeff[blkPos] - signCoef; /* predicted DCT = source DCT - residual DCT*/
+            scanPos              = (cgScanPos << MLS_CG_SIZE) + scanPosinCG;// 找到每个系数的Z型扫描顺序
+            uint32_t blkPos      = codeParams.scan[scanPos];// 找到对应的扫描位置
+            uint32_t maxAbsLevel = dstCoeff[blkPos];// 得到常规量化后的值      /* abs(quantized coeff) */
+            int signCoef         = m_resiDctCoeff[blkPos];// 得到DCT系数            /* pre-quantization DCT coeff */
+            int predictedCoef    = m_fencDctCoeff[blkPos] - signCoef;   /* predicted DCT = source DCT - residual DCT*/
 
             /* RDOQ measures distortion as the squared difference between the unquantized coded level
              * and the original DCT coefficient. The result is shifted scaleBits to account for the
              * FIX15 nature of the CABAC cost tables minus the forward transform scale */
 
             /* cost of not coding this coefficient (all distortion, no signal bits) */
-            costUncoded[blkPos] = ((int64_t)signCoef * signCoef) << scaleBits;
-            S265_CHECK((!!scanPos ^ !!blkPos) == 0, "failed on (blkPos=0 && scanPos!=0)\n");
+            costUncoded[blkPos] = ((int64_t)signCoef * signCoef) << scaleBits;// 得到量化为0的cost
+            S265_CHECK((!!scanPos ^ !!blkPos) == 0, "failed on (blkPos=0 && scanPos!=0)\n");// ^表示按位异或，若参加运算的两个二进制位值相同则为0，否则为1。这里是保证scanPos和blkPos同时为0或者同时不为0
             if (usePsyMask & scanPos)
                 /* when no residual coefficient is coded, predicted coef == recon coef */
                 costUncoded[blkPos] -= PSYVALUE(predictedCoef);
 
-            totalUncodedCost += costUncoded[blkPos];
+            totalUncodedCost += costUncoded[blkPos];// 累加量化为0的cost
 
             // coefficient level estimation
             const int* greaterOneBits = estBitsSbac.greaterOneBits[4 * ctxSet + c1];
@@ -897,8 +930,8 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
             S265_CHECK(ctxSig == getSigCtxInc(patternSigCtx, log2TrSize, trSize, blkPos, bIsLuma, codeParams.firstSignificanceMapContext), "sigCtx check failure\n");
 
             // before find lastest non-zero coeff
-            if (scanPos > (uint32_t)lastScanPos)
-            {
+            if (scanPos > (uint32_t)lastScanPos)// 如果当前扫描位置在最后一个非零系数之后，则将这些系数的cost都设置为0
+            {                                   // 这种情况出现是由于最后一个非零系数可能出现在最后一个非零CG中的任何位置，所以对最后一个CG扫描就会出现这种情况
                 /* coefficients after lastNZ have no distortion signal cost */
                 costCoeff[scanPos] = 0;
                 costSig[scanPos] = 0;
@@ -908,21 +941,21 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                  * quantization the coefficient may have been non-zero */
                 totalRdCost += costUncoded[blkPos];
             }
-            else if (!(subFlagMask & 1))
+            else if (!(subFlagMask & 1)) // 如果当前位置位于最后一个非零系数之前，并且该系数为0，计算量化为0的cost
             {
                 // fast zero coeff path
                 /* set default costs to uncoded costs */
-                costSig[scanPos] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);
-                costCoeff[scanPos] = costUncoded[blkPos] + costSig[scanPos];
-                sigRateDelta[blkPos] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];
-                totalRdCost += costCoeff[scanPos];
-                rateIncUp[blkPos] = greaterOneBits[0];
+                costSig[scanPos] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]); // 计算系数标记sig_coeff_flag为0的cost
+                costCoeff[scanPos] = costUncoded[blkPos] + costSig[scanPos]; // 得到一个系数的总花费， = 量化为0的distortion + 系数标记为0的cost
+                sigRateDelta[blkPos] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];// 将系数量化为0和量化为非0，系数标记（sig_coeff_flag）的花费差异
+                totalRdCost += costCoeff[scanPos];// 累加系数总花费
+                rateIncUp[blkPos] = greaterOneBits[0];// 得到比当前量化系数大1所需要花费的bit ???
 
-                subFlagMask >>= 1;
+                subFlagMask >>= 1;// 系数非零标记右移移位，下次取到CG中前一个系数的非零标记
             }
-            else
+            else// 如果当前位置位于最后一个非零系数之前，并且该系数为1，估计每一个系数的最优量化值
             {
-                subFlagMask >>= 1;
+                subFlagMask >>= 1;// 系数非零标记右移移位，下次取到CG中前一个系数的非零标记
 
                 const uint32_t c1c2idx = ((c1Idx - 8) >> (sizeof(int) * CHAR_BIT - 1)) + (((-(int)c2Idx) >> (sizeof(int) * CHAR_BIT - 1)) + 1) * 2;
                 const uint32_t baseLevel = ((uint32_t)0xD9 >> (c1c2idx * 2)) & 3;  // {1, 2, 1, 3}
@@ -940,31 +973,31 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 uint32_t sigCoefBits = 0;
                 costCoeff[scanPos] = MAX_INT64;
 
-                if ((int)scanPos == lastScanPos)
+                if ((int)scanPos == lastScanPos)// 如果当前位置是最后一个非零系数的位置，则将量化为0和非0的系数标记（sig_coeff_flag）的花费差异设为0
                     sigRateDelta[blkPos] = 0;
                 else
                 {
-                    if (maxAbsLevel < 3)
+                    if (maxAbsLevel < 3)// 如果该系数的常规量化值很小，则尝试将它量化为0
                     {
                         /* set default costs to uncoded costs */
-                        costSig[scanPos] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]);
-                        costCoeff[scanPos] = costUncoded[blkPos] + costSig[scanPos];
+                        costSig[scanPos] = SIGCOST(estBitsSbac.significantBits[0][ctxSig]); // 计算系数标记sig_coeff_flag为0的cost
+                        costCoeff[scanPos] = costUncoded[blkPos] + costSig[scanPos]; // 得到一个系数的总花费， = 量化为0的distortion + 系数标记为0的cost
                     }
-                    sigRateDelta[blkPos] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];
-                    sigCoefBits = estBitsSbac.significantBits[1][ctxSig];
+                    sigRateDelta[blkPos] = estBitsSbac.significantBits[1][ctxSig] - estBitsSbac.significantBits[0][ctxSig];// 将系数量化为0和量化为非0，系数标记（sig_coeff_flag）的花费差异
+                    sigCoefBits = estBitsSbac.significantBits[1][ctxSig];// 将系数量化为非0，系数标记（sig_coeff_flag）的花费
                 }
 
                 const uint32_t unQuantLevel = (maxAbsLevel * (unquantScale[blkPos] << per) + unquantRound);
                 // NOTE: S265_MAX(maxAbsLevel - 1, 1) ==> (X>=2 -> X-1), (X<2 -> 1)  | (0 < X < 2 ==> X=1)
-                if (maxAbsLevel == 1)
+                if (maxAbsLevel == 1)// 如果常规量化值为1，则与量化为0相比较
                 {
-                    uint32_t levelBits = (c1c2idx & 1) ? greaterOneBits[0] + IEP_RATE : ((1 + goRiceParam) << 15) + IEP_RATE;
+                    uint32_t levelBits = (c1c2idx & 1) ? greaterOneBits[0] + IEP_RATE : ((1 + goRiceParam) << 15) + IEP_RATE;// 计算量化为1时，系数幅值的bit消耗
                     S265_CHECK(levelBits == getICRateCost(1, 1 - baseLevel, greaterOneBits, levelAbsBits, goRiceParam, c1c2Rate) + IEP_RATE, "levelBits mistake\n");
 
-                    int unquantAbsLevel = unQuantLevel >> unquantShift;
+                    int unquantAbsLevel = unQuantLevel >> unquantShift;// 得到1的反量化值
                     S265_CHECK(UNQUANT(1) == unquantAbsLevel, "DQuant check failed\n");
-                    int d = abs(signCoef) - unquantAbsLevel;
-                    int64_t curCost = RDCOST(d, sigCoefBits + levelBits);
+                    int d = abs(signCoef) - unquantAbsLevel;// 得到distortion
+                    int64_t curCost = RDCOST(d, sigCoefBits + levelBits);// 计算量化为1的RDcost
 
                     /* Psy RDOQ: bias in favor of higher AC coefficients in the reconstructed frame */
                     if (usePsyMask & scanPos)
@@ -973,29 +1006,30 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         curCost -= PSYVALUE(reconCoef);
                     }
 
-                    if (curCost < costCoeff[scanPos])
+                    if (curCost < costCoeff[scanPos])// 将量化为1的cost与量化为0相比较，如果量化为1更好，则将其量化为1
                     {
-                        level = 1;
-                        costCoeff[scanPos] = curCost;
-                        costSig[scanPos] = SIGCOST(sigCoefBits);
+                        level = 1;// 更新量化值为1
+                        costCoeff[scanPos] = curCost;// 更新量化当前系数的cost
+                        costSig[scanPos] = SIGCOST(sigCoefBits);// 更新sig_coeff_flag的cost
                     }
                 }
-                else if (maxAbsLevel)
+                else if (maxAbsLevel)// 如果常规量化值大于1
                 {
+                    // 计算量化为当前常规量化值所花费的比特数，并计算量化为常规量化值减1所花费的比特数
                     uint32_t levelBits0 = getICRateCost(maxAbsLevel,     maxAbsLevel     - baseLevel, greaterOneBits, levelAbsBits, goRiceParam, c1c2Rate) + IEP_RATE;
                     uint32_t levelBits1 = getICRateCost(maxAbsLevel - 1, maxAbsLevel - 1 - baseLevel, greaterOneBits, levelAbsBits, goRiceParam, c1c2Rate) + IEP_RATE;
 
                     const uint32_t preDQuantLevelDiff = (unquantScale[blkPos] << per);
-
-                    const int unquantAbsLevel0 = unQuantLevel >> unquantShift;
+                    // 计算量化为当前常规量化值所产生的cost
+                    const int unquantAbsLevel0 = unQuantLevel >> unquantShift;// 得到反量化值
                     S265_CHECK(UNQUANT(maxAbsLevel) == (uint32_t)unquantAbsLevel0, "DQuant check failed\n");
-                    int d0 = abs(signCoef) - unquantAbsLevel0;
-                    int64_t curCost0 = RDCOST(d0, sigCoefBits + levelBits0);
-
-                    const int unquantAbsLevel1 = (unQuantLevel - preDQuantLevelDiff) >> unquantShift;
+                    int d0 = abs(signCoef) - unquantAbsLevel0;// 得到distortion
+                    int64_t curCost0 = RDCOST(d0, sigCoefBits + levelBits0);// 计算得到RDcost
+                    // 计算量化为当前常规量化值减1所产生的cost
+                    const int unquantAbsLevel1 = (unQuantLevel - preDQuantLevelDiff) >> unquantShift;// 得到反量化值
                     S265_CHECK(UNQUANT(maxAbsLevel - 1) == (uint32_t)unquantAbsLevel1, "DQuant check failed\n");
-                    int d1 = abs(signCoef) - unquantAbsLevel1;
-                    int64_t curCost1 = RDCOST(d1, sigCoefBits + levelBits1);
+                    int d1 = abs(signCoef) - unquantAbsLevel1;// 得到distortion
+                    int64_t curCost1 = RDCOST(d1, sigCoefBits + levelBits1);// 计算得到RDcost
 
                     /* Psy RDOQ: bias in favor of higher AC coefficients in the reconstructed frame */
                     if (usePsyMask & scanPos)
@@ -1007,22 +1041,22 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                         reconCoef = abs(unquantAbsLevel1 + SIGN(predictedCoef, signCoef));
                         curCost1 -= PSYVALUE(reconCoef);
                     }
-                    if (curCost0 < costCoeff[scanPos])
+                    if (curCost0 < costCoeff[scanPos])// 如果量化为当前常规量化值的cost更小，则更新量化值和cost
                     {
-                        level = maxAbsLevel;
-                        costCoeff[scanPos] = curCost0;
-                        costSig[scanPos] = SIGCOST(sigCoefBits);
+                        level = maxAbsLevel;// 更新量化值为1
+                        costCoeff[scanPos] = curCost0;// 更新量化当前系数的cost
+                        costSig[scanPos] = SIGCOST(sigCoefBits);// 更新sig_coeff_flag的cost
                     }
-                    if (curCost1 < costCoeff[scanPos])
+                    if (curCost1 < costCoeff[scanPos])// 如果量化为当前常规量化值减1的cost更小，则更新量化值和cost
                     {
-                        level = maxAbsLevel - 1;
-                        costCoeff[scanPos] = curCost1;
-                        costSig[scanPos] = SIGCOST(sigCoefBits);
+                        level = maxAbsLevel - 1;// 更新量化值为1
+                        costCoeff[scanPos] = curCost1;// 更新量化当前系数的cost
+                        costSig[scanPos] = SIGCOST(sigCoefBits); // 更新sig_coeff_flag的cost
                     }
                 }
 
-                dstCoeff[blkPos] = (int16_t)level;
-                totalRdCost += costCoeff[scanPos];
+                dstCoeff[blkPos] = (int16_t)level;// 在对当前量化系数进行完RDO优化后，更新目标量化值
+                totalRdCost += costCoeff[scanPos];// 累加总的RDcost
 
                 /* record costs for sign-hiding performed at the end */
                 if ((cu.m_slice->m_pps->bSignHideEnabled ? ~0 : 0) & level)
@@ -1091,9 +1125,9 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
                 else if (((c1 == 1) | (c1 == 2)) & isNonZero)
                     c1++;
 
-                if (dstCoeff[blkPos])
+                if (dstCoeff[blkPos])// 如果当前量化系数为非零
                 {
-                    sigCoeffGroupFlag64 |= cgBlkPosMask;
+                    sigCoeffGroupFlag64 |= cgBlkPosMask;// 与当前CG位置的Mask相或，标志该CG不是全0
                     cgRdStats.codedLevelAndDist += costCoeff[scanPos] - costSig[scanPos];
                     cgRdStats.uncodedDist += costUncoded[blkPos];
                     cgRdStats.nnzBeforePos0 += scanPosinCG;
@@ -1216,22 +1250,22 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
              * continue as if it were uncoded. If the coefficient was already uncoded, remove the
              * cost of signaling it as not-significant */
             uint32_t blkPos = codeParams.scan[scanPos];
-            if (dstCoeff[blkPos])
+            if (dstCoeff[blkPos])// 如果目标量化系数不是0，则试图将该系数设置为0
             {
                 // Calculates the cost of signaling the last significant coefficient in the block 
-                uint32_t pos[2] = { (blkPos & (trSize - 1)), (blkPos >> log2TrSize) };
-                if (codeParams.scanType == SCAN_VER)
+                uint32_t pos[2] = { (blkPos & (trSize - 1)), (blkPos >> log2TrSize) };// 得到该系数所在位置的X/Y坐标，X = blkPos&(trSize-1); Y = blkPos>>log2TrSize
+                if (codeParams.scanType == SCAN_VER)// 如果当前的扫描类型是竖直扫描，则调换X和Y坐标
                     std::swap(pos[0], pos[1]);
                 uint32_t bitsLastNZ = 0;
 
                 for (int i = 0; i < 2; i++)
                 {
-                    int temp = g_lastCoeffTable[pos[i]];
-                    int prefixOnes = temp & 15;
+                    int temp = g_lastCoeffTable[pos[i]];// 估计该位置的X/Y坐标所需要的bit花费，X=pos[0]，Y=pos[1]
+                    int prefixOnes = temp & 15;// 得到该系数位置的前缀和后缀
                     int suffixLen = temp >> 4;
 
-                    bitsLastNZ += m_entropyCoder->m_estBitsSbac.lastBits[i][prefixOnes];
-                    bitsLastNZ += IEP_RATE * suffixLen;
+                    bitsLastNZ += m_entropyCoder->m_estBitsSbac.lastBits[i][prefixOnes];// 估计对前缀熵编码所消耗的bits
+                    bitsLastNZ += IEP_RATE * suffixLen;// 加上后缀所消耗的bits
                 }
 
                 int64_t costAsLast = totalRdCost - costSig[scanPos] + SIGCOST(bitsLastNZ);

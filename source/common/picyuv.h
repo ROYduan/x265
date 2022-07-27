@@ -39,8 +39,8 @@ class PicYuv : public s265_picyuv
 {
 public:
 
-    pixel*   m_picBuf[3];  // full allocated buffers, including margins
-    pixel*   m_picOrg[3];  // pointers to plane starts
+    pixel*   m_picBuf[3];  // full allocated buffers, including margins 真正的 图片buffer 
+    pixel*   m_picOrg[3];  // pointers to plane starts // 指向图片起始pix地址的指针
 
     uint32_t m_picWidth;
     uint32_t m_picHeight;
