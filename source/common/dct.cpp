@@ -660,7 +660,15 @@ static void dequant_scaling_c(const int16_t* quantCoef, const int32_t* deQuantCo
         }
     }
 }
-
+/*
+coef:  需要被量化的系数（变换后的系数）
+quantCoeff: 常规量化使用的量化乘数
+qCoef:用于存放量化后的系数level 结果带符号
+deltaU: 用于存放 量化过程中产生的误差
+qBits: 需要右移的位数
+add: 右移之前需要加的量 (1 << (qbits - 1))
+numCoeff: 最大有多少个需要量化的系数 必需是16的倍数
+*/
 static uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t* deltaU, int16_t* qCoef, int qBits, int add, int numCoeff)
 {
     S265_CHECK(qBits >= 8, "qBits less than 8\n");
@@ -670,10 +678,10 @@ static uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t*
 
     for (int blockpos = 0; blockpos < numCoeff; blockpos++)
     {
-        int level = coef[blockpos];//dct 的输入系数
+        int level = coef[blockpos];//dct后 的输入系数
         int sign  = (level < 0 ? -1 : 1);
 
-        int tmplevel = abs(level) * quantCoeff[blockpos];// 量化矩阵系数
+        int tmplevel = abs(level) * quantCoeff[blockpos];// *量化矩阵系数
         level = ((tmplevel + add) >> qBits);// 量化过程
         deltaU[blockpos] = ((tmplevel - (level << qBits)) >> qBits8);//反量化回来的误差
         if (level)// 如果量化后的结果为非0 统计非零项加1
@@ -684,7 +692,14 @@ static uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t*
 
     return numSig;
 }
-
+/*
+coef:  需要被量化的系数（变换后的系数）
+quantCoeff: 常规量化使用的量化乘数
+qCoef:用于存放量化后的系数level 结果不带符号 
+qBits:需要右移的位数
+add: 右移之前需要加的量 (1 << (qbits - 1))
+numCoeff: 最大有多少个需要量化的系数 必需是16的倍数
+*/
 static uint32_t nquant_c(const int16_t* coef, const int32_t* quantCoeff, int16_t* qCoef, int qBits, int add, int numCoeff)
 {
     S265_CHECK((numCoeff % 16) == 0, "number of quant coeff is not multiple of 4x4\n");
@@ -695,18 +710,18 @@ static uint32_t nquant_c(const int16_t* coef, const int32_t* quantCoeff, int16_t
 
     for (int blockpos = 0; blockpos < numCoeff; blockpos++)
     {
-        int level = coef[blockpos];
-        int sign  = (level < 0 ? -1 : 1);
+        int level = coef[blockpos];//dct后 的输入系数
+        int sign  = (level < 0 ? -1 : 1);// 获取符号
 
-        int tmplevel = abs(level) * quantCoeff[blockpos];
-        level = ((tmplevel + add) >> qBits);
-        if (level)
+        int tmplevel = abs(level) * quantCoeff[blockpos];// *量化矩阵系数
+        level = ((tmplevel + add) >> qBits);// 真正的量化过程 
+        if (level)//量化后结果不为0 统计非零项加1
             ++numSig;
-        level *= sign;
+        level *= sign;//给量化结果添加符号
 
         // TODO: when we limit range to [-32767, 32767], we can get more performance with output change
         //       But nquant is a little percent in rdoQuant, so I keep old dynamic range for compatible
-        qCoef[blockpos] = (int16_t)abs(s265_clip3(-32768, 32767, level));
+        qCoef[blockpos] = (int16_t)abs(s265_clip3(-32768, 32767, level));//规整到16bit 然后取 abs 空间然后存储
     }
 
     return numSig;
@@ -760,15 +775,15 @@ static int scanPosLast_c(const uint16_t *scan, const coeff_t *coeff, uint16_t *c
     memset(coeffFlag, 0, MLS_GRP_NUM * sizeof(*coeffFlag));
     memset(coeffSign, 0, MLS_GRP_NUM * sizeof(*coeffSign));
 
-    int scanPosLast = 0;
+    int scanPosLast = 0;// 从0开始scan
     do
     {
-        const uint32_t cgIdx = (uint32_t)scanPosLast >> MLS_CG_SIZE;
+        const uint32_t cgIdx = (uint32_t)scanPosLast >> MLS_CG_SIZE;// 系数索引到4x4cg的索引
 
-        const uint32_t posLast = scan[scanPosLast++];
+        const uint32_t posLast = scan[scanPosLast++];//对应到系数的位置
 
-        const int curCoeff = coeff[posLast];
-        const uint32_t isNZCoeff = (curCoeff != 0);
+        const int curCoeff = coeff[posLast];//取出当前系数
+        const uint32_t isNZCoeff = (curCoeff != 0);// 是否为0
         // get L1 sig map
         // NOTE: the new algorithm is complicated, so I keep reference code here
         //uint32_t posy   = posLast >> log2TrSize;
@@ -776,15 +791,15 @@ static int scanPosLast_c(const uint16_t *scan, const coeff_t *coeff, uint16_t *c
         //uint32_t blkIdx0 = ((posy >> MLS_CG_LOG2_SIZE) << codingParameters.log2TrSizeCG) + (posx >> MLS_CG_LOG2_SIZE);
         //const uint32_t blkIdx = ((posLast >> (2 * MLS_CG_LOG2_SIZE)) & ~maskPosXY) + ((posLast >> MLS_CG_LOG2_SIZE) & maskPosXY);
         //sigCoeffGroupFlag64 |= ((uint64_t)isNZCoeff << blkIdx);
-        numSig -= isNZCoeff;
+        numSig -= isNZCoeff;//如果不为0 则总数减一
 
         // TODO: optimize by instruction BTS
-        coeffSign[cgIdx] += (uint16_t)(((uint32_t)curCoeff >> 31) << coeffNum[cgIdx]);
-        coeffFlag[cgIdx] = (coeffFlag[cgIdx] << 1) + (uint16_t)isNZCoeff;
-        coeffNum[cgIdx] += (uint8_t)isNZCoeff;
+        coeffSign[cgIdx] += (uint16_t)(((uint32_t)curCoeff >> 31) << coeffNum[cgIdx]);//每个cg 最多16个系数，这里按照扫描的顺序记录那些非零系数的符号，每个非零系数占用一个bit ，零系数不记录符号
+        coeffFlag[cgIdx] = (coeffFlag[cgIdx] << 1) + (uint16_t)isNZCoeff;//记录当前系数组的16个系数位置哪些位置的系数不为0
+        coeffNum[cgIdx] += (uint8_t)isNZCoeff;// 统计当前系数组cg 里面有多少个非零系数
     }
     while (numSig > 0);
-    return scanPosLast - 1;
+    return scanPosLast - 1;// 返回最后扫描到的那个非零系数的位置
 }
 
 // NOTE: no defined value on lastNZPosInCG & absSumSign when ALL ZEROS block as input
@@ -1074,8 +1089,8 @@ void setupDCTPrimitives_c(EncoderPrimitives& p)
 {
     p.dequant_scaling = dequant_scaling_c;
     p.dequant_normal = dequant_normal_c;
-    p.quant = quant_c;
-    p.nquant = nquant_c;
+    p.quant = quant_c;// 结果(level)带符号
+    p.nquant = nquant_c;//结果(level)不带符号
     p.cu[BLOCK_4x4].nonPsyRdoQuant   = nonPsyRdoQuant_c<2>;
     p.cu[BLOCK_8x8].nonPsyRdoQuant   = nonPsyRdoQuant_c<3>;
     p.cu[BLOCK_16x16].nonPsyRdoQuant = nonPsyRdoQuant_c<4>;

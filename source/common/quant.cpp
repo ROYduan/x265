@@ -249,9 +249,9 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
     uint32_t trSize = 1 << log2TrSize;
     const uint16_t* scan = codeParams.scan;
 
-    uint8_t coeffNum[MLS_GRP_NUM];      // value range[0, 16]
-    uint16_t coeffSign[MLS_GRP_NUM];    // bit mask map for non-zero coeff sign
-    uint16_t coeffFlag[MLS_GRP_NUM];    // bit mask map for non-zero coeff
+    uint8_t coeffNum[MLS_GRP_NUM];      // value range[0, 16]，每个cg 有多少个非零系数
+    uint16_t coeffSign[MLS_GRP_NUM];    // bit mask map for non-zero coeff sign 每个cg 中对应各个非零系数的符号
+    uint16_t coeffFlag[MLS_GRP_NUM];    // bit mask map for non-zero coeff 每个cg 中对应哪些位置的系数非零，
 
 #if CHECKED_BUILD || _DEBUG
     // clean output buffer, the asm version of scanPosLast Never output anything after latest non-zero coeff group
@@ -259,27 +259,28 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
     memset(coeffSign, 0, sizeof(coeffNum));
     memset(coeffFlag, 0, sizeof(coeffNum));
 #endif
+    // 从dc位置开始扫描，返回扫描到的最后一个非零系数的位置 
     const int lastScanPos = primitives.scanPosLast(codeParams.scan, coeff, coeffSign, coeffFlag, coeffNum, numSig, g_scan4x4[codeParams.scanType], trSize);
-    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);
+    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);// /16 得倒 最后一个非零系数所在 cg（4x4）的位置
     unsigned long tmp;
 
     // first CG need specially processing
     const uint32_t correctOffset = 0x0F & (lastScanPos ^ 0xF);
     coeffFlag[cgLastScanPos] <<= correctOffset;
 
-    for (int cg = cgLastScanPos; cg >= 0; cg--)
+    for (int cg = cgLastScanPos; cg >= 0; cg--)//从最后一个cg 开始遍历
     {
-        int cgStartPos = cg << LOG2_SCAN_SET_SIZE;
+        int cgStartPos = cg << LOG2_SCAN_SET_SIZE;// x16 得倒 对应的系数的起始位置
         int n;
 
 #if CHECKED_BUILD || _DEBUG
         for (n = SCAN_SET_SIZE - 1; n >= 0; --n)
             if (coeff[scan[n + cgStartPos]])
                 break;
-        int lastNZPosInCG0 = n;
+        int lastNZPosInCG0 = n;// 只在debug下打开，用于重新寻找一个cg 里面的最后一个非零系数
 #endif
 
-        if (coeffNum[cg] == 0)
+        if (coeffNum[cg] == 0)//当前cg 无非零系数
         {
             S265_CHECK(lastNZPosInCG0 < 0, "all zero block check failure\n");
             continue;
@@ -287,29 +288,29 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
 
 #if CHECKED_BUILD || _DEBUG
         for (n = 0;; n++)
-            if (coeff[scan[n + cgStartPos]])
+            if (coeff[scan[n + cgStartPos]])// 只在debug下打开，用于重新寻找一个cg 里面的第一一个非零系数
                 break;
 
         int firstNZPosInCG0 = n;
 #endif
 
         CLZ(tmp, coeffFlag[cg]);
-        const int firstNZPosInCG = (15 ^ tmp);
+        const int firstNZPosInCG = (15 ^ tmp);//cg 中第一个非零系数位置
 
         CTZ(tmp, coeffFlag[cg]);
-        const int lastNZPosInCG = (15 ^ tmp);
+        const int lastNZPosInCG = (15 ^ tmp);// cg 中最后一个非零系数位置
 
         S265_CHECK(firstNZPosInCG0 == firstNZPosInCG, "firstNZPosInCG0 check failure\n");
         S265_CHECK(lastNZPosInCG0 == lastNZPosInCG, "lastNZPosInCG0 check failure\n");
 
-        if (lastNZPosInCG - firstNZPosInCG >= SBH_THRESHOLD)
+        if (lastNZPosInCG - firstNZPosInCG >= SBH_THRESHOLD)// 如果最后一个非零系数的位置与第一个非零系数的位置相隔4 以上 
         {
-            uint32_t signbit = coeff[scan[cgStartPos + firstNZPosInCG]] > 0 ? 0 : 1;
+            uint32_t signbit = coeff[scan[cgStartPos + firstNZPosInCG]] > 0 ? 0 : 1;//获取cg里面对应的第一系数的符号（也就是cg内最后被编码的系数）
             uint32_t absSum = 0;
 
-            for (n = firstNZPosInCG; n <= lastNZPosInCG; n++)
+            for (n = firstNZPosInCG; n <= lastNZPosInCG; n++)//获取整个cg内所有非零系数的和
                 absSum += coeff[scan[n + cgStartPos]];
-
+            //如果最后被编码的系数的符号与cg内所有系数的和的奇偶性不满足要求
             if (signbit != (absSum & 0x1)) // compare signbit with sum_parity
             {
                 int minCostInc = MAX_INT,  minPos = -1, curCost = MAX_INT;
@@ -318,14 +319,14 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                 if (cg == cgLastScanPos)
                     cgFlags >>= correctOffset;
 
-                for (n = (cg == cgLastScanPos ? lastNZPosInCG : SCAN_SET_SIZE - 1); n >= 0; --n)
+                for (n = (cg == cgLastScanPos ? lastNZPosInCG : SCAN_SET_SIZE - 1); n >= 0; --n)//从cg内最后的非零系数位置往前扫描
                 {
                     uint32_t blkPos = scan[n + cgStartPos];
                     S265_CHECK(!!coeff[blkPos] == !!(cgFlags & 1), "non zero coeff check failure\n");
 
-                    if (cgFlags & 1)
+                    if (cgFlags & 1)// 当前blkpos 有非零系数
                     {
-                        if (deltaU[blkPos] > 0)
+                        if (deltaU[blkPos] > 0)// 如果量化前的系数- 反量化后的系数 >0
                         {
                             curCost = -deltaU[blkPos];
                             curChange = 1;
@@ -344,7 +345,7 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                             }
                         }
                     }
-                    else
+                    else // 当前blkpos 无非零系数
                     {
                         if (cgFlags == 0)
                         {
@@ -427,7 +428,7 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
     {
 #if S265_DEPTH <= 10
         S265_CHECK(transformShift >= 0, "invalid transformShift\n");
-        primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);// 将残差数据进行左移操作
+        primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);// 将残差数据进行左移操作然后写入m_resiDctCoeff
 #else
         if (transformShift >= 0)
             primitives.cu[sizeIdx].cpy2Dto1D_shl(m_resiDctCoeff, residual, resiStride, transformShift);
@@ -440,9 +441,9 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
         bool isIntra = cu.isIntra(absPartIdx);
 
         if (!sizeIdx && isLuma && isIntra) //sizeIdx 为 0 表示的是4x4  如果变换块是4x4(sizeIdx=0)，且是亮度块、intra预测模式，则使用4x4的dst变换
-            primitives.dst4x4(residual, m_resiDctCoeff, resiStride);
+            primitives.dst4x4(residual, m_resiDctCoeff, resiStride);// 进行dst变换后数据结果存放在m_resiDctCoeff
         else // 其他size 对residual进行dct 结果写入m_resiDctCoeff
-            primitives.cu[sizeIdx].dct(residual, m_resiDctCoeff, resiStride);
+            primitives.cu[sizeIdx].dct(residual, m_resiDctCoeff, resiStride); //否则dct 变换
 
         /* NOTE: if RDOQ is disabled globally, psy-rdoq is also disabled, so
          * there is no risk of performing this DCT unnecessarily */
@@ -450,8 +451,8 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
         {
             int trSize = 1 << log2TrSize;
             /* perform DCT on source pixels for psy-rdoq */
-            primitives.cu[sizeIdx].copy_ps(m_fencShortBuf, trSize, fenc, fencStride);
-            primitives.cu[sizeIdx].dct(m_fencShortBuf, m_fencDctCoeff, trSize);
+            primitives.cu[sizeIdx].copy_ps(m_fencShortBuf, trSize, fenc, fencStride);// 将fenc pix数据 拷贝到 m_fencShortBuf 8bit 数据到16bit数据
+            primitives.cu[sizeIdx].dct(m_fencShortBuf, m_fencDctCoeff, trSize);// 对fenc org数据进行dct 结果存放到m_fencDctCoeff
         }
 
         if (m_nr && m_nr->offset)
@@ -463,6 +464,7 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
             m_nr->count[cat]++;
         }
     }
+     // 以上完成dct变换 dct 后的结果放在 m_resiDctCoeff
 
     if (m_rdoqLevel)// 如果RDOQ的级别大于0，才进行RDOQ量化，否则使用常规（均匀）量化
         return (this->*rdoQuant_func[log2TrSize - 2])(cu, coeff, ttype, absPartIdx, usePsy);
@@ -471,8 +473,8 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
         int deltaU[32 * 32];// 用于存储量化误差矩阵，在常规量化中，deltaU只用于进行符号位隐藏的操作
 
         int scalingListType = (cu.isIntra(absPartIdx) ? 0 : 3) + ttype;// 根据预测模式和亮度/色度分量得到 前向量化表的类型，用于选择不同的前向量化表
-        int rem = m_qpParam[ttype].rem;
-        int per = m_qpParam[ttype].per;
+        int rem = m_qpParam[ttype].rem;// qp%6
+        int per = m_qpParam[ttype].per;// qp/6
         const int32_t* quantCoeff = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem];// 根据TU的尺寸、前向量化类型和Qp余数部分，选择对应的量化表
 
         int qbits = QUANT_SHIFT + per + transformShift;// 量化右移的位数，由3部分组成：1.量化带来的位数增加 2.Qp/6部分带来的位数增加 3.前向变换所带来的位数增加
@@ -480,7 +482,7 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
                                                                                  // 结合量化公式，I_SLICE中的add实际相当于： add >> qbits = (171 << (qbits-9))>>qbits = 171>>9 = 171/512 = 1/3
                                                                                  // 非I_SLICE中add实际相当于： add >> qbits = (85 << (qbits-9))>>qbits = 85>>9 = 85/512 = 1/6
         int numCoeff = 1 << (log2TrSize * 2);// 总共有多少个coefficients
-        // 使用量化表quantCoeff 对dct变换后的系数m_resiDctCoeff进行 量化，量化结果写入coeff，返回量化后的非零系数的个数
+        // 使用量化表quantCoeff 对dct变换后的系数m_resiDctCoeff进行 量化，量化结果level写入coeff(带符号)，返回量化后的非零系数的个数
         uint32_t numSig = primitives.quant(m_resiDctCoeff, quantCoeff, deltaU, coeff, qbits, add, numCoeff);// 进行常规量化，参看C版本函数 quant_c，返回值为量化后非零系数的个数
 
         if (numSig >= 2 && cu.m_slice->m_pps->bSignHideEnabled)// 假如非零系数的个数大于等于2，并且使能符号位隐藏，则进行符号位隐藏的操作
@@ -628,7 +630,7 @@ void Quant::invtransformNxN(const CUData& cu, int16_t* residual, uint32_t resiSt
  **                      step3. 找到最优的最后一个非零系数的位置，尝试从最后一个非零位置开始将量化后的系数设置为0
  **  调用范围       ：只在Quant::transformNxN函数中被调用
 * \参数 cu         ：CUData对象
-* \参数 dstCoeff   ：需要进行RDOQ量化后的系数（变换后的系数存储在m_resiDctCoeff中）
+* \参数 dstCoeff   ：存放RDOQ量化后的系数（变换后的系数存储在m_resiDctCoeff中）
 * \参数 log2TrSize ：TU尺寸
 * \参数 ttype      ：数据分量类型（亮度/色度）
 * \参数 absPartIdx ：CU地址
@@ -653,6 +655,7 @@ uint32_t Quant::rdoQuant(const CUData& cu, int16_t* dstCoeff, TextType ttype, ui
     const int32_t* qCoef = m_scalingList->m_quantCoef[log2TrSize - 2][scalingListType][rem]; // 得到常规量化使用的量化乘数
 
     const int numCoeff = 1 << (log2TrSize * 2); // 当前TU中系数的个数
+    // 注意: 这里的 m_resiDctCoeff qCoef dstCoeff 存储方式一致 采用1为光栅扫描的方式
     uint32_t numSig = primitives.nquant(m_resiDctCoeff, qCoef, dstCoeff, qbits, add, numCoeff);// 对变换系数进行常规量化，参考C语言版本的函数 nquant_c
     S265_CHECK((int)numSig == primitives.cu[log2TrSize - 2].count_nonzero(dstCoeff), "numSig differ\n");// 再次统计量化后的非零系数个数，并判断与常规量化的结果是否一致
     if (!numSig)// 如果常规量化后系数为全零，则跳过RDOQ过程（这是RDOQ提前终止的快速算法）
