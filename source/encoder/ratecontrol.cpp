@@ -724,14 +724,14 @@ double RateControl::rateEstimateQscale(Frame* curFrame, RateControlEntry *rce)
             q = (q0 * dt1 + q1 * dt0) / (dt0 + dt1);
 
         double crf_factor = 0.5;
-        if (is_hier && m_param->rc.pyQpMethod==3)
-            crf_factor = m_param->rc.rfConstant * 1.1 / 15 - 1.2;
+        /*if (is_hier && m_param->rc.pyQpMethod==3)
+            crf_factor = m_param->rc.rfConstant * 1.1 / 15 - 1.2;*/
 
         if (IS_REFERENCED(curFrame))
             q += m_pbOffset / 2;
         else
             q += m_pbOffset;
-        q = T265_MAX(q, q1 - 4);
+        q = S265_MAX(q, q1 - 4);
          /* Set a min qp at scenechanges and transitions */
         if (m_isSceneTransition)
         {
