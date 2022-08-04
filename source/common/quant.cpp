@@ -261,10 +261,11 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
 #endif
     // 从dc位置开始扫描，返回扫描到的最后一个非零系数的位置 
     const int lastScanPos = primitives.scanPosLast(codeParams.scan, coeff, coeffSign, coeffFlag, coeffNum, numSig, g_scan4x4[codeParams.scanType], trSize);
-    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);// /16 得倒 最后一个非零系数所在 cg（4x4）的位置
+    const int cgLastScanPos = (lastScanPos >> LOG2_SCAN_SET_SIZE);//  除16 得倒 最后一个非零系数所在 cg（4x4）的位置
     unsigned long tmp;
 
     // first CG need specially processing
+    // 最后一个CG(逆扫描过程中的最后一个CG),由于可能没有扫描完全部的pos，所以coeffFlag 对应的各个bit 任需要左几个（对应几个没有扫描到的pos）bit，以达到各个cg 的coeffFlag 的各个bit可以与pos 对应起来
     const uint32_t correctOffset = 0x0F & (lastScanPos ^ 0xF);
     coeffFlag[cgLastScanPos] <<= correctOffset;
 
@@ -310,13 +311,15 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
 
             for (n = firstNZPosInCG; n <= lastNZPosInCG; n++)//获取整个cg内所有非零系数的和
                 absSum += coeff[scan[n + cgStartPos]];
+// 对标注规定，如果cg内所有非零系数的和是偶数，则最后一个非零系数的符号位为 0；正
+// 否则，如果是奇数，则最后一个非零系数的符号位为 1；负
             //如果最后被编码的系数的符号与cg内所有系数的和的奇偶性不满足要求
             if (signbit != (absSum & 0x1)) // compare signbit with sum_parity
             {
                 int minCostInc = MAX_INT,  minPos = -1, curCost = MAX_INT;
                 int32_t finalChange = 0, curChange = 0;
-                uint32_t cgFlags = coeffFlag[cg];
-                if (cg == cgLastScanPos)
+                uint32_t cgFlags = coeffFlag[cg];//获取当前cg 内的非零系数位置，每个bit 对应一个位置
+                if (cg == cgLastScanPos)// 只有最后一个cg 的扫描可能没有扫描完全部就退出了，所以cgFlags需要丢弃对应没有扫描到的那些pos对应的bit，从而与lastNZPosInCG 对应起来
                     cgFlags >>= correctOffset;
 
                 for (n = (cg == cgLastScanPos ? lastNZPosInCG : SCAN_SET_SIZE - 1); n >= 0; --n)//从cg内最后的非零系数位置往前扫描
@@ -324,51 +327,53 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                     uint32_t blkPos = scan[n + cgStartPos];
                     S265_CHECK(!!coeff[blkPos] == !!(cgFlags & 1), "non zero coeff check failure\n");
 
-                    if (cgFlags & 1)// 当前blkpos 有非零系数
+                    if (cgFlags & 1)// 当前blkpos 对应的cgFlags bit 位为1，即: 有非零系数
                     {
-                        if (deltaU[blkPos] > 0)// 如果量化前的系数- 反量化后的系数 >0
+                        if (deltaU[blkPos] > 0)// 如果量化前的系数- 反量化回来的系数 >0
                         {
-                            curCost = -deltaU[blkPos];
-                            curChange = 1;
+                            curCost = -deltaU[blkPos];// curcost 取负值
+                            curChange = 1;// 因为反量化回来的系数小于量化前的系数，故而 对量化后的系数加1
                         }
-                        else
+                        else //否则 如果量化前的系数- 反量化后的系数 < 0
                         {
                             if ((cgFlags == 1) && (abs(coeff[blkPos]) == 1))
-                            {
+                            {// 遇到了逆扫描过程中的最后一个非零系数 (cg里面的第一个非零系数) 且其绝对值为 1
                                 S265_CHECK(n == firstNZPosInCG, "firstNZPosInCG position check failure\n");
-                                curCost = MAX_INT;
+                                curCost = MAX_INT;//此位置不调整
                             }
                             else
                             {
-                                curCost = deltaU[blkPos];
+                                curCost = deltaU[blkPos];// curcost 取负值
                                 curChange = -1;
                             }
                         }
                     }
-                    else // 当前blkpos 无非零系数
+                    else // 当前blkpos 无非零系数,对应deltaU[blkPos] 一定 > 0
                     {
                         if (cgFlags == 0)
-                        {
+                        {   // 所有系数都已经扫描完成
                             S265_CHECK(n < firstNZPosInCG, "firstNZPosInCG position check failure\n");
-                            uint32_t thisSignBit = m_resiDctCoeff[blkPos] >= 0 ? 0 : 1;
-                            if (thisSignBit != signbit)
+                            uint32_t thisSignBit = m_resiDctCoeff[blkPos] >= 0 ? 0 : 1;//当逆扫描所有的非零系数都已经完成，直到扫描到0level系数，则判断对应位置的dct系数 并取其符号
+                            if (thisSignBit != signbit)//如果这两的符号位不一致
                                 curCost = MAX_INT;
                             else
                             {
-                                curCost = -deltaU[blkPos];
+                                curCost = -deltaU[blkPos];// curcost 取负值 - （m_resiDctCoeff[blkPos]-0）
                                 curChange = 1;
                             }
                         }
-                        else
+                        else //前面还有非零系数
                         {
                             curCost = -deltaU[blkPos];
                             curChange = 1;
                         }
                     }
-
-                    if (curCost < minCostInc)
+// 原理：对于每一个cg，最后一个非零系数的符号位，如果和所有非零系数的和不满足极性要求
+// 则寻找当前cg 内量化失真最大位置的系数，对其量化后的系数调整 +1(反量化回来的系数 绝对值小于量化前的系数的绝对值 )
+// or -1（反量化回来的系数 绝对值大于量化前的系数的绝对值）;
+                    if (curCost < minCostInc)// 注意 minCostinC 对应失真最大的量化失真
                     {
-                        minCostInc = curCost;
+                        minCostInc = curCost;//保持量化矢真最大的pos 已经最后的change 信息
                         finalChange = curChange;
                         minPos = blkPos;
                     }
@@ -376,18 +381,37 @@ uint32_t Quant::signBitHidingHDQ(int16_t* coeff, int32_t* deltaU, uint32_t numSi
                 }
 
                 /* do not allow change to violate coeff clamp */
+                // 量化后的系数 由 level 与符号一起组成
+                // 如果量化后的系数取到了边界处，则 符号不变，abs（level） -1;
                 if (coeff[minPos] == 32767 || coeff[minPos] == -32768)
                     finalChange = -1;
 
-                if (!coeff[minPos])
+                if (!coeff[minPos])// 如果当前需调整的位置原来的量化后系数为0, 调整后 abs level 为 1 不在为0，则需要将非零系数+1
                     numSig++;
-                else if (finalChange == -1 && abs(coeff[minPos]) == 1)
+                else if (finalChange == -1 && abs(coeff[minPos]) == 1)//如果当前需要调整的位置的量化后系数的绝对值为1，并且调整值为 -1 ，则调整后 变成0,此时，非零系数需要 -1 
                     numSig--;
 
                 {
-                    const int16_t sigMask = ((int16_t)m_resiDctCoeff[minPos]) >> 15;
+                    const int16_t sigMask = ((int16_t)m_resiDctCoeff[minPos]) >> 15;// 原系数为正，全0，否则全1
                     coeff[minPos] += ((int16_t)finalChange ^ sigMask) - sigMask;
                 }
+// if (m_resiDctCoeff[minPos] >= 0)
+//{
+//    coeff[minPos] += finalChange; // 加1 or 加-1;
+//}
+//else
+//{
+//   if( finalChange < 0)//需要将abslevel 往0方向调整
+//    {
+//        //coeff[minPos] += 1;
+//        coeff[minPos] -=finalChange
+//    }
+//    else// 需要将 abslevel 往反0方向调整
+//    {
+//        //coeff[minPos] -= 1;
+//        coeff[minPos] -=finalChange
+//    }
+//}
             }
         }
     }
