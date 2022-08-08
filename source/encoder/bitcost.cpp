@@ -58,8 +58,8 @@ void BitCost::setQP(unsigned int qp)
     {
         if (!s_fpelMvCosts[qp][j])
         {
-            ScopedLock s(s_costCalcLock);
-            if (!s_fpelMvCosts[qp][j])
+            ScopedLock s(s_costCalcLock);// 加锁
+            if (!s_fpelMvCosts[qp][j])//dobule check
             {
                 s_fpelMvCosts[qp][j] = S265_MALLOC(uint16_t, BC_MAX_MV + 1) + (BC_MAX_MV >> 1);
                 if (!s_fpelMvCosts[qp][j])

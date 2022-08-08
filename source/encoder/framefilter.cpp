@@ -582,6 +582,7 @@ void FrameFilter::processRow(int row)
     /* Processing left block Deblock with current threading */
     {        
         /* Check to avoid previous row process slower than current row */
+        // 检查上一行是否已经完成deblock 
         S265_CHECK(ctu->m_bFirstRowInSlice || m_parallelFilter[row - 1].m_lastDeblocked.get() == m_numCols, "previous row not finish");
 
         m_parallelFilter[row].m_allowedCol.set(m_numCols);
@@ -612,7 +613,7 @@ void FrameFilter::processRow(int row)
     }
 
     // this row of CTUs has been encoded
-    if (!ctu->m_bFirstRowInSlice)
+    if (!ctu->m_bFirstRowInSlice)// 当前行已经完成了deblock/sao 
         processPostRow(row - 1);
 
     // NOTE: slices parallelism will be execute out-of-order

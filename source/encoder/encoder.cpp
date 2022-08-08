@@ -2620,7 +2620,12 @@ void Encoder::configure(s265_param *p)
                      "Prefered use case would be high keyint value or an API call to refresh when necessary\n");
 
     }
-
+    if (!p->saoBOFlag && !p->saoEOFlag)
+    {
+        p->bEnableSAO = 0;
+        p->selectiveSAO = 0;
+        s265_log(p, S265_LOG_WARNING, "SAO turned OFF as both EO && BO disabled\n");
+    }
     if (p->selectiveSAO && !p->bEnableSAO)
     {
         p->bEnableSAO = 1;

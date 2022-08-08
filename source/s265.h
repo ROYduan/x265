@@ -1065,6 +1065,8 @@ typedef struct s265_param
      * Default is enabled */
     int       bEnableSAO;
 
+    int       saoBOFlag;
+    int       saoEOFlag;
     /* Note: when deblocking and SAO are both enabled, the loop filter CU lag is
      * only one row, as they operate in series on the same row. */
 

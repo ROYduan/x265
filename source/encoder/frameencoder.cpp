@@ -718,7 +718,7 @@ void FrameEncoder::compressFrame()
                 const uint32_t sliceStartRow = m_sliceBaseRow[sliceId];
                 const uint32_t sliceEndRow = m_sliceBaseRow[sliceId + 1] - 1;
                 const uint32_t row = sliceStartRow + rowInSlice;
-                if (row > sliceEndRow)// 超出图片底部了
+                if (row > sliceEndRow)// 超出slice底部了
                     continue;// 注意只能 continue 不能用break, 会漏掉一些行
                 m_row_to_idx[row] = i;// 每一行使用一个rowprocess任务 记录任务id
                 m_idx_to_row[i] = row;// wpp下每个任务负责的row 行号
@@ -761,12 +761,12 @@ void FrameEncoder::compressFrame()
                             m_mref[l][ref].applyWeight(rowIdx, m_numRows, sliceEndRow, sliceId);
                     }
                 }
-                // 清除外部参考依赖bit
+                // 清除encode需要外部参考依赖bit
                 enableRowEncoder(m_row_to_idx[row]); /* clear external dependency for this row */
                 if (!rowInSlice)//对于每个slice 的首行CTU,
                 {
                     m_row0WaitTime = s265_mdate();
-                    // 清除内部依赖bit
+                    // 清除encode内部依赖bit
                     enqueueRowEncoder(m_row_to_idx[row]); /* clear internal dependency, start wavefront */
                 }
                 // framencoder 通过继承 wavefronts 又进一步继承了 jobprovider 
@@ -1685,7 +1685,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             return;
         }
 
-    }// 完成了 第 rowInSlice 行ctu的重构编码了
+    }// ---------------------------------完成了 第 rowInSlice 行ctu的重构编码了-----------------------------------
 
     /* this row of CTUs has been compressed */
     if (m_param->bEnableWavefront && m_param->rc.bEnableConstVbv)
@@ -1774,7 +1774,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
     {
         if (rowInSlice >= m_filterRowDelay)
         {
-            // 外部依赖关系解决
+            // filter外部依赖关系解决
             enableRowFilter(m_row_to_idx[row - m_filterRowDelay]);
 
             /* NOTE: Activate filter if first row (row 0) */
@@ -1784,7 +1784,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         }
 
         if (bLastRowInSlice)
-        { // slice的最后一行时, 最后几行的的外部依赖关系 自然已经满足了
+        { // slice的最后一行完成了重建后, 最后几行filter的外部依赖关系 自然已经满足了
             for (uint32_t i = endRowInSlicePlus1 - m_filterRowDelay; i < endRowInSlicePlus1; i++)
             {
                 enableRowFilter(m_row_to_idx[i]);
@@ -1799,10 +1799,19 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
             tryWakeOne();// --> WaveFront::findJob
         }
     }
-    // 标记 curRow 已经处理完了 
-    curRow.busy = false;
 
+    {
+        // 标记 curRow 已经处理完了
+        ScopedLock self(curRow.lock);
+        curRow.busy = false;
+        curRow.active = false;
+    }
     // CHECK_ME: Does it always FALSE condition?
+    // 注意 这个对 m_completionCount 进行了 ++, 
+    // 每一行对应有两个任务,一个是 encoder任务, 每完成一行需要+1
+    // 另一个 是在filter 任务,每完成以行 也会加 + 1
+    // 这里对应encode 任务完成 + 1
+    // 总任务为 2 * (int)m_numRows;
     if (ATOMIC_INC(&m_completionCount) == 2 * (int)m_numRows)
         m_completionEvent.trigger();
 }

@@ -229,6 +229,8 @@ void s265_param_default(s265_param* param)
 
     /* SAO Loop Filter */
     param->bEnableSAO = 1;
+    param->saoBOFlag = 1;
+    param->saoEOFlag = 1;
     param->bSaoNonDeblocked = 0;
     param->bLimitSAO = 0;
     param->selectiveSAO = 0;
@@ -613,6 +615,7 @@ int s265_param_default_preset(s265_param* param, const char* preset, const char*
         else if (!strcmp(tune, "vmaf"))  /*Adding vmaf for s265 + SVT-HEVC integration support*/
         {
             /*vmaf is under development, currently s265 won't support vmaf*/
+            param->saoEOFlag = 0;
         }
         else
             return -1;
@@ -1920,6 +1923,7 @@ char *s265_param2string(s265_param* p, int padx, int pady)
     BOOL(p->bSaoNonDeblocked, "sao-non-deblock");
     s += sprintf(s, " rd=%d", p->rdLevel);
     s += sprintf(s, " selective-sao=%d", p->selectiveSAO);
+    s += sprintf(s, " eo=%d bo=%d", p->saoEOFlag,p->saoBOFlag);
     BOOL(p->bEnableEarlySkip, "early-skip");
     BOOL(p->recursionSkipMode, "rskip");
     if (p->recursionSkipMode == EDGE_BASED_RSKIP)

@@ -813,6 +813,7 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     }
 
     // SAO_BO:
+    if(m_param->saoBOFlag)
     {
         if (m_param->bSaoNonDeblocked)
         {
@@ -825,7 +826,7 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
 
         primitives.saoCuStatsBO(diff, rec0, stride, endX, endY, m_offsetOrg[plane][SAO_BO], m_count[plane][SAO_BO]);
     }
-
+    if(m_param->saoEOFlag)
     {
         // SAO_EO_0: // dir: -
         {
@@ -986,64 +987,30 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
             bpely     >>= m_vChromaShift;
         }
 
-        // SAO_BO:
-
-        skipB = 3 - plane_offset;
-        skipR = 4 - plane_offset;
-
-        stats = m_offsetOrgPreDblk[addr][plane][SAO_BO];
-        count = m_countPreDblk[addr][plane][SAO_BO];
-
         const pixel* fenc0 = m_frame->m_fencPic->getPlaneAddr(plane, addr);
         const pixel* rec0 = reconPic->getPlaneAddr(plane, addr);
         fenc = fenc0;
         rec  = rec0;
 
-        startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
-        startY = (bpely == picHeight) ? ctuHeight : ctuHeight - skipB;
-
-        for (y = 0; y < ctuHeight; y++)
-        {
-            for (x = (y < startY ? startX : 0); x < ctuWidth; x++)
-            {
-                int classIdx = rec[x] >> boShift;
-                stats[classIdx] += (fenc[x] - rec[x]);
-                count[classIdx]++;
-            }
-
-            fenc += stride;
-            rec += stride;
-        }
-
-        // SAO_EO_0: // dir: -
+        // SAO_BO:
+        if(frame->m_param->saoBOFlag)
         {
             skipB = 3 - plane_offset;
-            skipR = 5 - plane_offset;
+            skipR = 4 - plane_offset;
 
-            stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_0];
-            count = m_countPreDblk[addr][plane][SAO_EO_0];
+            stats = m_offsetOrgPreDblk[addr][plane][SAO_BO];
+            count = m_countPreDblk[addr][plane][SAO_BO];
 
-            fenc = fenc0;
-            rec  = rec0;
-
-            startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
+            startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
             startY = (bpely == picHeight) ? ctuHeight : ctuHeight - skipB;
-            firstX = !lpelx;
-            // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
-            endX   = ctuWidth - 1;  // not refer right CTU
 
             for (y = 0; y < ctuHeight; y++)
             {
-                x = (y < startY ? startX : firstX);
-                int signLeft = signOf(rec[x] - rec[x - 1]);
-                for (; x < endX; x++)
+                for (x = (y < startY ? startX : 0); x < ctuWidth; x++)
                 {
-                    int signRight = signOf(rec[x] - rec[x + 1]);
-                    int edgeType = signRight + signLeft + 2;
-                    signLeft = -signRight;
-
-                    stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                    count[s_eoTable[edgeType]]++;
+                    int classIdx = rec[x] >> boShift;
+                    stats[classIdx] += (fenc[x] - rec[x]);
+                    count[classIdx]++;
                 }
 
                 fenc += stride;
@@ -1051,150 +1018,189 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
             }
         }
 
-        // SAO_EO_1: // dir: |
+        if(frame->m_param->saoEOFlag)
         {
-            skipB = 4 - plane_offset;
-            skipR = 4 - plane_offset;
-
-            stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_1];
-            count = m_countPreDblk[addr][plane][SAO_EO_1];
-
-            fenc = fenc0;
-            rec  = rec0;
-
-            startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
-            startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-            firstY = bAboveAvail;
-            // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
-            endY   = ctuHeight - 1; // not refer below CTU
-            if (firstY)
+            // SAO_EO_0: // dir: -
             {
-                fenc += stride;
-                rec += stride;
+                skipB = 3 - plane_offset;
+                skipR = 5 - plane_offset;
+
+                stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_0];
+                count = m_countPreDblk[addr][plane][SAO_EO_0];
+
+                fenc = fenc0;
+                rec  = rec0;
+
+                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
+                startY = (bpely == picHeight) ? ctuHeight : ctuHeight - skipB;
+                firstX = !lpelx;
+                // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
+                endX   = ctuWidth - 1;  // not refer right CTU
+
+                for (y = 0; y < ctuHeight; y++)
+                {
+                    x = (y < startY ? startX : firstX);
+                    int signLeft = signOf(rec[x] - rec[x - 1]);
+                    for (; x < endX; x++)
+                    {
+                        int signRight = signOf(rec[x] - rec[x + 1]);
+                        int edgeType = signRight + signLeft + 2;
+                        signLeft = -signRight;
+
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
+                        count[s_eoTable[edgeType]]++;
+                    }
+
+                    fenc += stride;
+                    rec += stride;
+                }
             }
 
-            for (x = startX; x < ctuWidth; x++)
-                upBuff1[x] = signOf(rec[x] - rec[x - stride]);
-
-            for (y = firstY; y < endY; y++)
+            // SAO_EO_1: // dir: |
             {
-                for (x = (y < startY - 1 ? startX : 0); x < ctuWidth; x++)
+                skipB = 4 - plane_offset;
+                skipR = 4 - plane_offset;
+
+                stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_1];
+                count = m_countPreDblk[addr][plane][SAO_EO_1];
+
+                fenc = fenc0;
+                rec  = rec0;
+
+                startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
+                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
+                firstY = bAboveAvail;
+                // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
+                endY   = ctuHeight - 1; // not refer below CTU
+                if (firstY)
                 {
-                    int signDown = signOf(rec[x] - rec[x + stride]);
-                    int edgeType = signDown + upBuff1[x] + 2;
-                    upBuff1[x] = -signDown;
-
-                    if (x < startX && y < startY)
-                        continue;
-
-                    stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                    count[s_eoTable[edgeType]]++;
+                    fenc += stride;
+                    rec += stride;
                 }
 
-                fenc += stride;
-                rec += stride;
-            }
-        }
+                for (x = startX; x < ctuWidth; x++)
+                    upBuff1[x] = signOf(rec[x] - rec[x - stride]);
 
-        // SAO_EO_2: // dir: 135
-        {
-            skipB = 4 - plane_offset;
-            skipR = 5 - plane_offset;
-
-            stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_2];
-            count = m_countPreDblk[addr][plane][SAO_EO_2];
-
-            fenc = fenc0;
-            rec  = rec0;
-
-            startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
-            startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-            firstX = !lpelx;
-            firstY = bAboveAvail;
-            // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
-            // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
-            endX   = ctuWidth - 1;  // not refer right CTU
-            endY   = ctuHeight - 1; // not refer below CTU
-            if (firstY)
-            {
-                fenc += stride;
-                rec += stride;
-            }
-
-            for (x = startX; x < endX; x++)
-                upBuff1[x] = signOf(rec[x] - rec[x - stride - 1]);
-
-            for (y = firstY; y < endY; y++)
-            {
-                x = (y < startY - 1 ? startX : firstX);
-                upBufft[x] = signOf(rec[x + stride] - rec[x - 1]);
-                for (; x < endX; x++)
+                for (y = firstY; y < endY; y++)
                 {
-                    int signDown = signOf(rec[x] - rec[x + stride + 1]);
-                    int edgeType = signDown + upBuff1[x] + 2;
-                    upBufft[x + 1] = -signDown;
+                    for (x = (y < startY - 1 ? startX : 0); x < ctuWidth; x++)
+                    {
+                        int signDown = signOf(rec[x] - rec[x + stride]);
+                        int edgeType = signDown + upBuff1[x] + 2;
+                        upBuff1[x] = -signDown;
 
-                    if (x < startX && y < startY)
-                        continue;
+                        if (x < startX && y < startY)
+                            continue;
 
-                    stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                    count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
+                        count[s_eoTable[edgeType]]++;
+                    }
+
+                    fenc += stride;
+                    rec += stride;
+                }
+            }
+
+            // SAO_EO_2: // dir: 135
+            {
+                skipB = 4 - plane_offset;
+                skipR = 5 - plane_offset;
+
+                stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_2];
+                count = m_countPreDblk[addr][plane][SAO_EO_2];
+
+                fenc = fenc0;
+                rec  = rec0;
+
+                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
+                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
+                firstX = !lpelx;
+                firstY = bAboveAvail;
+                // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
+                // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
+                endX   = ctuWidth - 1;  // not refer right CTU
+                endY   = ctuHeight - 1; // not refer below CTU
+                if (firstY)
+                {
+                    fenc += stride;
+                    rec += stride;
                 }
 
-                std::swap(upBuff1, upBufft);
+                for (x = startX; x < endX; x++)
+                    upBuff1[x] = signOf(rec[x] - rec[x - stride - 1]);
 
-                rec += stride;
-                fenc += stride;
-            }
-        }
-
-        // SAO_EO_3: // dir: 45
-        {
-            skipB = 4 - plane_offset;
-            skipR = 5 - plane_offset;
-
-            stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_3];
-            count = m_countPreDblk[addr][plane][SAO_EO_3];
-
-            fenc = fenc0;
-            rec  = rec0;
-
-            startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
-            startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-            firstX = !lpelx;
-            firstY = bAboveAvail;
-            // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
-            // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
-            endX   = ctuWidth - 1;  // not refer right CTU
-            endY   = ctuHeight - 1; // not refer below CTU
-            if (firstY)
-            {
-                fenc += stride;
-                rec += stride;
-            }
-
-            for (x = startX - 1; x < endX; x++)
-                upBuff1[x] = signOf(rec[x] - rec[x - stride + 1]);
-
-            for (y = firstY; y < endY; y++)
-            {
-                for (x = (y < startY - 1 ? startX : firstX); x < endX; x++)
+                for (y = firstY; y < endY; y++)
                 {
-                    int signDown = signOf(rec[x] - rec[x + stride - 1]);
-                    int edgeType = signDown + upBuff1[x] + 2;
-                    upBuff1[x - 1] = -signDown;
+                    x = (y < startY - 1 ? startX : firstX);
+                    upBufft[x] = signOf(rec[x + stride] - rec[x - 1]);
+                    for (; x < endX; x++)
+                    {
+                        int signDown = signOf(rec[x] - rec[x + stride + 1]);
+                        int edgeType = signDown + upBuff1[x] + 2;
+                        upBufft[x + 1] = -signDown;
 
-                    if (x < startX && y < startY)
-                        continue;
+                        if (x < startX && y < startY)
+                            continue;
 
-                    stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                    count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
+                        count[s_eoTable[edgeType]]++;
+                    }
+
+                    std::swap(upBuff1, upBufft);
+
+                    rec += stride;
+                    fenc += stride;
+                }
+            }
+
+            // SAO_EO_3: // dir: 45
+            {
+                skipB = 4 - plane_offset;
+                skipR = 5 - plane_offset;
+
+                stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_3];
+                count = m_countPreDblk[addr][plane][SAO_EO_3];
+
+                fenc = fenc0;
+                rec  = rec0;
+
+                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
+                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
+                firstX = !lpelx;
+                firstY = bAboveAvail;
+                // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
+                // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
+                endX   = ctuWidth - 1;  // not refer right CTU
+                endY   = ctuHeight - 1; // not refer below CTU
+                if (firstY)
+                {
+                    fenc += stride;
+                    rec += stride;
                 }
 
-                upBuff1[endX - 1] = signOf(rec[endX - 1 + stride] - rec[endX]);
+                for (x = startX - 1; x < endX; x++)
+                    upBuff1[x] = signOf(rec[x] - rec[x - stride + 1]);
 
-                rec += stride;
-                fenc += stride;
+                for (y = firstY; y < endY; y++)
+                {
+                    for (x = (y < startY - 1 ? startX : firstX); x < endX; x++)
+                    {
+                        int signDown = signOf(rec[x] - rec[x + stride - 1]);
+                        int edgeType = signDown + upBuff1[x] + 2;
+                        upBuff1[x - 1] = -signDown;
+
+                        if (x < startX && y < startY)
+                            continue;
+
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
+                        count[s_eoTable[edgeType]]++;
+                    }
+
+                    upBuff1[endX - 1] = signOf(rec[endX - 1 + stride] - rec[endX]);
+
+                    rec += stride;
+                    fenc += stride;
+                }
             }
         }
         plane_offset = 2;
@@ -1285,33 +1291,35 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
             continue;
 
         SaoCtuParam* mergeSrcParam = &(saoParam->ctuParam[0][addrMerge[mergeIdx]]);
-        bAboveLeftAvail = bAboveLeftAvail && (mergeSrcParam->typeIdx == -1);
+        bAboveLeftAvail = bAboveLeftAvail && (mergeSrcParam->typeIdx == -1);// 只要left/above 有一个是saooff
     }
     // Don't apply sao if ctu is skipped or ajacent ctus are sao off
+    // 对于B帧中只要cut 是skip 或者其 left/above 的ctu 是sao_off的,则 关闭sao
     bool bSaoOff = (slice->m_sliceType == B_SLICE) && (cu->isSkipped(0) || bAboveLeftAvail);
 
     // Estimate distortion and cost of new SAO params
-    if (saoParam->bSaoFlag[0])
+    if (saoParam->bSaoFlag[0])// y components 如果允许sao 默认打开
     {
         if (!m_param->bLimitSAO || !bSaoOff)
         {
-            calcSaoStatsCTU(addr, 0);
+            calcSaoStatsCTU(addr, 0);//统计y分量的信息
             saoStatsInitialOffset(addr, 0);
             saoLumaComponentParamDist(saoParam, addr, rateDist, lambda, bestCost);
         }
     }
 
     SaoCtuParam* lclCtuParam = &saoParam->ctuParam[0][addr];
-    if (saoParam->bSaoFlag[1])
+    if (saoParam->bSaoFlag[1])// uv components 如果允许sao 默认打开
     {
         if (!m_param->bLimitSAO || ((lclCtuParam->typeIdx != -1) && !bSaoOff))
         {
-            calcSaoStatsCTU(addr, 1);
-            calcSaoStatsCTU(addr, 2);
+            calcSaoStatsCTU(addr, 1);// 统计 u分量
+            calcSaoStatsCTU(addr, 2);// 统计v分量
             saoStatsInitialOffset(addr, 1);
             saoChromaComponentParamDist(saoParam, addr, rateDist, lambda, bestCost);
         }
     }
+
     if (saoParam->bSaoFlag[0] || saoParam->bSaoFlag[1])
     {
         // Cost of merge left or Up
@@ -1326,7 +1334,7 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
                 int64_t estDist = 0;
                 SaoCtuParam* mergeSrcParam = &(saoParam->ctuParam[plane][addrMerge[mergeIdx]]);
                 int typeIdx = mergeSrcParam->typeIdx;
-                if (typeIdx >= 0)
+                if (typeIdx >= 0)//typeIdx 表示打开了sao
                 {
                     int bandPos = (typeIdx == SAO_BO) ? mergeSrcParam->bandPos : 1;
                     for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
@@ -1341,8 +1349,8 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
             m_entropyCoder.load(m_rdContexts.cur);
             m_entropyCoder.resetBits();
             if (allowMerge[0])
-                m_entropyCoder.codeSaoMerge(1 - mergeIdx);
-            if (allowMerge[1] && (mergeIdx == 1))
+                m_entropyCoder.codeSaoMerge(1 - mergeIdx);// mergeIdx == 0 表示 mergeLeft
+            if (allowMerge[1] && (mergeIdx == 1))// 否则 mergeIdx == 1 表示 mergeup
                 m_entropyCoder.codeSaoMerge(1);
 
             uint32_t estRate = m_entropyCoder.getNumberOfWrittenBits();
@@ -1369,9 +1377,9 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
             }
         }
 
-        if (saoParam->ctuParam[0][addr].typeIdx < 0)
+        if (saoParam->ctuParam[0][addr].typeIdx < 0)// 如果是y 分量 sao_off
             m_numNoSao[0]++;
-        if (chroma && saoParam->ctuParam[1][addr].typeIdx < 0)
+        if (chroma && saoParam->ctuParam[1][addr].typeIdx < 0)// 如果是uv 分量 sao_off
             m_numNoSao[1]++;
         m_entropyCoder.load(m_rdContexts.temp);
         m_entropyCoder.store(m_rdContexts.cur);
@@ -1395,43 +1403,49 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
     {
         maxSaoType = MAX_NUM_SAO_TYPE - 1;
     }
-    // EO
-    for (int plane = planes; plane <= planes * 2; plane++)
+    if(m_param->saoEOFlag)
     {
-        for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+        // EO
+        for (int plane = planes; plane <= planes * 2; plane++)
         {
-            for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+            for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
             {
-                int32_t&  count     = m_count[plane][typeIdx][classIdx];
-                int32_t& offsetOrg = m_offsetOrg[plane][typeIdx][classIdx];
-                int32_t& offsetOut = m_offset[plane][typeIdx][classIdx];
+                for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+                {
+                    int32_t&  count     = m_count[plane][typeIdx][classIdx];
+                    int32_t& offsetOrg = m_offsetOrg[plane][typeIdx][classIdx];
+                    int32_t& offsetOut = m_offset[plane][typeIdx][classIdx];
+
+                    if (count)
+                    {
+                        offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
+                        offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
+
+                        if (classIdx < 3) 
+                            offsetOut = S265_MAX(offsetOut, 0);
+                        else
+                            offsetOut = S265_MIN(offsetOut, 0);
+                    }
+                }
+            }
+        }
+    }
+    if(m_param->saoBOFlag)
+    {
+        // BO
+        for (int plane = planes; plane <= planes * 2; plane++)
+        {
+            for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
+            {
+                int32_t&  count     = m_count[plane][SAO_BO][classIdx];
+                int32_t& offsetOrg = m_offsetOrg[plane][SAO_BO][classIdx];
+                int32_t& offsetOut = m_offset[plane][SAO_BO][classIdx];
 
                 if (count)
                 {
                     offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
                     offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
-
-                    if (classIdx < 3) 
-                        offsetOut = S265_MAX(offsetOut, 0);
-                    else
-                        offsetOut = S265_MIN(offsetOut, 0);
                 }
-            }
-        }
-    }
-    // BO
-    for (int plane = planes; plane <= planes * 2; plane++)
-    {
-        for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
-        {
-            int32_t&  count     = m_count[plane][SAO_BO][classIdx];
-            int32_t& offsetOrg = m_offsetOrg[plane][SAO_BO][classIdx];
-            int32_t& offsetOut = m_offset[plane][SAO_BO][classIdx];
-
-            if (count)
-            {
-                offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
-                offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
             }
         }
     }
@@ -1497,35 +1511,99 @@ void SAO::saoLumaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t& r
     m_entropyCoder.resetBits();
     m_entropyCoder.codeSaoType(0);
     int64_t costPartBest = calcSaoRdoCost(0, m_entropyCoder.getNumberOfWrittenBits(), lambda[0]);
-    int maxSaoType;
-    if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
-        (slice->m_sliceType == B_SLICE)))
-    {
-        maxSaoType = MAX_NUM_SAO_TYPE - 3;
-    }
-    else
-    {
-        maxSaoType = MAX_NUM_SAO_TYPE - 1;
-    }
 
-    //EO distortion calculation
-    for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+    if(m_frame->m_param->saoEOFlag)
     {
-        int64_t estDist = 0;
-        for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+        int maxSaoType;
+        if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
+            (slice->m_sliceType == B_SLICE)))
         {
-            int32_t&  count    = m_count[0][typeIdx][classIdx];
-            int32_t& offsetOrg = m_offsetOrg[0][typeIdx][classIdx];
-            int32_t& offsetOut = m_offset[0][typeIdx][classIdx];
-            estIterOffset(typeIdx, lambda[0], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
-
-            //Calculate distortion
-            estDist += distClasses[classIdx];
+            maxSaoType = MAX_NUM_SAO_TYPE - 3;
         }
+        else
+        {
+            maxSaoType = MAX_NUM_SAO_TYPE - 1;
+        }
+
+        //EO distortion calculation
+        for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+        {
+            int64_t estDist = 0;
+            for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+            {
+                int32_t&  count    = m_count[0][typeIdx][classIdx];
+                int32_t& offsetOrg = m_offsetOrg[0][typeIdx][classIdx];
+                int32_t& offsetOut = m_offset[0][typeIdx][classIdx];
+                estIterOffset(typeIdx, lambda[0], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
+
+                //Calculate distortion
+                estDist += distClasses[classIdx];
+            }
+
+            m_entropyCoder.load(m_rdContexts.temp);
+            m_entropyCoder.resetBits();
+            m_entropyCoder.codeSaoOffsetEO(m_offset[0][typeIdx] + 1, typeIdx, 0);
+
+            int64_t cost = calcSaoRdoCost(estDist, m_entropyCoder.getNumberOfWrittenBits(), lambda[0]);
+
+            if (cost < costPartBest)
+            {
+                costPartBest = cost;
+                bestDist = estDist;
+                bestTypeIdx = typeIdx;
+            }
+        }
+
+        if (bestTypeIdx != -1)
+        {
+            lclCtuParam->mergeMode = SAO_MERGE_NONE;
+            lclCtuParam->typeIdx = bestTypeIdx;
+            lclCtuParam->bandPos = 0;
+            for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
+                lclCtuParam->offset[classIdx] = m_offset[0][bestTypeIdx][classIdx + 1];
+        }
+    }
+
+    if(m_frame->m_param->saoBOFlag)
+    {
+        //BO RDO
+        int64_t estDist = 0;
+        for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
+        {
+            int32_t&  count    = m_count[0][SAO_BO][classIdx];
+            int32_t& offsetOrg = m_offsetOrg[0][SAO_BO][classIdx];
+            int32_t& offsetOut = m_offset[0][SAO_BO][classIdx];
+
+            estIterOffset(SAO_BO, lambda[0], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
+        }
+
+        // Estimate Best Position
+        int32_t bestClassBO  = 0;
+        int64_t currentRDCost = costClasses[0];
+        currentRDCost += costClasses[1];
+        currentRDCost += costClasses[2];
+        currentRDCost += costClasses[3];
+        int64_t bestRDCostBO = currentRDCost;
+
+        for (int i = 1; i < MAX_NUM_SAO_CLASS - SAO_NUM_OFFSET + 1; i++)
+        {
+            currentRDCost -= costClasses[i - 1];
+            currentRDCost += costClasses[i + 3];
+
+            if (currentRDCost < bestRDCostBO)
+            {
+                bestRDCostBO = currentRDCost;
+                bestClassBO  = i;
+            }
+        }
+
+        estDist = 0;
+        for (int classIdx = bestClassBO; classIdx < bestClassBO + SAO_NUM_OFFSET; classIdx++)
+            estDist += distClasses[classIdx];
 
         m_entropyCoder.load(m_rdContexts.temp);
         m_entropyCoder.resetBits();
-        m_entropyCoder.codeSaoOffsetEO(m_offset[0][typeIdx] + 1, typeIdx, 0);
+        m_entropyCoder.codeSaoOffsetBO(m_offset[0][SAO_BO] + bestClassBO, bestClassBO, 0);
 
         int64_t cost = calcSaoRdoCost(estDist, m_entropyCoder.getNumberOfWrittenBits(), lambda[0]);
 
@@ -1533,72 +1611,14 @@ void SAO::saoLumaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t& r
         {
             costPartBest = cost;
             bestDist = estDist;
-            bestTypeIdx = typeIdx;
+
+            lclCtuParam->mergeMode = SAO_MERGE_NONE;
+            lclCtuParam->typeIdx = SAO_BO;
+            lclCtuParam->bandPos = bestClassBO;
+            for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
+                lclCtuParam->offset[classIdx] = m_offset[0][SAO_BO][classIdx + bestClassBO];
         }
     }
-
-    if (bestTypeIdx != -1)
-    {
-        lclCtuParam->mergeMode = SAO_MERGE_NONE;
-        lclCtuParam->typeIdx = bestTypeIdx;
-        lclCtuParam->bandPos = 0;
-        for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
-            lclCtuParam->offset[classIdx] = m_offset[0][bestTypeIdx][classIdx + 1];
-    }
-
-    //BO RDO
-    int64_t estDist = 0;
-    for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
-    {
-        int32_t&  count    = m_count[0][SAO_BO][classIdx];
-        int32_t& offsetOrg = m_offsetOrg[0][SAO_BO][classIdx];
-        int32_t& offsetOut = m_offset[0][SAO_BO][classIdx];
-
-        estIterOffset(SAO_BO, lambda[0], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
-    }
-
-    // Estimate Best Position
-    int32_t bestClassBO  = 0;
-    int64_t currentRDCost = costClasses[0];
-    currentRDCost += costClasses[1];
-    currentRDCost += costClasses[2];
-    currentRDCost += costClasses[3];
-    int64_t bestRDCostBO = currentRDCost;
-
-    for (int i = 1; i < MAX_NUM_SAO_CLASS - SAO_NUM_OFFSET + 1; i++)
-    {
-        currentRDCost -= costClasses[i - 1];
-        currentRDCost += costClasses[i + 3];
-
-        if (currentRDCost < bestRDCostBO)
-        {
-            bestRDCostBO = currentRDCost;
-            bestClassBO  = i;
-        }
-    }
-
-    estDist = 0;
-    for (int classIdx = bestClassBO; classIdx < bestClassBO + SAO_NUM_OFFSET; classIdx++)
-        estDist += distClasses[classIdx];
-
-    m_entropyCoder.load(m_rdContexts.temp);
-    m_entropyCoder.resetBits();
-    m_entropyCoder.codeSaoOffsetBO(m_offset[0][SAO_BO] + bestClassBO, bestClassBO, 0);
-
-    int64_t cost = calcSaoRdoCost(estDist, m_entropyCoder.getNumberOfWrittenBits(), lambda[0]);
-
-    if (cost < costPartBest)
-    {
-        costPartBest = cost;
-        bestDist = estDist;
-
-        lclCtuParam->mergeMode = SAO_MERGE_NONE;
-        lclCtuParam->typeIdx = SAO_BO;
-        lclCtuParam->bandPos = bestClassBO;
-        for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
-            lclCtuParam->offset[classIdx] = m_offset[0][SAO_BO][classIdx + bestClassBO];
-    }
-
     rateDist = (bestDist << 8) / lambda[0];
     m_entropyCoder.load(m_rdContexts.temp);
     m_entropyCoder.codeSaoOffset(*lclCtuParam, 0);
@@ -1627,40 +1647,110 @@ void SAO::saoChromaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t&
 
     uint32_t bits = m_entropyCoder.getNumberOfWrittenBits();
     int64_t costPartBest = calcSaoRdoCost(0, bits, lambda[1]);
-    int maxSaoType;
-    if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
-        (slice->m_sliceType == B_SLICE)))
+
+    if(m_frame->m_param->saoEOFlag)
     {
-        maxSaoType = MAX_NUM_SAO_TYPE - 3;
-    }
-    else
-    {
-        maxSaoType = MAX_NUM_SAO_TYPE - 1;
+        int maxSaoType;
+        if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
+            (slice->m_sliceType == B_SLICE)))
+        {
+            maxSaoType = MAX_NUM_SAO_TYPE - 3;
+        }
+        else
+        {
+            maxSaoType = MAX_NUM_SAO_TYPE - 1;
+        }
+
+        //EO RDO
+        for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+        {
+            int64_t estDist[2] = {0, 0};
+            for (int compIdx = 1; compIdx < 3; compIdx++)
+            {
+                for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+                {
+                    int32_t& count = m_count[compIdx][typeIdx][classIdx];
+                    int32_t& offsetOrg = m_offsetOrg[compIdx][typeIdx][classIdx];
+                    int32_t& offsetOut = m_offset[compIdx][typeIdx][classIdx];
+
+                    estIterOffset(typeIdx, lambda[1], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
+
+                    estDist[compIdx - 1] += distClasses[classIdx];
+                }
+            }
+
+            m_entropyCoder.load(m_rdContexts.temp);
+            m_entropyCoder.resetBits();
+
+            for (int compIdx = 0; compIdx < 2; compIdx++)
+                m_entropyCoder.codeSaoOffsetEO(m_offset[compIdx + 1][typeIdx] + 1, typeIdx, compIdx + 1);
+
+            uint32_t estRate = m_entropyCoder.getNumberOfWrittenBits();
+            int64_t cost = calcSaoRdoCost((estDist[0] + estDist[1]), estRate, lambda[1]);
+
+            if (cost < costPartBest)
+            {
+                costPartBest = cost;
+                bestDist = (estDist[0] + estDist[1]);
+                bestTypeIdx = typeIdx;
+            }
+        }
+
+        if (bestTypeIdx != -1)
+        {
+            for (int compIdx = 0; compIdx < 2; compIdx++)
+            {
+                lclCtuParam[compIdx]->mergeMode = SAO_MERGE_NONE;
+                lclCtuParam[compIdx]->typeIdx = bestTypeIdx;
+                lclCtuParam[compIdx]->bandPos = 0;
+                for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
+                    lclCtuParam[compIdx]->offset[classIdx] = m_offset[compIdx + 1][bestTypeIdx][classIdx + 1];
+            }
+        }
     }
 
-    //EO RDO
-    for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+    // BO RDO
+    if(m_frame->m_param->saoBOFlag)
     {
-        int64_t estDist[2] = {0, 0};
+        int64_t estDist[2];
+
+        // Estimate Best Position
         for (int compIdx = 1; compIdx < 3; compIdx++)
         {
-            for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
+            int64_t bestRDCostBO = MAX_INT64;
+
+            for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
             {
-                int32_t& count = m_count[compIdx][typeIdx][classIdx];
-                int32_t& offsetOrg = m_offsetOrg[compIdx][typeIdx][classIdx];
-                int32_t& offsetOut = m_offset[compIdx][typeIdx][classIdx];
+                int32_t&  count = m_count[compIdx][SAO_BO][classIdx];
+                int32_t& offsetOrg = m_offsetOrg[compIdx][SAO_BO][classIdx];
+                int32_t& offsetOut = m_offset[compIdx][SAO_BO][classIdx];
 
-                estIterOffset(typeIdx, lambda[1], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
-
-                estDist[compIdx - 1] += distClasses[classIdx];
+                estIterOffset(SAO_BO, lambda[1], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
             }
+
+            for (int i = 0; i < MAX_NUM_SAO_CLASS - SAO_NUM_OFFSET + 1; i++)
+            {
+                int64_t currentRDCost = 0;
+                for (int j = i; j < i + SAO_NUM_OFFSET; j++)
+                    currentRDCost += costClasses[j];
+
+                if (currentRDCost < bestRDCostBO)
+                {
+                    bestRDCostBO = currentRDCost;
+                    bestClassBO[compIdx - 1]  = i;
+                }
+            }
+
+            estDist[compIdx - 1] = 0;
+            for (int classIdx = bestClassBO[compIdx - 1]; classIdx < bestClassBO[compIdx - 1] + SAO_NUM_OFFSET; classIdx++)
+                estDist[compIdx - 1] += distClasses[classIdx];
         }
 
         m_entropyCoder.load(m_rdContexts.temp);
         m_entropyCoder.resetBits();
 
         for (int compIdx = 0; compIdx < 2; compIdx++)
-            m_entropyCoder.codeSaoOffsetEO(m_offset[compIdx + 1][typeIdx] + 1, typeIdx, compIdx + 1);
+            m_entropyCoder.codeSaoOffsetBO(m_offset[compIdx + 1][SAO_BO] + bestClassBO[compIdx], bestClassBO[compIdx], compIdx + 1);
 
         uint32_t estRate = m_entropyCoder.getNumberOfWrittenBits();
         int64_t cost = calcSaoRdoCost((estDist[0] + estDist[1]), estRate, lambda[1]);
@@ -1669,81 +1759,17 @@ void SAO::saoChromaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t&
         {
             costPartBest = cost;
             bestDist = (estDist[0] + estDist[1]);
-            bestTypeIdx = typeIdx;
-        }
-    }
 
-    if (bestTypeIdx != -1)
-    {
-        for (int compIdx = 0; compIdx < 2; compIdx++)
-        {
-            lclCtuParam[compIdx]->mergeMode = SAO_MERGE_NONE;
-            lclCtuParam[compIdx]->typeIdx = bestTypeIdx;
-            lclCtuParam[compIdx]->bandPos = 0;
-            for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
-                lclCtuParam[compIdx]->offset[classIdx] = m_offset[compIdx + 1][bestTypeIdx][classIdx + 1];
-        }
-    }
-
-    // BO RDO
-    int64_t estDist[2];
-
-    // Estimate Best Position
-    for (int compIdx = 1; compIdx < 3; compIdx++)
-    {
-        int64_t bestRDCostBO = MAX_INT64;
-
-        for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
-        {
-            int32_t&  count = m_count[compIdx][SAO_BO][classIdx];
-            int32_t& offsetOrg = m_offsetOrg[compIdx][SAO_BO][classIdx];
-            int32_t& offsetOut = m_offset[compIdx][SAO_BO][classIdx];
-
-            estIterOffset(SAO_BO, lambda[1], count, offsetOrg, offsetOut, distClasses[classIdx], costClasses[classIdx]);
-        }
-
-        for (int i = 0; i < MAX_NUM_SAO_CLASS - SAO_NUM_OFFSET + 1; i++)
-        {
-            int64_t currentRDCost = 0;
-            for (int j = i; j < i + SAO_NUM_OFFSET; j++)
-                currentRDCost += costClasses[j];
-
-            if (currentRDCost < bestRDCostBO)
+            for (int compIdx = 0; compIdx < 2; compIdx++)
             {
-                bestRDCostBO = currentRDCost;
-                bestClassBO[compIdx - 1]  = i;
+                lclCtuParam[compIdx]->mergeMode = SAO_MERGE_NONE;
+                lclCtuParam[compIdx]->typeIdx = SAO_BO;
+                lclCtuParam[compIdx]->bandPos = bestClassBO[compIdx];
+                for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
+                    lclCtuParam[compIdx]->offset[classIdx] = m_offset[compIdx + 1][SAO_BO][classIdx + bestClassBO[compIdx]];
             }
         }
-
-        estDist[compIdx - 1] = 0;
-        for (int classIdx = bestClassBO[compIdx - 1]; classIdx < bestClassBO[compIdx - 1] + SAO_NUM_OFFSET; classIdx++)
-            estDist[compIdx - 1] += distClasses[classIdx];
     }
-
-    m_entropyCoder.load(m_rdContexts.temp);
-    m_entropyCoder.resetBits();
-
-    for (int compIdx = 0; compIdx < 2; compIdx++)
-        m_entropyCoder.codeSaoOffsetBO(m_offset[compIdx + 1][SAO_BO] + bestClassBO[compIdx], bestClassBO[compIdx], compIdx + 1);
-
-    uint32_t estRate = m_entropyCoder.getNumberOfWrittenBits();
-    int64_t cost = calcSaoRdoCost((estDist[0] + estDist[1]), estRate, lambda[1]);
-
-    if (cost < costPartBest)
-    {
-        costPartBest = cost;
-        bestDist = (estDist[0] + estDist[1]);
-
-        for (int compIdx = 0; compIdx < 2; compIdx++)
-        {
-            lclCtuParam[compIdx]->mergeMode = SAO_MERGE_NONE;
-            lclCtuParam[compIdx]->typeIdx = SAO_BO;
-            lclCtuParam[compIdx]->bandPos = bestClassBO[compIdx];
-            for (int classIdx = 0; classIdx < SAO_NUM_OFFSET; classIdx++)
-                lclCtuParam[compIdx]->offset[classIdx] = m_offset[compIdx + 1][SAO_BO][classIdx + bestClassBO[compIdx]];
-        }
-    }
-
     rateDist += (bestDist << 8) / lambda[1];
     m_entropyCoder.load(m_rdContexts.temp);
 
@@ -1772,7 +1798,7 @@ void saoCuStatsBO_c(const int16_t *diff, const pixel *rec, intptr_t stride, int 
     {
         for (int x = 0; x < endX; x++)
         {
-            int classIdx = rec[x] >> boShift;
+            int classIdx = rec[x] >> boShift;//将0～255的数据范围分成 8个band 每个band可以表示 0～31
             stats[classIdx] += diff[x];
             count[classIdx]++;
         }

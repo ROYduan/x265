@@ -133,7 +133,7 @@ void Analysis::destroy()
     }
     S265_FREE(cacheCost);
 }
-
+// 分析函数入口
 Mode& Analysis::compressCTU(CUData& ctu, Frame& frame, const CUGeom& cuGeom, const Entropy& initialContext)
 {
     m_slice = ctu.m_slice;//取CTU所在slice
@@ -391,7 +391,7 @@ void Analysis::qprdRefine(const CUData& parentCTU, const CUGeom& cuGeom, int32_t
     md.bestMode->reconYuv.copyToPicYuv(*m_frame->m_reconPic, parentCTU.m_cuAddr, cuGeom.absPartIdx);
 }
 
-// intraCTU rdo
+// intraCTU rdo  注意此函数包含递归调用
 uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t qp)
 {
     uint32_t depth = cuGeom.depth;// 当前cu的depth
@@ -3051,7 +3051,8 @@ double Analysis::cuTreeQPOffset(const CUData& ctu, const CUGeom& cuGeom)
     double dQpOffset = pcAQLayer->dCuTreeOffset[aqPosY * aqStride + aqPosX];
     return dQpOffset;
 }
-
+// 参数缺省默认值 int32_t complexCheck = 0, double baseQP = -1
+// 得倒与cusize 对应大小的 baseqp + qpoffset
 int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int32_t complexCheck, double baseQp)
 {
     FrameData& curEncData = *m_frame->m_encData;
@@ -3064,11 +3065,11 @@ int Analysis::calculateQpforCuSize(const CUData& ctu, const CUGeom& cuGeom, int3
         double dQpOffset = 0;
         if (bCuTreeOffset)
         {
-            dQpOffset = cuTreeQPOffset(ctu, cuGeom);
+            dQpOffset = cuTreeQPOffset(ctu, cuGeom);// get current ctu_size cutree_qpoffset
         }
         else
         {
-            dQpOffset = aqQPOffset(ctu, cuGeom);
+            dQpOffset = aqQPOffset(ctu, cuGeom);// get current ctu_size aq_qpoffset
             if (complexCheck)
             {
                 int32_t offset = (int32_t)(dQpOffset * 100 + .5);

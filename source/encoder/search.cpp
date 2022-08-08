@@ -201,12 +201,12 @@ Search::~Search()
     S265_FREE(m_tsResidual);
     S265_FREE(m_tsRecon);
 }
-
+//  却省参数 int lambdaQP = -1
 int Search::setLambdaFromQP(const CUData& ctu, int qp, int lambdaQp)
 {
     S265_CHECK(qp >= QP_MIN && qp <= QP_MAX_MAX, "QP used for lambda is out of range\n");
 
-    m_me.setQP(qp);
+    m_me.setQP(qp);// set qp based lamda*mv_bist for mvcost
     m_rdCost.setQP(*m_slice, lambdaQp < 0 ? qp : lambdaQp);
 
     int quantQP = s265_clip3(QP_MIN, QP_MAX_SPEC, qp);
