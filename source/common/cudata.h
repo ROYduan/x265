@@ -364,9 +364,9 @@ struct CUDataMemPool
 
     bool create(uint32_t depth, uint32_t csp, uint32_t numInstances, const s265_param& param)
     {
-        uint32_t numPartition = param.num4x4Partitions >> (depth * 2);
-        uint32_t cuSize = param.maxCUSize >> depth;
-        uint32_t sizeL = cuSize * cuSize;
+        uint32_t numPartition = param.num4x4Partitions >> (depth * 2);//获取当前depth对应cu大小的4x4block的数量
+        uint32_t cuSize = param.maxCUSize >> depth;//当前深度cuSize的大小
+        uint32_t sizeL = cuSize * cuSize;// 当前深度cu的luma的pixl数量
         if (csp == S265_CSP_I400)
         {
             CHECKED_MALLOC(trCoeffMemBlock, coeff_t, (sizeL) * numInstances);
@@ -376,7 +376,7 @@ struct CUDataMemPool
             uint32_t sizeC = sizeL >> (CHROMA_H_SHIFT(csp) + CHROMA_V_SHIFT(csp));
             CHECKED_MALLOC(trCoeffMemBlock, coeff_t, (sizeL + sizeC * 2) * numInstances);
         }
-        //numPartition 一个ctu里面4x4partition的数量,numInstances 为ctu的个数,
+        //numPartition 一个对应的depth0:64x64 1:32x32 2:16x16 3:8x8 里面4x4partition的数量,numInstances 为ctu的个数,
         CHECKED_MALLOC(charMemBlock, uint8_t, numPartition * numInstances * CUData::BytesPerPartition);
         CHECKED_MALLOC_ZERO(mvMemBlock, MV, numPartition * 4 * numInstances);
         CHECKED_MALLOC(distortionMemBlock, sse_t, numPartition * numInstances);

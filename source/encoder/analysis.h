@@ -55,7 +55,7 @@ struct SplitData
         sa8dCost  = 0;
     }
 };
-
+// 当new 一个Analysis 对象时，会自动new 0/1/2/3 共4个ModeDepth 对象 分别对应存储64x64 32x32 16x16 8x8
 class Analysis : public Search
 {
 public:
@@ -82,7 +82,7 @@ public:
     {
         Mode           pred[MAX_PRED_TYPES];// 当前深度,十四种模式的预测信息
         Mode*          bestMode; // 当前深度的最佳模式
-        Yuv            fencYuv;  // frame encode YUV,帧级别的待编码的YUV数据
+        Yuv            fencYuv;  // 与当前深度cu大小对应的待编码的YUV数据
         CUDataMemPool  cuMemPool;
     };
 
@@ -105,7 +105,7 @@ public:
 
     void processPmode(PMODE& pmode, Analysis& slave);
 
-    ModeDepth m_modeDepth[NUM_CU_DEPTH];
+    ModeDepth m_modeDepth[NUM_CU_DEPTH];//[0:64x64] [1:32x32] [2:16x16] [3:8x8]
     bool      m_bTryLossless;
     bool      m_bChromaSa8d;
     bool      m_bHD;
@@ -217,7 +217,7 @@ protected:
 
 struct ThreadLocalData
 {
-    Analysis analysis;
+    Analysis analysis;// 当new 一个Analysis 对象时，会自动new 0/1/2/3 共4个ModeDepth 对象 分别对应存储64x64 32x32 16x16 8x8 的
 
     void destroy() { analysis.destroy(); }
 };

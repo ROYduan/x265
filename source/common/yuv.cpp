@@ -37,7 +37,7 @@ Yuv::Yuv()
     m_buf[1] = NULL;
     m_buf[2] = NULL;
 }
-// 主要是 get yige sizexsize 对应打partition 大小的 bufffer m_buf[3]/m_buf[1]/m_buf[2]/
+// 主要是 get 一个 sizexsize 对应的partition 大小的 bufffer m_buf[3]/m_buf[1]/m_buf[2]/
 bool Yuv::create(uint32_t size, int csp)
 {
     m_csp = csp;

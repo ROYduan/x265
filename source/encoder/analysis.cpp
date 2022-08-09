@@ -98,7 +98,7 @@ bool Analysis::create(ThreadLocalData *tld)
     bool ok = true;
     for (uint32_t depth = 0; depth <= m_param->maxCUDepth; depth++, cuSize >>= 1)
     {
-        ModeDepth &md = m_modeDepth[depth];
+        ModeDepth &md = m_modeDepth[depth]; //依次获取64x64/32x32/16x16/8x8 对应的modeDepth
         ok &= md.cuMemPool.create(depth, csp, MAX_PRED_TYPES, *m_param);
         ok &= md.fencYuv.create(cuSize, csp);
         if (ok)
@@ -402,7 +402,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
     // 当前CU不是CTU的叶子节点，设置mightSplit为True，继续分裂
     // 后续根据mightSplit判断是否将split flag添加到RD cost中
     bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);// 0:强制split了 1:可以不split
-    // 是否已经决策了
+    // 注意有递归调用这个判断，是否已经决策了，一开始进来此处为0
     bool bAlreadyDecided = m_param->intraRefine != 4 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] != (uint8_t)ALL_IDX;
     // 注意: 一开始 64x64 ctu depth 为0 时 是 bDecidedDepth 为真
     bool bDecidedDepth = m_param->intraRefine != 4 && parentCTU.m_cuDepth[cuGeom.absPartIdx] == depth;
@@ -445,7 +445,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);// 预测数据保存在 md.pred[PRED_INTRA]
         checkBestMode(md.pred[PRED_INTRA], depth); //与bestmode 比较 如果优 则替换
 
-        // 如果当前cu 大小时 8x8,并且允许4x4的tu，这时除了尝试8x8 intra 尝试 4x4intra
+        // 如果当前cu 大小是 8x8,并且允许4x4的tu,这时除了尝试8x8 intra 尝试 4x4intra
         if (cuGeom.log2CUSize == 3 && m_slice->m_sps->quadtreeTULog2MinSize < 3)
         {   /* 4x4 intra PU blocks for 8x8 CU */
             md.pred[PRED_INTRA_NxN].cu.initSubCU(parentCTU, cuGeom, qp);
@@ -466,7 +466,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
 //bAlreadyDecided为False ，是因为决策模式没有确定， 也要多试一试；
 //bDecidedDepth为False，是因为此时的父CU可能位于边界，需要进一步划分。
 
-    if (mightSplit)//通常来说第一次进来从这里入口
+    if (mightSplit)//因为 intra 没有64x64 的预测大小，所以通常来说第一次进来从这里入口
     {
         Mode* splitPred = &md.pred[PRED_SPLIT];// 所有数据都得保存在当前depth下的md.pred[PRED_SPLIT]，由四个子CU的返回结果拼接而成
         splitPred->initCosts();

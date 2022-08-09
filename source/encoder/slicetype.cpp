@@ -2971,12 +2971,12 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
 
     /* When scenecut threshold is set, use scenecut detection for I frame placements */
     if (!m_param->bHistBasedSceneCut || (m_param->bHistBasedSceneCut && m_param->bEnableTradScdInHscd && frames[1]->bScenecut))
-        isScenecut = scenecut(frames, 0, 1, true, origNumFrames);
+        isScenecut = scenecut(frames, 0, 1, true, origNumFrames);// real scenecut
     else if (m_param->bHistBasedSceneCut && frames[1]->bScenecut)
         isScenecut = true;
 
     if (isScenecut && (m_param->bHistBasedSceneCut || m_param->scenecutThreshold))
-    {
+    { // only when scenecutThreshold is not zero, sliceType can be setted to I frame
         frames[1]->sliceType = S265_TYPE_I;
         return;
     }
