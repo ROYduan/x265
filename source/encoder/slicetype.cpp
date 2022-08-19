@@ -4731,7 +4731,7 @@ void CostEstimateGroup::estimateCUCost(LookaheadTLD& tld, int cuX, int cuY, int 
             // mv_clipp
             for (int32_t idx0 = 0; idx0 < numc; idx0++)
             {
-                mvc[idx0].clipped(mvmin, mvmax);
+                mvc[idx0] = mvc[idx0].clipped(mvmin, mvmax);
             }
             // De_duplication 去重
             bool mask[5] = { false };
