@@ -768,24 +768,24 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
      * (mode + MVD bits). */
 
     // measure SAD cost at clipped QPEL MVP
-    MV pmv = qmvp.clipped(qmvmin, qmvmax);
-    MV bestpre = pmv;
+    MV pmv = qmvp.clipped(qmvmin, qmvmax);// qpexl_mvp
+    MV bestpre = pmv;// init
     int bprecost;
 
     if (ref->isLowres)
         bprecost = ref->lowresQPelCost(fenc, blockOffset, pmv, sad, hme);
     else
-        bprecost = subpelCompare(ref, pmv, sad);
+        bprecost = subpelCompare(ref, pmv, sad);// 计算 mvp 处的 cost
 
     /* re-measure full pel rounded MVP with SAD as search start point */
-    MV bmv = pmv.roundToFPel();
-    int bcost = bprecost;
-    if (pmv.isSubpel())// 如果pmv 含有分像素分量,则bprecost 代表的 分像素位置的cost,这里重算其整像素处的cost
+    MV bmv = pmv.roundToFPel();// mpv 转换为 整像素精度
+    int bcost = bprecost;//init 整像素精度的cost
+    if (pmv.isSubpel())// 如果mvp 含有分像素分量,则bprecost 代表的 分像素位置的cost,这里重算其整像素处的cost
         bcost = sad(fenc, FENC_STRIDE, fref + bmv.x + bmv.y * stride, stride) + mvcost(bmv << 2);
 
     // measure SAD cost at MV(0) if MVP is not zero
-    if (pmv.notZero())
-    {
+    if (pmv.notZero())// 这里应该改为 bmv ？？？？？
+    {// 如果 mvp 不为0，则计算 mv 0 0 位置的的cost
         int cost = sad(fenc, FENC_STRIDE, fref, stride) + mvcost(MV(0, 0));
         if (cost < bcost)
         {
@@ -800,7 +800,8 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
     for (int i = 0; i < numCandidates; i++)
     {
         MV m = mvc[i].clipped(qmvmin, qmvmax);
-        if (m.notZero() & (m != pmv ? 1 : 0) & (m != bestpre ? 1 : 0)) // check already measured
+        // 0 已经算过了 mvp 已经算过了 当前 bestpre mv 也算过了
+        if (m.notZero() & (m != pmv ? 1 : 0) & (m != bestpre ? 1 : 0)) // check already measured 从candidate 中去重
         {
             int cost = subpelCompare(ref, m, sad) + mvcost(m);
             if (cost < bprecost)
@@ -812,7 +813,7 @@ int MotionEstimate::motionEstimate(ReferencePlanes *ref,
     }
 
     pmv = pmv.roundToFPel();
-    MV omv = bmv;  // current search origin or starting point
+    MV omv = bmv;  // current search origin or starting point 整像素搜索点的起始位置
 
     int search = ref->isHMELowres ? (hme ? searchMethodL0 : searchMethodL1) : searchMethod;
     switch (search)

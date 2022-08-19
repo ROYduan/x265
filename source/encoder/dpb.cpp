@@ -260,6 +260,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
         }
         curPic = curPic->m_next;
     }
+    // find current_encoding pic
     int cur_temporal_id = curPic->m_lowres.i_temporal_id;
     int cur_level = curPic->m_lowres.i_level;
 
@@ -282,7 +283,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
                 if ((tmpPic->m_poc != curPoc) && tmpPic->m_encData->m_bHasReferences)
                 {
                     int score = 100000;
-                    if (cur_level == 0)
+                    if (cur_level == 0)//level 为 0 表示 I/P/GPB
                     {
                         tmpPic->m_lowres.i_ref_value = -1;
                     }
@@ -290,7 +291,7 @@ void DPB::computeRPS(int curPoc, bool isRAP, RPS * rps, unsigned int maxDecPicBu
                     {
                         score = 0;
                         tmpPic->m_lowres.i_ref_value = -2;
-                    }
+                    } //cur_temporal_id == 0 current is lowerest_level Bref
                     else if (cur_temporal_id == 0 && tmpPic->m_lowres.i_temporal_id > cur_temporal_id)
                     {
                         score = 0;

@@ -985,9 +985,10 @@ void CUData::getIntraTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartId
     uint32_t log2CUSize = m_log2CUSize[absPartIdx];
     uint32_t splitFlag = m_partSize[absPartIdx] != SIZE_2Nx2N;
 
-    tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;// minTu size
+    tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;// minTu size 2
     tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;// MaxTu size default 5
     // 通过TU深度控制参数 设置 minTu size为 为当前cusize在 PartSize 划分的情况下的最小tu size 
+    // slower 下参数书为 3
     tuDepthRange[0] = s265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (m_slice->m_sps->quadtreeTUMaxDepthIntra - 1 + splitFlag));
 }
 

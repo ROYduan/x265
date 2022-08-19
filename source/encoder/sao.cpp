@@ -751,8 +751,8 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     uint32_t picHeight = m_param->sourceHeight;
     int ctuWidth  = m_param->maxCUSize;
     int ctuHeight = m_param->maxCUSize;
-    uint32_t lpelx = cu->m_cuPelX;
-    uint32_t tpely = cu->m_cuPelY;
+    uint32_t lpelx = cu->m_cuPelX;// left pix
+    uint32_t tpely = cu->m_cuPelY;// top pix
     const uint32_t firstRowInSlice = cu->m_bFirstRowInSlice;
     const uint32_t lastRowInSlice = cu->m_bLastRowInSlice;
     const uint32_t bAboveUnavail = (!tpely) | firstRowInSlice;
@@ -766,13 +766,13 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
         lpelx     >>= m_hChromaShift;
         tpely     >>= m_vChromaShift;
     }
-    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);// right pixl
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight); // bottom pixl
     ctuWidth  = rpelx - lpelx;
     ctuHeight = bpely - tpely;
 
     // NOTE: Careful! the picHeight apply for Equal operator only in below, so I may safe to hack it
-    if (lastRowInSlice)
+    if (lastRowInSlice)//考虑多 slice 时,如果该行是slice的最后一行则picHeight 此时为需要为bottompixl
     {
         picHeight = bpely;
     }
@@ -783,8 +783,8 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     int endY;
 
     const int plane_offset = plane ? 2 : 0;
-    int skipB = 4;
-    int skipR = 5;
+    int skipB = 4;//skip掉 bottom 4pixl
+    int skipR = 5;//skip掉right 5 pixl
 
     int8_t _upBuff[2 * (MAX_CU_SIZE + 16 + 16)], *upBuff1 = _upBuff + 16, *upBufft = upBuff1 + (MAX_CU_SIZE + 16 + 16);
 
@@ -817,8 +817,8 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     {
         if (m_param->bSaoNonDeblocked)
         {
-            skipB = 3;
-            skipR = 4;
+            skipB = 3;//如果允许在非dblock上 做SAO统计, 则skip掉 Bottom 3 pixl
+            skipR = 4;// 同理 skip掉right 4 pixl
         }
 
         endX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR + plane_offset;
@@ -1397,11 +1397,11 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
     if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
        (slice->m_sliceType == B_SLICE)))
     {
-        maxSaoType = MAX_NUM_SAO_TYPE - 3;
+        maxSaoType = MAX_NUM_SAO_TYPE - 3; // 只做 垂直和水平方向的EO判断
     }
     else
     {
-        maxSaoType = MAX_NUM_SAO_TYPE - 1;
+        maxSaoType = MAX_NUM_SAO_TYPE - 1;// 垂直/水平/135度/45度 都判断
     }
     if(m_param->saoEOFlag)
     {
@@ -1418,13 +1418,13 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
 
                     if (count)
                     {
-                        offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);
+                        offsetOut = roundIBDI(offsetOrg, count << SAO_BIT_INC);//offsetOrig 为统计到的在EO typeIdx下第classIdx内的diff 总和
                         offsetOut = s265_clip3(-OFFSET_THRESH + 1, OFFSET_THRESH - 1, offsetOut);
 
                         if (classIdx < 3) 
-                            offsetOut = S265_MAX(offsetOut, 0);
+                            offsetOut = S265_MAX(offsetOut, 0);// 1:为valley 2: half_valley offset 应该大于>=0
                         else
-                            offsetOut = S265_MIN(offsetOut, 0);
+                            offsetOut = S265_MIN(offsetOut, 0);// 3:为 peak 4: half_peak offset 应该小于<=0
                     }
                 }
             }
@@ -1435,10 +1435,10 @@ void SAO::saoStatsInitialOffset(int addr, int planes)
         // BO
         for (int plane = planes; plane <= planes * 2; plane++)
         {
-            for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)
+            for (int classIdx = 0; classIdx < MAX_NUM_SAO_CLASS; classIdx++)// 32个band
             {
                 int32_t&  count     = m_count[plane][SAO_BO][classIdx];
-                int32_t& offsetOrg = m_offsetOrg[plane][SAO_BO][classIdx];
+                int32_t& offsetOrg = m_offsetOrg[plane][SAO_BO][classIdx];//offsetOrg 为 BO type 里面的第classIdx个Band内统计得倒的diff的总和
                 int32_t& offsetOut = m_offset[plane][SAO_BO][classIdx];
 
                 if (count)
@@ -1472,7 +1472,7 @@ void SAO::estIterOffset(int typeIdx, int64_t lambda, int32_t count, int32_t offs
 
     // Assuming sending quantized value 0 results in zero offset and sending the value zero needs 1 bit.
     // entropy coder can be used to measure the exact rate here.
-    int64_t bestCost = calcSaoRdoCost(0, 1, lambda);
+    int64_t bestCost = calcSaoRdoCost(0, 1, lambda);//这里初始化为distorttion 为 0 bits为1个bit下的cost 即sao_off下的cost
     while (offset != 0)
     {
         // Calculate the bits required for signalling the offset
@@ -1518,15 +1518,15 @@ void SAO::saoLumaComponentParamDist(SAOParam* saoParam, int32_t addr, int64_t& r
         if (m_param->bLimitSAO && ((slice->m_sliceType == P_SLICE && cu->isSkipped(0)) ||
             (slice->m_sliceType == B_SLICE)))
         {
-            maxSaoType = MAX_NUM_SAO_TYPE - 3;
+            maxSaoType = MAX_NUM_SAO_TYPE - 3;// 只做 垂直和水平方向的EO判断
         }
         else
         {
-            maxSaoType = MAX_NUM_SAO_TYPE - 1;
+            maxSaoType = MAX_NUM_SAO_TYPE - 1;// 垂直/水平/135度/45度 都判断
         }
 
         //EO distortion calculation
-        for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)
+        for (int typeIdx = 0; typeIdx < maxSaoType; typeIdx++)// eo_0~1 or eo_0~3
         {
             int64_t estDist = 0;
             for (int classIdx = 1; classIdx < SAO_NUM_OFFSET + 1; classIdx++)
@@ -1799,8 +1799,8 @@ void saoCuStatsBO_c(const int16_t *diff, const pixel *rec, intptr_t stride, int 
         for (int x = 0; x < endX; x++)
         {
             int classIdx = rec[x] >> boShift;//将0～255的数据范围分成 8个band 每个band可以表示 0～31
-            stats[classIdx] += diff[x];
-            count[classIdx]++;
+            stats[classIdx] += diff[x];// 统计每个band下的差异总和
+            count[classIdx]++;//统计rec在每个band下的pixl数量总和
         }
 
         diff += MAX_CU_SIZE;

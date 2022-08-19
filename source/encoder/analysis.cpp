@@ -446,6 +446,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
         checkBestMode(md.pred[PRED_INTRA], depth); //与bestmode 比较 如果优 则替换
 
         // 如果当前cu 大小是 8x8,并且允许4x4的tu,这时除了尝试8x8 intra 尝试 4x4intra
+        // hevc 中规定只有在cu为允许的最小cu时，才能有part_mode 为 NxN
         if (cuGeom.log2CUSize == 3 && m_slice->m_sps->quadtreeTULog2MinSize < 3)
         {   /* 4x4 intra PU blocks for 8x8 CU */
             md.pred[PRED_INTRA_NxN].cu.initSubCU(parentCTU, cuGeom, qp);
