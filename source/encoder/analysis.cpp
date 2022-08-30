@@ -100,7 +100,7 @@ bool Analysis::create(ThreadLocalData *tld)
     {
         ModeDepth &md = m_modeDepth[depth]; //依次获取64x64/32x32/16x16/8x8 对应的modeDepth
         ok &= md.cuMemPool.create(depth, csp, MAX_PRED_TYPES, *m_param);
-        ok &= md.fencYuv.create(cuSize, csp);
+        ok &= md.fencYuv.create(cuSize, csp);// 主要是 get 一个 sizexsize 对应的partition 大小的 bufffer m_buf[3]/m_buf[1]/m_buf[2]/
         if (ok)
         {
             for (int j = 0; j < MAX_PRED_TYPES; j++)
@@ -467,7 +467,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
 //bAlreadyDecided为False ，是因为决策模式没有确定， 也要多试一试；
 //bDecidedDepth为False，是因为此时的父CU可能位于边界，需要进一步划分。
 
-    if (mightSplit)//因为 intra 没有64x64 的预测大小，所以通常来说第一次进来从这里入口
+    if (mightSplit)//因为 通常来说第一次进来从这里入口 x265 禁止了cu64x64 的intra块
     {
         Mode* splitPred = &md.pred[PRED_SPLIT];// 所有数据都得保存在当前depth下的md.pred[PRED_SPLIT]，由四个子CU的返回结果拼接而成
         splitPred->initCosts();
@@ -1610,6 +1610,7 @@ SplitData Analysis::compressInterCU_rd0_4(const CUData& parentCTU, const CUGeom&
 
 SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom& cuGeom, int32_t qp)
 {
+    // 动态rd 先不看
     if (parentCTU.m_vbvAffected && !calculateQpforCuSize(parentCTU, cuGeom, 1))
         return compressInterCU_rd0_4(parentCTU, cuGeom, qp);
 
@@ -1632,14 +1633,16 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
 
     if (bNooffloading)
     {
-        bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);
+        bool mightSplit = !(cuGeom.flags & CUGeom::LEAF);// 0: 叶子结点，不能split 1:  非叶子结点可以split
+        // 当前CU不是CTU的叶子节点，设置mightSplit为True，继续分裂
+        // 后续根据mightSplit判断是否将split flag添加到RD cost中
         bool mightNotSplit = !(cuGeom.flags & CUGeom::SPLIT_MANDATORY);
         bool skipRecursion = false;
         bool skipModes = false;
         bool splitIntra = true;
         bool skipRectAmp = false;
 
-        if (m_evaluateInter)
+        if (m_evaluateInter)// 此处一般情况不会进来，只有在reencode 时
         {
             if (m_refineLevel == 2)
             {
@@ -1667,7 +1670,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
         splitData[1].initSplitCUData();
         splitData[2].initSplitCUData();
         splitData[3].initSplitCUData();
-        uint32_t allSplitRefs = splitData[0].splitRefs | splitData[1].splitRefs | splitData[2].splitRefs | splitData[3].splitRefs;
+        uint32_t allSplitRefs = 0;//splitData[0].splitRefs | splitData[1].splitRefs | splitData[2].splitRefs | splitData[3].splitRefs;
         uint32_t refMasks[2];
 
         /* Step 1. Evaluate Merge/Skip candidates for likely early-outs */
@@ -2987,8 +2990,8 @@ bool Analysis::complexityCheckCU(const Mode& bestMode)
         intptr_t stride = m_frame->m_fencPic->m_stride;
         intptr_t blockOffsetLuma = bestMode.cu.m_cuPelX + bestMode.cu.m_cuPelY * stride;
         uint64_t sum_ss = primitives.cu[blockType].var(m_frame->m_edgeBitPic + blockOffsetLuma, stride);
-        uint32_t sum = (uint32_t)sum_ss;
-        uint32_t ss = (uint32_t)(sum_ss >> 32);
+        uint32_t sum = (uint32_t)sum_ss;// 低32bit
+        uint32_t ss = (uint32_t)(sum_ss >> 32);// 高32bits
         uint32_t pixelCount = 1 << shift;
         double cuEdgeVariance = (ss - ((double)sum * sum / pixelCount)) / pixelCount;
 

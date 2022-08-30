@@ -207,7 +207,7 @@ void s265_param_default(s265_param* param)
     param->edgeVarThreshold = 0.05f;
     param->bEnableAMP = 0;
     param->bEnableRectInter = 0;
-    param->rdLevel = 3;
+    param->rdLevel = 3;//default
     param->rdoqLevel = 0;
     param->bEnableSignHiding = 1;
     param->bEnableTransformSkip = 0;

@@ -601,28 +601,31 @@ void CUData::updatePic(uint32_t depth, int picCsp) const
         memcpy(ctu.m_trCoeff[2] + tmpY2, m_trCoeff[2], sizeof(coeff_t) * tmpY);
     }
 }
-
+// 用于找到 当前pu的左边的neighbor的位置（包含两部分，一部分是 neighbor 所在的ctu/cu，另一部分是 该neighbor4x4 在该ctu/cu中的4x4 偏移alPartUnitIdx）
+//如果在 同一个cu 内 则返回this （cu）+ cu 内的偏移地址
+//如果不在同一个cu 内 则返回对应的CTU + CTU 内的偏移地址
 const CUData* CUData::getPULeft(uint32_t& lPartUnitIdx, uint32_t curPartUnitIdx) const
 {
-    uint32_t absPartIdx = g_zscanToRaster[curPartUnitIdx];
+    uint32_t absPartIdx = g_zscanToRaster[curPartUnitIdx];//当前pu的4x4的位置
 
-    if (!isZeroCol(absPartIdx))
+    if (!isZeroCol(absPartIdx))//如果不是ctu的0列
     {
-        uint32_t absZorderCUIdx   = g_zscanToRaster[m_absIdxInCTU];
-        lPartUnitIdx = g_rasterToZscan[absPartIdx - 1];
-        if (isEqualCol(absPartIdx, absZorderCUIdx))
-            return m_encData->getPicCTU(m_cuAddr);
-        else
+        uint32_t absZorderCUIdx   = g_zscanToRaster[m_absIdxInCTU];//获取当前pu所在cu的首个4x4位置
+        lPartUnitIdx = g_rasterToZscan[absPartIdx - 1];//当前pu首个4x4位置左移一个4x4
+        if (isEqualCol(absPartIdx, absZorderCUIdx))//当前pu首个4x4的位置和其所在cu的首个4x4的位置为同一列
+            return m_encData->getPicCTU(m_cuAddr);////这时他的Left pu 所在的cu 不是本身cu 但是属于同一个ctu,所以返回当前ctu 以及ctu内的偏移lPartUnitIdx
+        else// 否则，如果不属于同一列，则当前4x4的leftpu 所在的cu和本身的cu属于同一cu，调整ctu内的偏移为当前cu内的偏移，然后返回当前cu的地址就好
         {
             lPartUnitIdx -= m_absIdxInCTU;
+            // 这里lPartUnitIdx 开始表示的是相对CTU的索引 需要改为相对 this cu的索引所以需要减去this cu 在CTU中索引
             return this;
         }
     }
-
+    //如果是ctu的第0列，调整ctu内的偏移地址为当前4x4地址所在ctu的最后一行，返回当前ctu的leftctu
     lPartUnitIdx = g_rasterToZscan[absPartIdx + s_numPartInCUSize - 1];
     return m_cuLeft;
 }
-
+// 用于找到 当前pu的上边的neighbor的位置（包含两部分，一部分是 neighbor 所在的ctu/cu，另一部分是 该neighbor4x4 在该ctu/cu中的4x4 偏移alPartUnitIdx）
 const CUData* CUData::getPUAbove(uint32_t& aPartUnitIdx, uint32_t curPartUnitIdx) const
 {
     uint32_t absPartIdx = g_zscanToRaster[curPartUnitIdx];//当前4x4的位置
@@ -631,8 +634,8 @@ const CUData* CUData::getPUAbove(uint32_t& aPartUnitIdx, uint32_t curPartUnitIdx
     {
         uint32_t absZorderCUIdx = g_zscanToRaster[m_absIdxInCTU];//获取当前pu所在cu的首个4x4位置
         aPartUnitIdx = g_rasterToZscan[absPartIdx - RASTER_SIZE];//当前4x4位置上移一行
-        if (isEqualRow(absPartIdx, absZorderCUIdx))//当前4x4的位置和其所在cu的首个4x4的位置为同一行
-            return m_encData->getPicCTU(m_cuAddr);//这是他的above 所在的cu 不是本身cu 但是属于同一个ctu,所以返回当前ctu 以及ctu内的偏移
+        if (isEqualRow(absPartIdx, absZorderCUIdx))//当前pu4x4的位置和其所在cu的首个4x4的位置为同一行
+            return m_encData->getPicCTU(m_cuAddr);//这时他的above 所在的cu 不是本身cu 但是属于同一个ctu,所以返回当前ctu 以及ctu内的偏移
         else// 否则，如果不属于同一行，则当前4x4的above cu 和本身的cu属于同一cu，调整ctu内的偏移为当前cu内的偏移，然后返回当前cu的地址就好
             aPartUnitIdx -= m_absIdxInCTU;
         return this;
@@ -1303,12 +1306,13 @@ void CUData::setPURefIdx(int list, int8_t refIdx, int absPartIdx, int puIdx)
 
 void CUData::getPartIndexAndSize(uint32_t partIdx, uint32_t& outPartAddr, int& outWidth, int& outHeight) const
 {
-    int cuSize = 1 << m_log2CUSize[0];
+    int cuSize = 1 << m_log2CUSize[0];// cuSize pixl 单位
     int partType = m_partSize[0];
 
-    int tmp = partTable[partType][partIdx][0];
-    outWidth = ((tmp >> 4) * cuSize) >> 2;
-    outHeight = ((tmp & 0xF) * cuSize) >> 2;
+    int tmp = partTable[partType][partIdx][0];// 该partType 下第 partIdx [0]表示size 高4bit为x_size 低4bit为y_size 
+    outWidth = ((tmp >> 4) * cuSize) >> 2;// pu_width pixl 单位
+    outHeight = ((tmp & 0xF) * cuSize) >> 2;// pu_height tmp 的低4bit * 1/4的cuSzie pixl 单位
+    //将一个cu 的 num_partions 分成了16份,根据partitionType 计算第 partIdx 个 pu 的地址（相对当前cu 的 4x4 offset)
     outPartAddr = (partAddrTable[partType][partIdx] * m_numPartitions) >> 4;
 }
 
@@ -1368,27 +1372,37 @@ void CUData::deriveLeftRightTopIdx(uint32_t partIdx, uint32_t& partIdxLT, uint32
         break;
     }
 }
-
+// 找到当前cu中第puIdx 个pu内部的左下角的4x4的idx 在当前cTU中 的索引
 uint32_t CUData::deriveLeftBottomIdx(uint32_t puIdx) const
 {
-    uint32_t outPartIdxLB;
+    uint32_t outPartIdxLB; 
+    //对于8x8 cu: base 偏移 0*16 （注意 16 为一个ctu内4x4的 raster stride 即: 1 << LOG2_RASTER_SIZE）--> outPartIdxLB = 0
+    //对于16x16 cu: base 编译 1*16 --> outPartIdxLB = 2
+    //对于32x32 cu: base 偏移 3*16 --> outPartIdxLB = 10
+    //对于64x64 cu: base 偏移 7*16  == ( (1<< m_log2CUSize[0])/4/2 - 1)*16 --> outPartIdxLB = 42
+    // 计算在当前 cu起始地址m_absIdxInCTU 上的base上的偏移 （在raster 顺序上偏移几个stride）然后在转为 zscan
+
     outPartIdxLB = g_rasterToZscan[g_zscanToRaster[m_absIdxInCTU] + (((1 << (m_log2CUSize[0] - LOG2_UNIT_SIZE - 1)) - 1) << LOG2_RASTER_SIZE)];
 
-    switch (m_partSize[0])
+    switch (m_partSize[0])// 在cu 内部偏移
     {
     case SIZE_2Nx2N:
-        outPartIdxLB += m_numPartitions >> 1;
+        outPartIdxLB += m_numPartitions >> 1;// for 16x16： + 8，32x32: +32， 64x64: +128 
         break;
     case SIZE_2NxN:
-        outPartIdxLB += puIdx ? m_numPartitions >> 1 : 0;
+        outPartIdxLB += puIdx ? m_numPartitions >> 1 : 0; //for puIdx 0 + 0;  puIdx 1 for 16x16： + 2*16，32x32: + 4*16， 64x64: + 8*16 
         break;
     case SIZE_Nx2N:
+        // 第0个pu +对应cu一半的m_numPartitions  第1个pu +  3/4 的m_numPartitions
         outPartIdxLB += puIdx ? (m_numPartitions >> 2) * 3 : m_numPartitions >> 1;
         break;
     case SIZE_NxN:
+         // 第puIdx个pu +对应cu的m_numPartitions的 1/4 * puIdx 
         outPartIdxLB += (m_numPartitions >> 2) * puIdx;
         break;
     case SIZE_2NxnU:
+        //第0个pu 需要回退到1/8 个 m_numPartitions 4x4
+        //第1个pu   + 对应cu一半的m_numPartitions
         outPartIdxLB += puIdx ? m_numPartitions >> 1 : -((int)m_numPartitions >> 3);
         break;
     case SIZE_2NxnD:
@@ -1469,7 +1483,7 @@ bool CUData::hasEqualMotion(uint32_t absPartIdx, const CUData& candCU, uint32_t 
 /* Construct list of merging candidates, returns count */
 uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MVField(*candMvField)[2], uint8_t* candDir) const
 {
-    uint32_t absPartAddr = m_absIdxInCTU + absPartIdx;
+    uint32_t absPartAddr = m_absIdxInCTU + absPartIdx;// cu 在ctu内的地址 + pu在cu内的偏移
     const bool isInterB = m_slice->isInterB();
 
     const uint32_t maxNumMergeCand = m_slice->m_maxNumMergeCand;
@@ -1481,21 +1495,21 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
         candMvField[i][0].refIdx = REF_NOT_VALID;
         candMvField[i][1].refIdx = REF_NOT_VALID;
     }
-
-    /* calculate the location of upper-left corner pixel and size of the current PU */
-    int xP, yP, nPSW, nPSH;
-
-    int cuSize = 1 << m_log2CUSize[0];
-    int partMode = m_partSize[0];
-
-    int tmp = partTable[partMode][puIdx][0];
-    nPSW = ((tmp >> 4) * cuSize) >> 2;
-    nPSH = ((tmp & 0xF) * cuSize) >> 2;
-
-    tmp = partTable[partMode][puIdx][1];
-    xP = ((tmp >> 4) * cuSize) >> 2;
-    yP = ((tmp & 0xF) * cuSize) >> 2;
-
+//  这部分带没有实际用处了
+//    /* calculate the location of upper-left corner pixel and size of the current PU */
+//    int xP, yP, nPSW, nPSH;
+//
+//    int cuSize = 1 << m_log2CUSize[0];// 当前cu的size 大小
+//    int partMode = m_partSize[0];//当前cu的partMode
+//
+//    int tmp = partTable[partMode][puIdx][0];// 该partMode下第 puIdx个pu 的size （[0]表示size)  高4bit为x_size 低4bit为y_size
+//    nPSW = ((tmp >> 4) * cuSize) >> 2;// 当前pu以pixl 为单位的w
+//    nPSH = ((tmp & 0xF) * cuSize) >> 2; //当前pu以pixl 为单位的h
+//
+//    tmp = partTable[partMode][puIdx][1];// 该partMode下第 puIdx个pu 的 offset （[1]表示offset) 高4bit为x_offset 低4bit为y_offset
+//    xP = ((tmp >> 4) * cuSize) >> 2;// 当前pu以pixl 为单位相对于所在cu的 x_offset
+//    yP = ((tmp & 0xF) * cuSize) >> 2; // 当前pu以pixl 为单位相对于所在cu的 y_offset
+//
     uint32_t count = 0;
 
     uint32_t partIdxLT, partIdxRT, partIdxLB = deriveLeftBottomIdx(puIdx);
@@ -1503,9 +1517,9 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
     
     // left
     uint32_t leftPartIdx = 0;
-    const CUData* cuLeft = getPULeft(leftPartIdx, partIdxLB);
-    bool isAvailableA1 = cuLeft &&
-        cuLeft->isDiffMER(xP - 1, yP + nPSH - 1, xP, yP) &&
+    //找到当前pu的最左下角的4x4位置的左侧的cu 赋给cuLeft 并返回 leftParIdx表示器位于cuLeft中位置
+    const CUData* cuLeft = getPULeft(leftPartIdx, partIdxLB);//
+    bool isAvailableA1 = cuLeft &&// pu内部左下角pixl的左侧pixl 与当前
         !(puIdx == 1 && (curPS == SIZE_Nx2N || curPS == SIZE_nLx2N || curPS == SIZE_nRx2N)) &&
         cuLeft->isInter(leftPartIdx);
     if (isAvailableA1)
@@ -1527,7 +1541,6 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
     uint32_t abovePartIdx = 0;
     const CUData* cuAbove = getPUAbove(abovePartIdx, partIdxRT);
     bool isAvailableB1 = cuAbove &&
-        cuAbove->isDiffMER(xP + nPSW - 1, yP - 1, xP, yP) &&
         !(puIdx == 1 && (curPS == SIZE_2NxN || curPS == SIZE_2NxnU || curPS == SIZE_2NxnD)) &&
         cuAbove->isInter(abovePartIdx);
     if (isAvailableB1 && (!isAvailableA1 || !cuLeft->hasEqualMotion(leftPartIdx, *cuAbove, abovePartIdx)))
@@ -1547,7 +1560,6 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
     uint32_t aboveRightPartIdx = 0;
     const CUData* cuAboveRight = getPUAboveRight(aboveRightPartIdx, partIdxRT);
     bool isAvailableB0 = cuAboveRight &&
-        cuAboveRight->isDiffMER(xP + nPSW, yP - 1, xP, yP) &&
         cuAboveRight->isInter(aboveRightPartIdx);
     if (isAvailableB0 && (!isAvailableB1 || !cuAbove->hasEqualMotion(abovePartIdx, *cuAboveRight, aboveRightPartIdx)))
     {
@@ -1566,7 +1578,6 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
     uint32_t leftBottomPartIdx = 0;
     const CUData* cuLeftBottom = this->getPUBelowLeft(leftBottomPartIdx, partIdxLB);
     bool isAvailableA0 = cuLeftBottom &&
-        cuLeftBottom->isDiffMER(xP - 1, yP + nPSH, xP, yP) &&
         cuLeftBottom->isInter(leftBottomPartIdx);
     if (isAvailableA0 && (!isAvailableA1 || !cuLeft->hasEqualMotion(leftPartIdx, *cuLeftBottom, leftBottomPartIdx)))
     {
@@ -1587,7 +1598,6 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
         uint32_t aboveLeftPartIdx = 0;
         const CUData* cuAboveLeft = getPUAboveLeft(aboveLeftPartIdx, absPartAddr);
         bool isAvailableB2 = cuAboveLeft &&
-            cuAboveLeft->isDiffMER(xP - 1, yP - 1, xP, yP) &&
             cuAboveLeft->isInter(aboveLeftPartIdx);
         if (isAvailableB2 && (!isAvailableA1 || !cuLeft->hasEqualMotion(leftPartIdx, *cuAboveLeft, aboveLeftPartIdx))
             && (!isAvailableB1 || !cuAbove->hasEqualMotion(abovePartIdx, *cuAboveLeft, aboveLeftPartIdx)))

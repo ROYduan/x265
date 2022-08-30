@@ -131,9 +131,13 @@ const uint32_t nbPartsTable[8] = { 1, 2, 2, 4, 2, 2, 2, 2 };
 // X and Y represent 1/4 fractions of the block size.
 const uint32_t partTable[8][4][2] =
 {
-    //        XY
+    //{sizes, offsets}  for XY 0x44 表示： x_size 为 4 *1/4 cu_size  y_size 为 4* 1/4  0x00 表示 x_offset 为 0 y_offset 为 0
     { { 0x44, 0x00 }, { 0x00, 0x00 }, { 0x00, 0x00 }, { 0x00, 0x00 } }, // SIZE_2Nx2N.
+    //第1个partition为：x_size 4*1/4  y_size 2*1/4  x_offset 为 0 y_offset 为 0
+    //第2个partition为：x_size 4*1/4  y_size 2*1/4  x_offset 为 0 y_offset 为 2*1/4 cu_size
     { { 0x42, 0x00 }, { 0x42, 0x02 }, { 0x00, 0x00 }, { 0x00, 0x00 } }, // SIZE_2NxN.
+    //第1个partition为：x_size 2*1/4  y_size 4*1/4  x_offset 为 0 y_offset 为 2*1/4 cu_size0
+    //第2个partition为：x_size 2*1/4  y_size 4*1/4  x_offset 为 0 y_offset 为 0
     { { 0x24, 0x00 }, { 0x24, 0x20 }, { 0x00, 0x00 }, { 0x00, 0x00 } }, // SIZE_Nx2N.
     { { 0x22, 0x00 }, { 0x22, 0x20 }, { 0x22, 0x02 }, { 0x22, 0x22 } }, // SIZE_NxN.
     { { 0x41, 0x00 }, { 0x43, 0x01 }, { 0x00, 0x00 }, { 0x00, 0x00 } }, // SIZE_2NxnU.
@@ -143,7 +147,8 @@ const uint32_t partTable[8][4][2] =
 };
 
 // Partition Address table.
-// First index is partitioning mode. Second index is partition address.
+// First index is partitioning mode. Second index is partition index.
+//奖一个cu 的 num_partions 分成了16分,根据partitionType 计算第 partition index个 pu 的地址
 const uint32_t partAddrTable[8][4] =
 {
     { 0x00, 0x00, 0x00, 0x00 }, // SIZE_2Nx2N.

@@ -3837,7 +3837,7 @@ void Lookahead::cuTree(Lowres **frames, int numframes, bool bIntra)
 
 void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
 {
-    int idx = !bIntra;
+    int idx = !bIntra;// bIntra 时  frames[0] 为I帧 还没有被编码
     int lastnonb, curnonb = 1;
     int bframes = 0;
 
@@ -3850,9 +3850,8 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
 
     int i = numframes;
 
-    while (i > 0 && frames[i]->sliceType == S265_TYPE_B)
+    while (i > 0 && frames[i]->sliceType == S265_TYPE_B)// 找到lookahead中最后一个非B帧位置
         i--;
-
     lastnonb = i;
 
     /* Lookaheadless MB-tree is not a theoretically distinct case; the same extrapolation could
@@ -3876,7 +3875,7 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
     {
         if (lastnonb < idx)
             return;
-        memset(frames[lastnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
+        memset(frames[lastnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));// 清空 最后一个非b帧中的propagateCOst
     }
 
     CostEstimateGroup estGroup(*this, frames);
@@ -3888,10 +3887,10 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
         for( int32_t t = first_nonb + 1; t <= i; t++ )
         {
             if( frames[t]->sliceType == S265_TYPE_BREF ) // i_bref
-                memset( frames[t]->propagateCost, 0, m_cuCount * sizeof(uint16_t) );
+                memset( frames[t]->propagateCost, 0, m_cuCount * sizeof(uint16_t) );// 整个lookahead中的所有Bref 帧 propagatecost 清零
         }
     }
-    int lastnonb2 = lastnonb;
+    int lastnonb2 = lastnonb;// init 
     int lastnonb3 = lastnonb2;
 
     while (i-- > idx)
@@ -3899,16 +3898,16 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
         curnonb = i;
         // while (frames[curnonb]->sliceType == S265_TYPE_B && curnonb > 0)
         //     curnonb--;
-        while (IS_S265_TYPE_B(frames[curnonb]->sliceType) && curnonb > 0)
+        while (IS_S265_TYPE_B(frames[curnonb]->sliceType) && curnonb > 0)// 找到 lastnonb的前一个位置的非B帧
             curnonb--;
 
         // if (curnonb < idx)
         //     break;
 
-        estGroup.singleCost(curnonb, lastnonb, lastnonb);
+        estGroup.singleCost(curnonb, lastnonb, lastnonb); // 计算lastnonb参考curnonb时的pcost
 
-        memset(frames[curnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));
-        bframes = lastnonb - curnonb - 1;
+        memset(frames[curnonb]->propagateCost, 0, m_cuCount * sizeof(uint16_t));// 清零当前currnonb的propagateCost
+        bframes = lastnonb - curnonb - 1;//两个非B帧之间的b帧个数
         if (m_param->bBPyramid && bframes > 1)
         {
             if (m_param->bBPyramid == S265_B_PYRAMID_HIER)
@@ -3991,12 +3990,12 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
                 i--;
             }
         }
-        estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, lastnonb, 1);
+        estimateCUPropagate(frames, averageDuration, curnonb, lastnonb, lastnonb, 1);// 计算lastnonb 中 由curnob中传递而来的参考贡献
         lastnonb3 = lastnonb2;
         lastnonb2 = lastnonb;
-        lastnonb = curnonb;
+        lastnonb = curnonb;// 更新lastnonb为 curnonb
     }
-
+    //上面循环出来后 一定导致 lastnonb = curnonb = 0;
     if (!m_param->lookaheadDepth)
     {
         estGroup.singleCost(0, lastnonb, lastnonb);
@@ -4011,7 +4010,7 @@ void Lookahead::cuTree2(Lowres **frames, int numframes, bool bIntra)
     //first mini gop
     if (curnonb == idx)
     //if (curnonb < idx)
-    {
+    {// 首帧为I帧的时候（I帧还未编码）的delta qp 计算
         cuTreeFinish(frames[lastnonb], averageDuration, lastnonb);
     }
     if (m_param->bBPyramid && bframes > 1 && !m_param->rc.vbvBufferSize)
