@@ -121,7 +121,7 @@ public:
     JobProvider*   m_jobProvider;
 
     CUDataMemPool  m_cuMemPool;
-    CUData*        m_picCTU;
+    CUData*        m_picCTU;//每个ctu 都有自己的cuData
 
     RPS*           m_spsrps;
     int            m_spsrpsIdx;

@@ -311,7 +311,7 @@ struct EncoderPrimitives
         ssimDistortion_t ssimDist;
         normFactor_t     normFact;
     }
-    cu[NUM_CU_SIZES];
+    cu[NUM_CU_SIZES];//0:for 4x4 1:8x8 2:16x16 3:32x32 4:64x64
     /* These remaining primitives work on either fixed block sizes or take
      * block dimensions as arguments and thus do not belong in either the PU or
      * the CU arrays */

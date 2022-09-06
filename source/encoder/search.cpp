@@ -93,7 +93,7 @@ bool Search::initSearch(const s265_param& param, ScalingList& scalingList)
 
     uint32_t sizeL = 1 << (maxLog2CUSize * 2);
     uint32_t sizeC = sizeL >> (m_hChromaShift + m_vChromaShift);
-    uint32_t numPartitions = 1 << (maxLog2CUSize - LOG2_UNIT_SIZE) * 2;
+    uint32_t numPartitions = 1 << (maxLog2CUSize - LOG2_UNIT_SIZE) * 2; // 1 << 8
 
     m_limitTU = 0;
     if (m_param->limitTU)

@@ -223,7 +223,7 @@ bool FrameEncoder::initializeGeoms()
         for (uint32_t i = 0; i < m_numRows; i++)
         {
             uint32_t ctuAddr = m_numCols * (i + 1) - 1;
-            //右边的ctu 指向 第一个CUGeom
+            //右边的ctu 指向 第1个CUGeom
             m_ctuGeomMap[ctuAddr] = countGeoms * CUGeom::MAX_GEOMS;// 第2类
         }
         countGeoms++;

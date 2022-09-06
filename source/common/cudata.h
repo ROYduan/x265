@@ -162,6 +162,7 @@ const uint32_t partAddrTable[8][4] =
 };
 
 // Holds part data for a CU of a given size, from an 8x8 CU to a CTU
+// 在frameData 中 么个CTU 都有自己的 CUData
 class CUData
 {
 public:
@@ -181,7 +182,7 @@ public:
     cubcast_t     m_subPartSet;       // pointer to function that sets m_numPartitions/4 elements, may be NULL
 
     uint32_t      m_cuAddr;           // address of CTU within the picture in raster order
-    uint32_t      m_absIdxInCTU;      // address of CU within its CTU in Z scan order  // Part index of this CU in terms of 4x4 blocks.
+    uint32_t      m_absIdxInCTU;      // address of CU within its CTU in Z scan order  // 都是相对于根节点CTU的位置
     uint32_t      m_cuPelX;           // CU position within the picture, in pixels (X)
     uint32_t      m_cuPelY;           // CU position within the picture, in pixels (Y)
     uint32_t      m_numPartitions;    // maximum number of 4x4 partitions within this CU
@@ -381,7 +382,7 @@ struct CUDataMemPool
             uint32_t sizeC = sizeL >> (CHROMA_H_SHIFT(csp) + CHROMA_V_SHIFT(csp));
             CHECKED_MALLOC(trCoeffMemBlock, coeff_t, (sizeL + sizeC * 2) * numInstances);
         }
-        //numPartition 一个对应的depth0:64x64 1:32x32 2:16x16 3:8x8 里面4x4partition的数量,numInstances 为ctu的个数,
+        //numPartition: 一个对应的depth0:64x64 1:32x32 2:16x16 3:8x8 里面4x4partition的数量,numInstances 为ctu的个数,
         CHECKED_MALLOC(charMemBlock, uint8_t, numPartition * numInstances * CUData::BytesPerPartition);
         CHECKED_MALLOC_ZERO(mvMemBlock, MV, numPartition * 4 * numInstances);
         CHECKED_MALLOC(distortionMemBlock, sse_t, numPartition * numInstances);

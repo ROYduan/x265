@@ -759,11 +759,12 @@ void Entropy::codeShortTermRefPicSet(const RPS& rps, int idx)
 
 void Entropy::encodeCTU(const CUData& ctu, const CUGeom& cuGeom)
 {
-    bool bEncodeDQP = ctu.m_slice->m_pps->bUseDQP;
-    encodeCU(ctu, cuGeom, 0, 0, bEncodeDQP);
+    bool bEncodeDQP = ctu.m_slice->m_pps->bUseDQP;// init to true when dqp_used
+    encodeCU(ctu, cuGeom, 0, 0, bEncodeDQP);// encodeCTU 入口
 }
 
 /*商编码 encode a CU block recursively */
+// absPartIdx 表示当前encode的cu的首个4x4 位于整个ctu 中的 位置
 void Entropy::encodeCU(const CUData& ctu, const CUGeom& cuGeom, uint32_t absPartIdx, uint32_t depth, bool& bEncodeDQP)
 {
     const Slice* slice = ctu.m_slice;
@@ -994,6 +995,8 @@ void Entropy::encodeTransform(const CUData& cu, uint32_t absPartIdx, uint32_t cu
     if (cu.m_slice->m_pps->bUseDQP && bCodeDQP)
     {
         uint32_t log2CUSize = cu.m_log2CUSize[absPartIdx];
+        // 
+        // 将 absPartIdx 规整到对应4x4所在位置的cu的cusize的左上角位置4x4的位置
         uint32_t absPartIdxLT = absPartIdx & (0xFF << (log2CUSize - LOG2_UNIT_SIZE) * 2);
         codeDeltaQP(cu, absPartIdxLT);
         bCodeDQP = false;

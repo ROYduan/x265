@@ -307,6 +307,7 @@ void CUData::initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t first
     S265_CHECK(!(frame.m_encData->m_param->bLossless && !m_slice->m_pps->bTransquantBypassEnabled), "lossless enabled without TQbypass in PPS\n");
 
     /* initialize the remaining CU data in one memset */
+    /* 从m_cuDepth 到 m_cbf[0] 或者到  m_chromaIntraDir 全部memset 为0*/
     memset(m_cuDepth, 0, (frame.m_param->internalCsp == S265_CSP_I400 ? BytesPerPartition - 12 : BytesPerPartition - 8) * m_numPartitions);
 
     for (int8_t i = 0; i < NUM_TU_DEPTH; i++)
@@ -325,7 +326,7 @@ void CUData::initCTU(const Frame& frame, uint32_t cuAddr, int qp, uint32_t first
 // initialize Sub partition
 void CUData::initSubCU(const CUData& ctu, const CUGeom& cuGeom, int qp)
 {
-    m_absIdxInCTU   = cuGeom.absPartIdx;
+    m_absIdxInCTU   = cuGeom.absPartIdx;//subCU相对于整个CTU的4x4索引
     m_encData       = ctu.m_encData;
     m_slice         = ctu.m_slice;
     m_cuAddr        = ctu.m_cuAddr;
@@ -358,6 +359,7 @@ void CUData::initSubCU(const CUData& ctu, const CUGeom& cuGeom, int qp)
     m_partSet(m_cuDepth,      (uint8_t)cuGeom.depth);
 
     /* initialize the remaining CU data in one memset */
+    /* 从m_predMode 到 m_cbf[0] 或者到  m_chromaIntraDir 全部memset 为0*/
     memset(m_predMode, 0, (ctu.m_chromaFormat == S265_CSP_I400 ? BytesPerPartition - 13 : BytesPerPartition - 9) * m_numPartitions);
     memset(m_distortion, 0, m_numPartitions * sizeof(sse_t));
 }
@@ -859,6 +861,10 @@ const CUData* CUData::getQpMinCuAbove(uint32_t& aPartUnitIdx, uint32_t curAbsIdx
 }
 
 /* Get reference QP from left QpMinCu or latest coded QP */
+/*
+curAbsIdxInCTU 表示 cu 相对于 ctu根节点的相对位置 以4x4 为单位
+m_absIdxInCTU 
+ */
 int8_t CUData::getRefQP(uint32_t curAbsIdxInCTU) const
 {
     uint32_t lPartIdx = 0, aPartIdx = 0;
@@ -1463,16 +1469,18 @@ uint32_t CUData::deriveRightBottomIdx(uint32_t puIdx) const
 }
 
 bool CUData::hasEqualMotion(uint32_t absPartIdx, const CUData& candCU, uint32_t candAbsPartIdx) const
-{
+{   
+    // dir 要相同
     if (m_interDir[absPartIdx] != candCU.m_interDir[candAbsPartIdx])
         return false;
 
     for (uint32_t refListIdx = 0; refListIdx < 2; refListIdx++)
     {
-        if (m_interDir[absPartIdx] & (1 << refListIdx))
+        if (m_interDir[absPartIdx] & (1 << refListIdx))//有refListIdx 上的 mv 信息
         {
             if (m_mv[refListIdx][absPartIdx] != candCU.m_mv[refListIdx][candAbsPartIdx] ||
                 m_refIdx[refListIdx][absPartIdx] != candCU.m_refIdx[refListIdx][candAbsPartIdx])
+                // mv 不等 或者 refIdx 不等
                 return false;
         }
     }
@@ -1512,14 +1520,15 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
 //
     uint32_t count = 0;
 
-    uint32_t partIdxLT, partIdxRT, partIdxLB = deriveLeftBottomIdx(puIdx);
-    PartSize curPS = (PartSize)m_partSize[absPartIdx];
+    uint32_t partIdxLT, partIdxRT, partIdxLB = deriveLeftBottomIdx(puIdx);// 找到当前cu中第puIdx 个pu内部的左下角的4x4的idx 在当前cTU中 的索引
+    PartSize curPS = (PartSize)m_partSize[absPartIdx];// 当前cu的partMode 用partMode 表示更好
     
     // left
     uint32_t leftPartIdx = 0;
     //找到当前pu的最左下角的4x4位置的左侧的cu 赋给cuLeft 并返回 leftParIdx表示器位于cuLeft中位置
     const CUData* cuLeft = getPULeft(leftPartIdx, partIdxLB);//
-    bool isAvailableA1 = cuLeft &&// pu内部左下角pixl的左侧pixl 与当前
+    // 左侧cu 有效 并且 不是当前cu划分为pu时的右侧pu 并且左侧是 帧间预测
+    bool isAvailableA1 = cuLeft &&
         !(puIdx == 1 && (curPS == SIZE_Nx2N || curPS == SIZE_nLx2N || curPS == SIZE_nRx2N)) &&
         cuLeft->isInter(leftPartIdx);
     if (isAvailableA1)
@@ -1527,22 +1536,25 @@ uint32_t CUData::getInterMergeCandidates(uint32_t absPartIdx, uint32_t puIdx, MV
         // get Inter Dir
         candDir[count] = cuLeft->m_interDir[leftPartIdx];
         // get Mv from Left
-        cuLeft->getMvField(cuLeft, leftPartIdx, 0, candMvField[count][0]);
+        cuLeft->getMvField(cuLeft, leftPartIdx, 0, candMvField[count][0]);// list0的 mv
         if (isInterB)
-            cuLeft->getMvField(cuLeft, leftPartIdx, 1, candMvField[count][1]);
+            cuLeft->getMvField(cuLeft, leftPartIdx, 1, candMvField[count][1]);// list1 的mv
 
-        if (++count == maxNumMergeCand)
+        if (++count == maxNumMergeCand)//已经找到所允许的的个数的mergecandidates了 直接返回
             return maxNumMergeCand;
     }
-
+   // 找到当前cu中第puIdx 个pu内部的右上角的4x4的idx 在当前cTU中 的索引 赋给 partIdxRT
+   // 找到当前cu中第puIdx 个pu内部的左上角的4x4的idx 在当前cTU中 的索引 赋给 partIdxLT
     deriveLeftRightTopIdx(puIdx, partIdxLT, partIdxRT);
 
     // above
     uint32_t abovePartIdx = 0;
     const CUData* cuAbove = getPUAbove(abovePartIdx, partIdxRT);
+    // 上侧cu 有效 并且 不是当前cu划分为pu时的下侧pu 并且上侧cu是 帧间预测
     bool isAvailableB1 = cuAbove &&
         !(puIdx == 1 && (curPS == SIZE_2NxN || curPS == SIZE_2NxnU || curPS == SIZE_2NxnD)) &&
         cuAbove->isInter(abovePartIdx);
+    // 如果 B1 有效  并且（ A1 无效 or B1的 mv信息与A1 不相等 ）  
     if (isAvailableB1 && (!isAvailableA1 || !cuLeft->hasEqualMotion(leftPartIdx, *cuAbove, abovePartIdx)))
     {
         // get Inter Dir
@@ -2125,20 +2137,21 @@ void CUData::getTUEntropyCodingParameters(TUEntropyCodingParameters &result, uin
 
 void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUSize, uint32_t minCUSize, CUGeom cuDataArray[CUGeom::MAX_GEOMS])
 {
-    uint32_t num4x4Partition = (1U << ((g_log2Size[maxCUSize] - LOG2_UNIT_SIZE) << 1));
+    uint32_t num4x4Partition = (1U << ((g_log2Size[maxCUSize] - LOG2_UNIT_SIZE) << 1));// 256 for maxCUSize 64
 
     // Initialize the coding blocks inside the CTB
     for (uint32_t log2CUSize = g_log2Size[maxCUSize], rangeCUIdx = 0; log2CUSize >= g_log2Size[minCUSize]; log2CUSize--)
     {// 6 5 4 3
         uint32_t blockSize = 1 << log2CUSize;// 64 32 16 8
-        uint32_t sbWidth   = 1 << (g_log2Size[maxCUSize] - log2CUSize);// 1 2 4 8
-        int32_t lastLevelFlag = log2CUSize == g_log2Size[minCUSize];// 0 0 0 1
+        uint32_t sbWidth   = 1 << (g_log2Size[maxCUSize] - log2CUSize);//在一个CTU 的宽度上有 分别有 1/2/4/8 个 64/32/16/8 
+        int32_t lastLevelFlag = log2CUSize == g_log2Size[minCUSize];// 0 0 0 1 //标记对于（最小的cu 通常8x8）的CUGeom的flag 的标记 
 
         for (uint32_t sbY = 0; sbY < sbWidth; sbY++)
         {
             for (uint32_t sbX = 0; sbX < sbWidth; sbX++)
             {
-                uint32_t depthIdx = g_depthScanIdx[sbY][sbX];
+                uint32_t depthIdx = g_depthScanIdx[sbY][sbX];// 注意这里 depthIdx 实际上用sCanIdx表示更合适
+//g_depthScanIdx：
 //64x64:  totol cu 1
 //    {   0, 
 //32x32:  total cu 4
@@ -2161,14 +2174,16 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
 //    {  40,  41,  44,  45,  56,  57,  60,  61,  },
 //    {  42,  43,  46,  47,  58,  59,  62,  63,  }
 
+//rangeCUIdx
+// 64x64:0  32x32:1  16x16:5  8x8:21
                 uint32_t cuIdx = rangeCUIdx + depthIdx;
 // cuIdx: total 1 + 4 + 16 + 64 共85个cu
-// 64x64: 0           -->   childIdx = 1
-// 32x32: 1 + 0~3     -->   childIdx = 5 + (0～3)*4     5/9/13/17
-// 16x16: 5 + 0～15   -->   childIdx = 21 + (0～15)*4  21/25/29/~/81
-// 8x8:   21 + 0~63   -->    chidIdx =  85 + (0～63)*4  85/89/73/~/
+// 64x64: 0           --> childIdx =     1
+// 32x32: 1 + 0~3     --> childIdx =     1     +       2*2         + (0～3)*4     5/9/13/17
+// 16x16: 5 + 0～15   --> childIdx =     5     +       4*4         + (0～15)*4    21/25/29/~/81
+// 8x8:   21 + 0~63  --> childIdx =     21     +       8*8         + (0～63)*4    85/89/73/~/  注意 大于85的cu的childIdx 无效
                 uint32_t childIdx = rangeCUIdx + sbWidth * sbWidth + (depthIdx << 2);
-                uint32_t px = sbX * blockSize; // pix坐标
+                uint32_t px = sbX * blockSize; // pix偏移
                 uint32_t py = sbY * blockSize;
                 //起始坐标点位于图片内
                 int32_t presentFlag = px < ctuWidth && py < ctuHeight;
@@ -2176,16 +2191,19 @@ void CUData::calcCTUGeoms(uint32_t ctuWidth, uint32_t ctuHeight, uint32_t maxCUS
                 int32_t splitMandatoryFlag = presentFlag && !lastLevelFlag && (px + blockSize > ctuWidth || py + blockSize > ctuHeight);
 
                 /* Offset of the luma CU in the X, Y direction in terms of pixels from the CTU origin */
-                uint32_t xOffset = (sbX * blockSize) >> 3;
+                uint32_t xOffset = (sbX * blockSize) >> 3; //按照8x8cu为单位 看当前cu的偏移
                 uint32_t yOffset = (sbY * blockSize) >> 3;
                 S265_CHECK(cuIdx < CUGeom::MAX_GEOMS, "CU geom index bug\n");
 
-                CUGeom *cu = cuDataArray + cuIdx; // current cu 对应的CUGeom 指针位置
+                CUGeom *cu = cuDataArray + cuIdx; // current cu 对应的CUGeom 指针位置 cuIdx 取值 0～84
                 cu->log2CUSize = log2CUSize;// 当前cu的log2 size
-                cu->childOffset = childIdx - cuIdx; // 四叉树结构,当cuIdx为 0 childIdx 刚好是 childOffset
-                                                    // 当 cuIdx为 1 时，childIdx 不变 其childoffset相对位置 需要 -1;
-                                                    // 同理 cuidx 为 2时 childIdx 不变 其childoffset相对位置  需要 -2;
-
+                cu->childOffset = childIdx - cuIdx; 
+//for64x64 childIdx =1 cuIdx=0 cu->childOffset = 1;
+//for 32x32 childIdx = 1 + 4 + (0/1/2/3)*4   cuIdx = 1 + 0/1/2/3   childOffset = 4(1-->5) /7(2-->9)/10(3-->13)/13(4-->17) 
+// 四叉树结构,当cuIdx为 0 childIdx 为4 刚好是 childOffset =4
+// 当 cuIdx为 1 时，childIdx 需要往前挪动4 其childoffset 相对位置 需要+3 =7
+// 同理 cuidx 为 2时 childIdx 需要往前挪动8 其childoffset相对位置  需要+6 = 10
+// 同理 cuidx 为 3时 childIdx 需要往前挪动12 其childoffset相对位置  需要+9 = 13
                 cu->absPartIdx = g_depthScanIdx[yOffset][xOffset] * 4; // 这里乘以4 因为_depthScanIdx[yOffset][xOffset] 表示的 8x8 而每个8x8 有 4个4x4
 
 //64x64:
