@@ -3876,33 +3876,35 @@ void Search::checkDQPForSplitPred(Mode& mode, const CUGeom& cuGeom)
                 break;
             }
         }
-        // 如果当前cu里面有残差需要编码
+        // 如果当前cu里面有残差需要编码,则需要code deltaQP
         if (hasResidual)
         {
             if (m_param->rdLevel >= 3)
             {
-                mode.contexts.resetBits();
-                mode.contexts.codeDeltaQP(cu, 0);
-                uint32_t bits = mode.contexts.getNumberOfWrittenBits();
-                mode.totalBits += bits;
-                updateModeCost(mode);
+                mode.contexts.resetBits();// reset
+                mode.contexts.codeDeltaQP(cu, 0);// code dqp
+                uint32_t bits = mode.contexts.getNumberOfWrittenBits();// get coded bits by coding dqp
+                mode.totalBits += bits;// add the coded bits
+                updateModeCost(mode);//recalculate rdcost as totalbits changed
             }
             else if (m_param->rdLevel <= 1)
             {
-                mode.sa8dBits++;
-                mode.sa8dCost = m_rdCost.calcRdSADCost((uint32_t)mode.distortion, mode.sa8dBits);
+                mode.sa8dBits++;// use 1 bits for estimate coding dqp
+                mode.sa8dCost = m_rdCost.calcRdSADCost((uint32_t)mode.distortion, mode.sa8dBits);//recalculate sa8dCost
             }
-            else
+            else // for rdlevel == 2
             {
-                mode.totalBits++;
-                updateModeCost(mode);
+                mode.totalBits++;// use 1 bits for estimate coding dqp
+                updateModeCost(mode); //recalculate rdcost as totalbits changed
             }
             /* For all zero CBF sub-CUs, reset QP to RefQP (so that deltaQP is not signalled).
             When the non-zero CBF sub-CU is found, stop */
+            // ??????????
             cu.setQPSubCUs(cu.getRefQP(0), 0, cuGeom.depth);
         }
         else
             /* No residual within this CU or subCU, so reset QP to RefQP */
+            // ??????????
             cu.setQPSubParts(cu.getRefQP(0), 0, cuGeom.depth);
     }
 }

@@ -388,10 +388,11 @@ void Analysis::qprdRefine(const CUData& parentCTU, const CUGeom& cuGeom, int32_t
         }
         lambdaQP = bestCUQP;
     }
-
+    // 使用最佳决策后的bestCUQP 重构编码数据
     recodeCU(parentCTU, cuGeom, bestCUQP, lambdaQP);
 
     /* Copy best data to encData CTU and recon */
+    // 将最佳模式下的数据保存到帧级 CTU 的bufer 中
     md.bestMode->cu.copyToPic(depth);
     md.bestMode->reconYuv.copyToPicYuv(*m_frame->m_reconPic, parentCTU.m_cuAddr, cuGeom.absPartIdx);
 }
