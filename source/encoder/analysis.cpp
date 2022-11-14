@@ -533,7 +533,7 @@ uint64_t Analysis::compressIntraCU(const CUData& parentCTU, const CUGeom& cuGeom
                 nextContext = &nd.bestMode->contexts;// 更新nextContext 为当前子cu的bestMode对应的contexts
             }
             else
-            {// 改cu 不在pic 内部
+            {// 该cu 不在pic 内部
                 /* record the depth of this non-present sub-CU */
                 splitCU->setEmptyPart(childGeom, subPartIdx);
 
@@ -1671,7 +1671,7 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
             md.pred[PRED_2Nx2N].bestME[0][1].mvCost = 0; // L1
             md.pred[PRED_2Nx2N].rdCost = 0;
         }
-
+        // 限制TU的最大深度
         if ((m_limitTU & S265_TU_LIMIT_NEIGH) && cuGeom.log2CUSize >= 4)
             m_maxTUDepth = loadTUDepth(cuGeom, parentCTU);
 
@@ -1684,11 +1684,14 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
         uint32_t refMasks[2];
 
         /* Step 1. Evaluate Merge/Skip candidates for likely early-outs */
+        // 非强制分割下并且当前mode depth 下的bestMode 还处于null 时，进行skip/merge 模式的优先判决
+        // 注意 skip/merge 模式共用用的mvp过程
         if (mightNotSplit && !md.bestMode)
         {
             md.pred[PRED_SKIP].cu.initSubCU(parentCTU, cuGeom, qp);
             md.pred[PRED_MERGE].cu.initSubCU(parentCTU, cuGeom, qp);
             checkMerge2Nx2N_rd5_6(md.pred[PRED_SKIP], md.pred[PRED_MERGE], cuGeom);
+            //如果 merge/skip 下的最优cbf 为0 则 
             skipModes = (m_param->bEnableEarlySkip || m_refineLevel == 2) &&
                 md.bestMode && !md.bestMode->cu.getQtRootCbf(0);
             refMasks[0] = allSplitRefs;
@@ -1948,16 +1951,16 @@ SplitData Analysis::compressInterCU_rd5_6(const CUData& parentCTU, const CUGeom&
                         }
                     }
                 }
-
+                // 只有在cusize 小于 64x64 时 才进行 intraCU的check
                 if ((m_slice->m_sliceType != B_SLICE || m_param->bIntraInBFrames) && (cuGeom.log2CUSize != MAX_LOG2_CU_SIZE))
                 {
                     if (!m_param->limitReferences || splitIntra)
                     {
                         ProfileCounter(parentCTU, totalIntraCU[cuGeom.depth]);
                         md.pred[PRED_INTRA].cu.initSubCU(parentCTU, cuGeom, qp);
-                        checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);
+                        checkIntra(md.pred[PRED_INTRA], cuGeom, SIZE_2Nx2N);// check intraCU size2Nx2N
                         checkBestMode(md.pred[PRED_INTRA], depth);
-
+                        // 只有在 CU size 为 8x8 且允许 4x4 的tu 下才 check sizeNxN 的 intraCU
                         if (cuGeom.log2CUSize == 3 && m_slice->m_sps->quadtreeTULog2MinSize < 3)
                         {
                             md.pred[PRED_INTRA_NxN].cu.initSubCU(parentCTU, cuGeom, qp);
@@ -2125,12 +2128,31 @@ void Analysis::recodeCU(const CUData& parentCTU, const CUGeom& cuGeom, int32_t q
 
         if (m_refineLevel > 1 || (m_refineLevel && parentCTU.m_predMode[cuGeom.absPartIdx] == MODE_SKIP  && !mode.cu.isSkipped(0)))
         {
-            if (parentCTU.m_cuDepth[cuGeom.absPartIdx] < 4 && mightNotSplit)
-                m_evaluateInter = 1;
+            if (!m_slice->isIntra())// 注意 不判断 ！parentCTU.isIntra() 其还有一个非初始化的状态 即：即非intra 也非inter
+            {
+                if (parentCTU.m_cuDepth[cuGeom.absPartIdx] < 4 && mightNotSplit)
+                    m_evaluateInter = 1;
+                else
+                    bDecidedDepth = true;
+                m_param->rdLevel > 4 ? compressInterCU_rd5_6(parentCTU, cuGeom, qp) : compressInterCU_rd0_4(parentCTU, cuGeom, qp);
+                m_evaluateInter = 0;
+            }
             else
-                bDecidedDepth = true;
-            m_param->rdLevel > 4 ? compressInterCU_rd5_6(parentCTU, cuGeom, qp) : compressInterCU_rd0_4(parentCTU, cuGeom, qp);
-            m_evaluateInter = 0;
+            {
+                if (m_param->intraRefine == 4)
+                    compressIntraCU(parentCTU, cuGeom, qp);
+                else
+                {
+                    bool reuseModes = !((m_param->intraRefine == 3) ||
+                                        (m_param->intraRefine == 2 && parentCTU.m_lumaIntraDir[cuGeom.absPartIdx] > DC_IDX));
+                    if (reuseModes)
+                    {
+                        memcpy(mode.cu.m_lumaIntraDir, parentCTU.m_lumaIntraDir + cuGeom.absPartIdx, cuGeom.numPartitions);
+                        memcpy(mode.cu.m_chromaIntraDir, parentCTU.m_chromaIntraDir + cuGeom.absPartIdx, cuGeom.numPartitions);
+                    }
+                    checkIntra(mode, cuGeom, size);
+                }
+            }
         }
     }
     if (!bDecidedDepth)
@@ -2456,7 +2478,7 @@ void Analysis::checkMerge2Nx2N_rd5_6(Mode& skip, Mode& merge, const CUGeom& cuGe
         {
             // Parallel slices bound check
             if (m_param->maxSlices > 1)
-            {
+            {// mv 超出slice 边界了 跳过
                 // NOTE: First row in slice can't negative
                 if (S265_MIN(candMvField[i][0].mv.y, candMvField[i][1].mv.y) < m_sliceMinY)
                     continue;
@@ -2466,7 +2488,7 @@ void Analysis::checkMerge2Nx2N_rd5_6(Mode& skip, Mode& merge, const CUGeom& cuGe
                 if (S265_MAX(candMvField[i][0].mv.y, candMvField[i][1].mv.y) > m_sliceMaxY)
                     continue;
             }
-
+            // mv 超出边界了 跳过
             if (candMvField[i][0].mv.y >= (m_param->searchRange + 1) * 4 ||
                 candMvField[i][1].mv.y >= (m_param->searchRange + 1) * 4)
                 continue;
@@ -2474,7 +2496,7 @@ void Analysis::checkMerge2Nx2N_rd5_6(Mode& skip, Mode& merge, const CUGeom& cuGe
 
         /* the merge candidate list is packed with MV(0,0) ref 0 when it is not full */
         if (candDir[i] == 1 && !candMvField[i][0].mv.word && !candMvField[i][0].refIdx)
-        {// 单前向0mv0ref 检查是否check过了 如果是是 则跳过
+        {// 单前向 0mv 0ref 检查是否check过了 如果是是 则跳过
             if (triedPZero)
                 continue;
             triedPZero = true;
@@ -2595,7 +2617,7 @@ void Analysis::checkInter_rd5_6(Mode& interMode, const CUGeom& cuGeom, PartSize 
 void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom& cuGeom)
 {
     CUData& cu = bidir2Nx2N.cu;
-    //如果在cu8x8下 partmode 非2Nx2N则不允许 bidir
+    //如果在cu8x8下 partmode 非2Nx2N 则不允许 bidir
     if (cu.isBipredRestriction() || inter2Nx2N.bestME[0][0].cost == MAX_UINT || inter2Nx2N.bestME[0][1].cost == MAX_UINT)
     {
         bidir2Nx2N.sa8dCost = MAX_INT64;
@@ -2610,10 +2632,10 @@ void Analysis::checkBidir2Nx2N(Mode& inter2Nx2N, Mode& bidir2Nx2N, const CUGeom&
     bidir2Nx2N.bestME[0][0] = inter2Nx2N.bestME[0][0];
     bidir2Nx2N.bestME[0][1] = inter2Nx2N.bestME[0][1];
     MotionData* bestME = bidir2Nx2N.bestME[0];
-    int ref0    = bestME[0].ref;
+    int ref0    = bestME[0].ref;// list0 的ref0
     MV  mvp0    = bestME[0].mvp;
     int mvpIdx0 = bestME[0].mvpIdx;
-    int ref1    = bestME[1].ref;
+    int ref1    = bestME[1].ref;// list1的ref0
     MV  mvp1    = bestME[1].mvp;
     int mvpIdx1 = bestME[1].mvpIdx;
 
@@ -2854,7 +2876,7 @@ void Analysis::encodeResidue(const CUData& ctu, const CUGeom& cuGeom)
 
 void Analysis::addSplitFlagCost(Mode& mode, uint32_t depth)
 {
-    if (m_param->rdLevel >= 3)
+    if (m_param->rdLevel >= 3)// default 3 使用 sse
     {
         /* code the split flag (0 or 1) and update bit costs */
         mode.contexts.resetBits();
@@ -2863,9 +2885,9 @@ void Analysis::addSplitFlagCost(Mode& mode, uint32_t depth)
         mode.totalBits += bits;
         updateModeCost(mode);
     }
-    else if (m_param->rdLevel <= 1)
+    else if (m_param->rdLevel <= 1)// 使用 sad 计算cost
     {
-        mode.sa8dBits++;
+        mode.sa8dBits++;//简单叠加一个bits
         mode.sa8dCost = m_rdCost.calcRdSADCost((uint32_t)mode.distortion, mode.sa8dBits);
     }
     else

@@ -96,7 +96,7 @@ Encoder::Encoder()
     m_numLumaWPBiFrames = 0;
     m_numChromaWPBiFrames = 0;
     m_lookahead = NULL;
-    m_rateControl = NULL;
+    m_rateControl = NULL;// new Encoder 时 初始化为空
     m_dpb = NULL;
     m_exportedPic = NULL;
     m_numDelayedPic = 0;
@@ -300,7 +300,7 @@ void Encoder::create()
             lookAheadThreadPool[i].start();//lookahead自己的线程池启动
     m_lookahead->m_numPools = pools;// 注意这里限定了为 1
     m_dpb = new DPB(m_param);
-    m_rateControl = new RateControl(*m_param, this);
+    m_rateControl = new RateControl(*m_param, this);//创建编码器 是 new一个RateControl 对象
     initVPS(&m_vps);
     initSPS(&m_sps);
     initPPS(&m_pps);
@@ -400,7 +400,7 @@ void Encoder::create()
         m_frameEncoder[i]->m_done.wait(); /* 1 对应 duwait for thread to initialize */
     }
 
-    if (!m_rateControl->init(m_sps))
+    if (!m_rateControl->init(m_sps))// RateControl对象 在构造初始化后的init 初始化
         m_aborted = true;
     if (!m_lookahead->create())
         m_aborted = true;
@@ -631,13 +631,14 @@ void Encoder::destroy()
 //每一次调用的线程 都需要对其他所有在活frameEcoder进行更新统计
 // 由frameEncoder 在每一帧编码前 进行调用
 // 按照严格的顺序，保证了任何时候不会有两个线程同时调用
+// 后向vbv
 void Encoder::updateVbvPlan(RateControl* rc)
 {
     for (int i = 0; i < m_param->frameNumThreads; i++)
     {
         FrameEncoder *encoder = m_frameEncoder[i];
         if (encoder->m_rce.isActive && encoder->m_rce.poc != rc->m_curSlice->m_poc)
-        {//统计其他在活线程编码帧
+        {//统计其他在活线程编码帧的bits
             int64_t bits = m_param->rc.bEnableConstVbv ? (int64_t)encoder->m_rce.frameSizePlanned : (int64_t)S265_MAX(encoder->m_rce.frameSizeEstimated, encoder->m_rce.frameSizePlanned);
             rc->m_bufferFill -= bits;// bufferFill - 减去编码帧预计消耗的bits
             rc->m_bufferFill = S265_MAX(rc->m_bufferFill, 0);
@@ -2419,6 +2420,8 @@ void Encoder::initPPS(PPS *pps)
     pps->bConstrainedIntraPred = m_param->bEnableConstrainedIntra;
     pps->bUseWeightPred = m_param->bEnableWeightedPred;
     pps->bUseWeightedBiPred = m_param->bEnableWeightedBiPred;
+    //如果是lossless 编码 则全部cu跳过变换量化
+    //如是只是启用 cu级别的lossless 编码 也需要标记pss中的flag 为true
     pps->bTransquantBypassEnabled = m_param->bCULossless || m_param->bLossless;
     pps->bTransformSkipEnabled = m_param->bEnableTransformSkip;
     pps->bSignHideEnabled = m_param->bEnableSignHiding;

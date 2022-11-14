@@ -162,7 +162,7 @@ const uint32_t partAddrTable[8][4] =
 };
 
 // Holds part data for a CU of a given size, from an 8x8 CU to a CTU
-// 在frameData 中 么个CTU 都有自己的 CUData
+// 在frameData 中 每个CTU 都有自己的 CUData
 class CUData
 {
 public:

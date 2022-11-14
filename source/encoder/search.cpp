@@ -91,8 +91,8 @@ bool Search::initSearch(const s265_param& param, ScalingList& scalingList)
      * available for motion reference.  See refLagRows in FrameEncoder::compressCTURows() */
     m_refLagPixels = m_bFrameParallel ? param.searchRange : param.sourceHeight;
 
-    uint32_t sizeL = 1 << (maxLog2CUSize * 2);
-    uint32_t sizeC = sizeL >> (m_hChromaShift + m_vChromaShift);
+    uint32_t sizeL = 1 << (maxLog2CUSize * 2);// 64x64
+    uint32_t sizeC = sizeL >> (m_hChromaShift + m_vChromaShift); // 32x32 for yuv420
     uint32_t numPartitions = 1 << (maxLog2CUSize - LOG2_UNIT_SIZE) * 2; // 1 << 8
 
     m_limitTU = 0;
@@ -115,7 +115,7 @@ bool Search::initSearch(const s265_param& param, ScalingList& scalingList)
 
     if (param.internalCsp != S265_CSP_I400)
     {
-        for (uint32_t i = 0; i <= m_numLayers; i++)
+        for (uint32_t i = 0; i <= m_numLayers; i++)// 0,1,2,3,4
         {
             CHECKED_MALLOC(m_rqt[i].coeffRQT[0], coeff_t, sizeL + sizeC * 2);
             m_rqt[i].coeffRQT[1] = m_rqt[i].coeffRQT[0] + sizeL;
@@ -305,11 +305,12 @@ void Search::codeCoeffQTChroma(const CUData& cu, uint32_t tuDepth, uint32_t absP
 void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth, uint32_t absPartIdx, bool bAllowSplit, Cost& outCost, const uint32_t depthRange[2])
 {
     CUData& cu = mode.cu;
-    uint32_t fullDepth  = cuGeom.depth + tuDepth;
-    uint32_t log2TrSize = cuGeom.log2CUSize - tuDepth;
-    uint32_t qtLayer    = log2TrSize - 2;
+    uint32_t fullDepth  = cuGeom.depth + tuDepth;// cu的深度+ tu深度
+    uint32_t log2TrSize = cuGeom.log2CUSize - tuDepth;// tu size
+    uint32_t qtLayer    = log2TrSize - 2;// qtlayer: 0 表示 4x4 1:表示 8x8  2:表示16x16 3:表示32x32
     uint32_t sizeIdx    = log2TrSize - 2;
-    bool mightNotSplit  = log2TrSize <= depthRange[1];
+    bool mightNotSplit  = log2TrSize <= depthRange[1];//当前tusize 在允许的最大tusize 以内 则可以不用split
+    //当前的tusize比允许的最小tusize 要大（可以进一步划分）&&（外层允许split 或者 上面发现一定要split（!mightNotSplit)）
     bool mightSplit     = (log2TrSize > depthRange[0]) && (bAllowSplit || !mightNotSplit);
     bool bEnableRDOQ  = !!m_param->rdoqLevel;
 
@@ -355,7 +356,7 @@ void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth,
         if (bEnableRDOQ)
             m_entropyCoder.estBit(m_entropyCoder.m_estBitsSbac, log2TrSize, true);
         primitives.cu[sizeIdx].calcresidual[stride % 64 == 0](fenc, pred, residual, stride);
-
+        //对residual 进行dct变化然后在进行量化 量化结果写入coeff
         uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeffY, log2TrSize, TEXT_LUMA, absPartIdx, false);
         if (numSig)
         {
@@ -443,6 +444,8 @@ void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth,
         /* code split block */
         uint32_t qNumParts = 1 << (log2TrSize - 1 - LOG2_UNIT_SIZE) * 2;
 
+        //1:设置参数启用了ts,当前tu size 为 8x8，且tu size 继续划分 （(3（8x8） - 1) <= 2(4x4) ）&& 当前cu 不属于transformquantbypass 情况
+        // 注意: 如果走了TSskip 则，表示QT 一定不会继续划分了
         int checkTransformSkip = m_slice->m_pps->bTransformSkipEnabled && (log2TrSize - 1) <= MAX_LOG2_TS_SIZE && !cu.m_tqBypass[0];
         if (m_param->bEnableTSkipFast)
             checkTransformSkip &= cu.m_partSize[0] != SIZE_2Nx2N;
@@ -453,7 +456,7 @@ void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth,
         {
             if (checkTransformSkip)
                 codeIntraLumaTSkip(mode, cuGeom, tuDepth + 1, qPartIdx, splitCost);
-            else
+            else// TU 也许可以继续递归分割
                 codeIntraLumaQT(mode, cuGeom, tuDepth + 1, qPartIdx, bAllowSplit, splitCost, depthRange);
 
             cbf |= cu.getCbf(qPartIdx, TEXT_LUMA, tuDepth + 1);
@@ -509,11 +512,11 @@ void Search::codeIntraLumaQT(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth,
 
 void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDepth, uint32_t absPartIdx, Cost& outCost)
 {
-    uint32_t fullDepth = cuGeom.depth + tuDepth;
+    uint32_t fullDepth = cuGeom.depth + tuDepth; //cu 深度 + tu 深度
     uint32_t log2TrSize = cuGeom.log2CUSize - tuDepth;// transform size of log2
-    uint32_t tuSize = 1 << log2TrSize;// transform size 
+    uint32_t tuSize = 1 << log2TrSize;// transform size
     bool bEnableRDOQ = !!m_param->rdoqLevel;
-
+    // 不管cu的大小 transform skip 仅支持tu为4x4 的大小
     S265_CHECK(tuSize <= MAX_TS_SIZE, "transform skip is only possible at 4x4 TUs\n");
 
     CUData& cu = mode.cu;
@@ -600,7 +603,7 @@ void Search::codeIntraLumaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuDep
             m_entropyCoder.load(m_rqt[fullDepth].rqtRoot);
 
         m_entropyCoder.resetBits();
-        if (!absPartIdx)//如果当前pu 时ctu的首个pu
+        if (!absPartIdx)//如果当前pu 是ctu的首个pu
         {
             if (!cu.m_slice->isIntra())
             {
@@ -731,7 +734,7 @@ void Search::residualTransformQuantIntra(Mode& mode, const CUGeom& cuGeom, uint3
         PicYuv*  reconPic = m_frame->m_reconPic;
         pixel*   picReconY = reconPic->getLumaAddr(cu.m_cuAddr, cuGeom.absPartIdx + absPartIdx);
         intptr_t picStride = reconPic->m_stride;
-
+        //对residual 进行dct变化然后在进行量化 量化结果写入coeff
         uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeffY, log2TrSize, TEXT_LUMA, absPartIdx, false);
         if (numSig)
         {
@@ -910,7 +913,7 @@ void Search::codeIntraChromaQt(Mode& mode, const CUGeom& cuGeom, uint32_t tuDept
             cu.setTransformSkipPartRange(0, ttype, absPartIdxC, tuIterator.absPartIdxStep);
 
             primitives.cu[sizeIdxC].calcresidual[stride % 64 == 0](fenc, pred, residual, stride);
-
+            //对residual 进行dct变化然后在进行量化 量化结果写入coeff
             uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeffC, log2TrSizeC, ttype, absPartIdxC, false);
             if (numSig)
             {
@@ -1014,7 +1017,7 @@ void Search::codeIntraChromaTSkip(Mode& mode, const CUGeom& cuGeom, uint32_t tuD
                 uint32_t reconStride = (useTSkip ? MAX_TS_SIZE : reconQtStride);
 
                 primitives.cu[sizeIdxC].calcresidual[stride % 64 == 0](fenc, pred, residual, stride);
-
+                //对residual 进行dct变化然后在进行量化 量化结果写入coeff
                 uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeff, log2TrSizeC, ttype, absPartIdxC, useTSkip);
                 if (numSig)
                 {
@@ -1209,7 +1212,7 @@ void Search::residualQTIntraChroma(Mode& mode, const CUGeom& cuGeom, uint32_t ab
             S265_CHECK(!cu.m_transformSkip[ttype][0], "transform skip not supported at low RD levels\n");
 
             primitives.cu[sizeIdxC].calcresidual[stride % 64 == 0](fenc, pred, residual, stride);
-
+            //对residual 进行dct变化然后在进行量化 量化结果写入coeff
             uint32_t numSig = m_quant.transformNxN(cu, fenc, stride, residual, stride, coeffC, log2TrSizeC, ttype, absPartIdxC, false);
             if (numSig)
             {
@@ -1245,7 +1248,7 @@ void Search::checkIntra(Mode& intraMode, const CUGeom& cuGeom, PartSize partSize
     cu.setPartSizeSubParts(partSize);//将当前cu 大小区域的的4x4 unit 设置其m_partSize 为 partSize
     cu.setPredModeSubParts(MODE_INTRA);//将当前cu 大小区域的的4x4 unit 设置其m_predMode 为 MODE_INTRA
 
-    uint32_t tuDepthRange[2];// get tu 递归范围
+    uint32_t tuDepthRange[2];// get tu 深度递归范围
     cu.getIntraTUQtDepthRange(tuDepthRange, 0);
 
     intraMode.initCosts();//初始化所有cost 为0
@@ -1259,7 +1262,7 @@ void Search::checkIntra(Mode& intraMode, const CUGeom& cuGeom, PartSize partSize
         intraMode.distortion += intraMode.lumaDistortion;
     cu.m_distortion[0] = intraMode.distortion;
     m_entropyCoder.resetBits();
-    if (m_slice->m_pps->bTransquantBypassEnabled)
+    if (m_slice->m_pps->bTransquantBypassEnabled)//如果允许 lossless 编码 则编码cu的tqbypassflag
         m_entropyCoder.codeCUTransquantBypassFlag(cu.m_tqBypass[0]);
 
     int skipFlagBits = 0;
@@ -1510,7 +1513,7 @@ void Search::encodeIntraInInter(Mode& intraMode, const CUGeom& cuGeom)
     updateModeCost(intraMode);
     checkDQP(intraMode, cuGeom);
 }
-
+// intra 模式选择用的是SAD
 sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32_t depthRange[2])
 {
     CUData& cu = intraMode.cu;
@@ -1519,8 +1522,11 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
     const Yuv* fencYuv = intraMode.fencYuv;
 
     uint32_t depth        = cuGeom.depth;
-    uint32_t initTuDepth  = cu.m_partSize[0] != SIZE_2Nx2N;// 如果partsize 不为SIZE_2Nx2N 则TUDepth 从 1开始 否则从0开始
-    uint32_t numPU        = 1 << (2 * initTuDepth);// partsize 不为SIZE_2Nx2N 则表示有4个 pu
+    // 这里注意：intra 划分，只有 cu_size == min_cu_size时 才有 SIZE_2Nx2N 和 size_NxN 的partmode
+    // 否则 cu_size > min_cu_size 只有 SIZE_2Nx2N 的partmode
+    uint32_t initTuDepth  = cu.m_partSize[0] != SIZE_2Nx2N;// 如果partsize不为SIZE_2Nx2N 则表示当前intrCU为8x8且partition为4x4 TUDepth从1开始  否则从0开始
+
+    uint32_t numPU        = 1 << (2 * initTuDepth);// partsize 不为SIZE_2Nx2N 则表示有4个 pu/tu
     uint32_t log2TrSize   = cuGeom.log2CUSize - initTuDepth;// transformSize 从cusize开始（partsize 不为SIZE_2Nx2N） 否则从 cusize/2 开始
     uint32_t tuSize       = 1 << log2TrSize;// 从log2size 换算到 tusize
     uint32_t qNumParts    = cuGeom.numPartitions >> 2; //当前cu下1/4的4x4 units个数
@@ -1528,7 +1534,9 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
     uint32_t absPartIdx   = 0;//从偏移0个4x4 开始
     sse_t totalDistortion = 0;
 
-    // 检查是否需要check 跳过transform
+    // 检查是否需要check 跳过transform(变换)
+    // 条件 首要要打开了这个 && 当前cu不能是跳过 变换 跳过量化（transquantbypass）的情况
+    // cu.m_partSize[0] != SIZE_2Nx2N 表明当前intraCU 的大小一定是 8x8 并且partition为 NxN,即:tusize 一定是4x4
     int checkTransformSkip = m_slice->m_pps->bTransformSkipEnabled && !cu.m_tqBypass[0] && cu.m_partSize[0] != SIZE_2Nx2N;
 
     // loop over partitions 1个或者4个，每次循环absPartIdx 增长1/4 部分cu大小
@@ -1659,7 +1667,7 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
                 Cost icosts;
                 if (checkTransformSkip)
                     codeIntraLumaTSkip(intraMode, cuGeom, initTuDepth, absPartIdx, icosts);
-                else
+                else // 此处的false 参数表示 在intra mode 的 Rd 时,不允许tu的split
                     codeIntraLumaQT(intraMode, cuGeom, initTuDepth, absPartIdx, false, icosts, depthRange);
                 COPY2_IF_LT(bcost, icosts.rdcost, bmode, rdModeList[i]);
             }
@@ -1674,7 +1682,7 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
         Cost icosts;
         if (checkTransformSkip)
             codeIntraLumaTSkip(intraMode, cuGeom, initTuDepth, absPartIdx, icosts);
-        else
+        else// 在决策出来的最佳的的intramode 下 计算distortion 时 允许tu的split
             codeIntraLumaQT(intraMode, cuGeom, initTuDepth, absPartIdx, true, icosts, depthRange);
         totalDistortion += icosts.distortion;
 
@@ -2873,6 +2881,7 @@ void Search::residualTransformQuantInter(Mode& mode, const CUGeom& cuGeom, uint3
         uint32_t strideResiY = resiYuv.m_size;
 
         const pixel* fenc = fencYuv->getLumaAddr(absPartIdx);
+        //对residual 进行dct变化然后在进行量化 量化结果写入coeff
         uint32_t numSigY = m_quant.transformNxN(cu, fenc, fencYuv->m_size, curResiY, strideResiY, coeffCurY, log2TrSize, TEXT_LUMA, absPartIdx, false);
 
         if (numSigY)
@@ -2907,6 +2916,7 @@ void Search::residualTransformQuantInter(Mode& mode, const CUGeom& cuGeom, uint3
 
                 int16_t* curResiU = resiYuv.getCbAddr(absPartIdxC);
                 const pixel* fencCb = fencYuv->getCbAddr(absPartIdxC);
+                //对residual 进行dct变化然后在进行量化 量化结果写入coeff
                 uint32_t numSigU = m_quant.transformNxN(cu, fencCb, fencYuv->m_csize, curResiU, strideResiC, coeffCurU + subTUOffset, log2TrSizeC, TEXT_CHROMA_U, absPartIdxC, false);
                 if (numSigU)
                 {
@@ -2921,6 +2931,7 @@ void Search::residualTransformQuantInter(Mode& mode, const CUGeom& cuGeom, uint3
 
                 int16_t* curResiV = resiYuv.getCrAddr(absPartIdxC);
                 const pixel* fencCr = fencYuv->getCrAddr(absPartIdxC);
+                //对residual 进行dct变化然后在进行量化 量化结果写入coeff
                 uint32_t numSigV = m_quant.transformNxN(cu, fencCr, fencYuv->m_csize, curResiV, strideResiC, coeffCurV + subTUOffset, log2TrSizeC, TEXT_CHROMA_V, absPartIdxC, false);
                 if (numSigV)
                 {
@@ -3130,6 +3141,7 @@ void Search::estimateResidualQT(Mode& mode, const CUGeom& cuGeom, uint32_t absPa
 
         const pixel* fenc = fencYuv->getLumaAddr(absPartIdx);
         int16_t* resi = resiYuv.getLumaAddr(absPartIdx);
+        //对residual 进行dct变化然后在进行量化 量化结果写入coeff
         numSig[TEXT_LUMA][0] = m_quant.transformNxN(cu, fenc, fencYuv->m_size, resi, resiYuv.m_size, coeffCurY, log2TrSize, TEXT_LUMA, absPartIdx, false);
         cbfFlag[TEXT_LUMA][0] = !!numSig[TEXT_LUMA][0];
 
@@ -3255,6 +3267,7 @@ void Search::estimateResidualQT(Mode& mode, const CUGeom& cuGeom, uint32_t absPa
 
                     fenc = fencYuv->getChromaAddr(chromaId, absPartIdxC);
                     resi = resiYuv.getChromaAddr(chromaId, absPartIdxC);
+                    //对residual 进行dct变化然后在进行量化 量化结果写入coeff
                     numSig[chromaId][tuIterator.section] = m_quant.transformNxN(cu, fenc, fencYuv->m_csize, resi, resiYuv.m_csize, coeffCurC + subTUOffset, log2TrSizeC, (TextType)chromaId, absPartIdxC, false);
                     cbfFlag[chromaId][tuIterator.section] = !!numSig[chromaId][tuIterator.section];
 
@@ -3380,6 +3393,7 @@ void Search::estimateResidualQT(Mode& mode, const CUGeom& cuGeom, uint32_t absPa
 
             fenc = fencYuv->getLumaAddr(absPartIdx);
             resi = resiYuv.getLumaAddr(absPartIdx);
+            //对residual 进行dct变化然后在进行量化 量化结果写入coeff
             uint32_t numSigTSkipY = m_quant.transformNxN(cu, fenc, fencYuv->m_size, resi, resiYuv.m_size, m_tsCoeff, log2TrSize, TEXT_LUMA, absPartIdx, true);
 
             if (numSigTSkipY)
@@ -3744,13 +3758,14 @@ void Search::codeInterSubdivCbfQT(CUData& cu, uint32_t absPartIdx, const uint32_
 
 void Search::saveResidualQTData(CUData& cu, ShortYuv& resiYuv, uint32_t absPartIdx, uint32_t tuDepth)
 {
-    const uint32_t log2TrSize = cu.m_log2CUSize[0] - tuDepth;
+    const uint32_t log2TrSize = cu.m_log2CUSize[0] - tuDepth;//根据当前的tuDepth 和CU size 计算当前使用tranform Size
 
-    if (tuDepth < cu.m_tuDepth[absPartIdx])
+    if (tuDepth < cu.m_tuDepth[absPartIdx])//当前tu的深度还没有到达,需要继续分割
     {
+        // 计算当前transformsize 继续划分为4个subtu后 每个subtu中覆盖的4x4 的个数
         uint32_t qNumParts = 1 << (log2TrSize - 1 - LOG2_UNIT_SIZE) * 2;
         for (uint32_t qIdx = 0; qIdx < 4; ++qIdx, absPartIdx += qNumParts)
-            saveResidualQTData(cu, resiYuv, absPartIdx, tuDepth + 1);
+            saveResidualQTData(cu, resiYuv, absPartIdx, tuDepth + 1);//递归调用
         return;
     }
 
@@ -3764,18 +3779,18 @@ void Search::saveResidualQTData(CUData& cu, ShortYuv& resiYuv, uint32_t absPartI
         S265_CHECK(log2TrSize == 2 && m_csp != S265_CSP_I444 && tuDepth, "invalid tuDepth\n");
         log2TrSizeC = 2;
         tuDepthC--;
-        codeChroma &= !(absPartIdx & 3);
+        codeChroma &= !(absPartIdx & 3);// 编码4个luma tu 对应编码一个chroma tu（即abspartIdx为4的整数倍时code chroma）
     }
 
     m_rqt[qtLayer].resiQtYuv.copyPartToPartLuma(resiYuv, absPartIdx, log2TrSize);
 
-    uint32_t numCoeffY = 1 << (log2TrSize * 2);
-    uint32_t coeffOffsetY = absPartIdx << LOG2_UNIT_SIZE * 2;
-    coeff_t* coeffSrcY = m_rqt[qtLayer].coeffRQT[0] + coeffOffsetY;
-    coeff_t* coeffDstY = cu.m_trCoeff[0] + coeffOffsetY;
+    uint32_t numCoeffY = 1 << (log2TrSize * 2);//根据transFormSize 计算对应的coeff个数（1 << og2TrSize）* （1 << og2TrSize）
+    uint32_t coeffOffsetY = absPartIdx << LOG2_UNIT_SIZE * 2; // absPartIdx是4x4 索引 ---> 16的索引转换
+    coeff_t* coeffSrcY = m_rqt[qtLayer].coeffRQT[0] + coeffOffsetY;// 源寻址
+    coeff_t* coeffDstY = cu.m_trCoeff[0] + coeffOffsetY;// 目的寻址
     memcpy(coeffDstY, coeffSrcY, sizeof(coeff_t) * numCoeffY);
 
-    if (codeChroma)
+    if (codeChroma)//chroma coeff 拷贝
     {
         m_rqt[qtLayer].resiQtYuv.copyPartToPartChroma(resiYuv, absPartIdx, log2TrSizeC + m_hChromaShift);
 
@@ -3798,7 +3813,7 @@ uint32_t Search::getIntraRemModeBits(CUData& cu, uint32_t absPartIdx, uint32_t m
     cu.getIntraDirLumaPredictor(absPartIdx, mpmModes);
 
     mpms = 0;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) // hevc mpm 使用最多3个mode
         mpms |= ((uint64_t)1 << mpmModes[i]);
 
     return m_entropyCoder.bitsIntraModeNonMPM();
@@ -3811,7 +3826,7 @@ void Search::updateCandList(uint32_t mode, uint64_t cost, int maxCandCount, uint
     uint32_t maxIndex = 0;
     uint64_t maxValue = 0;
 
-    for (int i = 0; i < maxCandCount; i++)
+    for (int i = 0; i < maxCandCount; i++)// 找出最大的costvalue 和 index
     {
         if (maxValue < candCostList[i])
         {
@@ -3819,6 +3834,7 @@ void Search::updateCandList(uint32_t mode, uint64_t cost, int maxCandCount, uint
             maxIndex = i;
         }
     }
+
     // 因为 candCostList 一开始初始化为了 最大值 ，所以这里每次来一个cost 如果比list里面的最大的cost 要小 就替换就好
     if (cost < maxValue)
     {

@@ -105,7 +105,7 @@ public:
 
     /* CU setup */
     void setQPforQuant(const CUData& ctu, int qp);
-
+    //对residual 进行dct变化然后在进行量化 量化结果写入coeff
     uint32_t transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencStride, const int16_t* residual, uint32_t resiStride, coeff_t* coeff,
                           uint32_t log2TrSize, TextType ttype, uint32_t absPartIdx, bool useTransformSkip);
 

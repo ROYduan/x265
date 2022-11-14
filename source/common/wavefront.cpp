@@ -84,6 +84,7 @@ void WaveFront::enableAllRows()
 bool WaveFront::dequeueRow(int row)
 {
     uint32_t bit = 1 << (row & 31);
+    //先取出 然后在与上
     return !!(ATOMIC_AND(&m_internalDependencyBitmap[row >> 5], ~bit) & bit);
 }
 

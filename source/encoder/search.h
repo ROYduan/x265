@@ -71,7 +71,7 @@ struct RQTData
     Entropy  rqtRoot;      /* residual quad-tree start context */
     Entropy  rqtTemp;      /* residual quad-tree temp context */
     Entropy  rqtTest;      /* residual quad-tree test context */
-    coeff_t* coeffRQT[3];  /* coeff storage for entire CTU for each RQT layer */
+    coeff_t* coeffRQT[3];  /* coeff storage for entire CTU for each RQT layer */ // [3] for [y/u/v]
     Yuv      reconQtYuv;   /* recon storage for entire CTU for each RQT layer (intra) */
     ShortYuv resiQtYuv;    /* residual storage for entire CTU for each RQT layer (inter) */
     

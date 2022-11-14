@@ -176,7 +176,7 @@ inline uint32_t getICRateCost(uint32_t absLevel, int32_t diffLevel, const int* g
 }
 
 }
-
+                                                        // 0: 4x4           1: 8x8                2: 16x16              3: 32x32
 Quant::rdoQuant_t Quant::rdoQuant_func[NUM_CU_DEPTH] = {&Quant::rdoQuant<2>, &Quant::rdoQuant<3>, &Quant::rdoQuant<4>, &Quant::rdoQuant<5>};
 
 Quant::Quant()
@@ -437,8 +437,8 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
 {
     const uint32_t sizeIdx = log2TrSize - 2;
 
-    if (cu.m_tqBypass[0])
-    {// 如果使用 变换/量化的bypass模式，即跳过变换/量化，则直接将残差块拷贝到变换系数块
+    if (cu.m_tqBypass[0])// only used for Lossless coding
+    {// 如果使用 变换/量化的bypass模式，即跳过变换/量化，则直接将残差块拷贝到输出表征 变换/量化后的数据
         S265_CHECK(log2TrSize >= 2 && log2TrSize <= 5, "Block size mistake!\n");
         return primitives.cu[sizeIdx].copy_cnt(coeff, residual, resiStride);// 拷贝残差块到变换系数块coeff，返回非零系数的个数
     }

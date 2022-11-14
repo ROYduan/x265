@@ -353,7 +353,7 @@ void CUData::initSubCU(const CUData& ctu, const CUGeom& cuGeom, int qp)
     m_partSet(m_log2CUSize,   (uint8_t)cuGeom.log2CUSize);
     m_partSet(m_lumaIntraDir, (uint8_t)ALL_IDX);//初始化
     m_partSet(m_chromaIntraDir, (uint8_t)ALL_IDX);//初始化
-    m_partSet(m_tqBypass,     (uint8_t)m_encData->m_param->bLossless);
+    m_partSet(m_tqBypass,     (uint8_t)m_encData->m_param->bLossless);//如果启用无失真编码则所有cu使用 transquantbypass
     m_partSet((uint8_t*)m_refIdx[0], (uint8_t)REF_NOT_VALID);
     m_partSet((uint8_t*)m_refIdx[1], (uint8_t)REF_NOT_VALID);
     m_partSet(m_cuDepth,      (uint8_t)cuGeom.depth);
@@ -452,7 +452,7 @@ void CUData::initLosslessCU(const CUData& cu, const CUGeom& cuGeom)
     memcpy(m_distortion, cu.m_distortion, m_numPartitions * sizeof(sse_t));
 
     /* force TQBypass to true */
-    m_partSet(m_tqBypass, true);
+    m_partSet(m_tqBypass, true);// lossless 下 跳过trans quant
 
     /* clear residual coding flags */
     m_partSet(m_predMode, cu.m_predMode[0] & (MODE_INTRA | MODE_INTER));

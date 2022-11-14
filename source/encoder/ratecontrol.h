@@ -82,7 +82,7 @@ struct RateControlEntry
     double  qRceq;
     double  qpPrev;
     double  frameSizePlanned;  /* frame Size decided by RateCotrol before encoding the frame */
-    double  bufferRate;
+    double  bufferRate;//这一帧duration内应该注入vbv内的bits
     double  movingAvgSum;
     double  rowCplxrSum;
     double  qpNoVbv;
@@ -93,12 +93,12 @@ struct RateControlEntry
     bool    vbvEndAdj;
     double  frameDuration;
     double  clippedDuration;
-    double  frameSizeEstimated; /* hold frameSize, updated from cu level vbv rc */
+    double  frameSizeEstimated; /* hold frameSize, updated from cu level vbv rc 已经产生的bits+剩余未编码CTU的预测bits之和*/
     double  frameSizeMaximum;   /* max frame Size according to minCR restrictions and level of the video */
     int     sliceType;
     int     bframes;
     int     poc;
-    int     encodeOrder;// 当前编码器编码的帧 是第几个帧num（每送一个已经决策好了的帧给编码器，帧order 就会++ß）
+    int     encodeOrder;// 当前编码器编码的帧 是第几个帧num（每送一个已经决策好了的帧给编码器，帧order 就会++）
     bool    bLastMiniGopBFrame;
     bool    isActive;
     double  amortizeFrames;

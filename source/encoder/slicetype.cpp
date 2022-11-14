@@ -1910,7 +1910,7 @@ void Lookahead::slicetypeDecide()
     }
     m_outputLock.release();
 }
-
+// 前向vbv
 void Lookahead::vbvLookahead(Lowres **frames, int numFrames, int keyframe)
 {
     int prevNonB = 0, curNonB = 1, idx = 0;

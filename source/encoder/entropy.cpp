@@ -783,12 +783,12 @@ void Entropy::encodeCU(const CUData& ctu, const CUGeom& cuGeom, uint32_t absPart
             if (childGeom.flags & CUGeom::PRESENT)
                 encodeCU(ctu, childGeom, absPartIdx, depth + 1, bEncodeDQP);
         }
-        return;
+        return;// 直接返回
     }
 
-    if (cuSplitFlag) 
+    if (cuSplitFlag)// 如果需要编码 split flag
         codeSplitFlag(ctu, absPartIdx, depth);
-
+    // 否责 当前 CU 还需要继续分割
     if (depth < ctu.m_cuDepth[absPartIdx] && depth < ctu.m_encData->m_param->maxCUDepth)
     {
         uint32_t qNumParts = cuGeom.numPartitions >> 2;
@@ -801,19 +801,19 @@ void Entropy::encodeCU(const CUData& ctu, const CUGeom& cuGeom, uint32_t absPart
         }
         return;
     }
-
+    // 当前 cu 无需继续分割
     if (depth <= slice->m_pps->maxCuDQPDepth && slice->m_pps->bUseDQP)
         bEncodeDQP = true;
 
     if (slice->m_pps->bTransquantBypassEnabled)
         codeCUTransquantBypassFlag(ctu.m_tqBypass[absPartIdx]);
 
-    if (!slice->isIntra())
+    if (!slice->isIntra())// 帧间编码
     {
-        codeSkipFlag(ctu, absPartIdx);
+        codeSkipFlag(ctu, absPartIdx);// 当前cu 是否为skiped cu
         if (ctu.isSkipped(absPartIdx))
         {
-            codeMergeIndex(ctu, absPartIdx);
+            codeMergeIndex(ctu, absPartIdx);// 如果是skiped 还需要编码使用的是哪个Idx
             finishCU(ctu, absPartIdx, depth, bEncodeDQP);
             return;
         }

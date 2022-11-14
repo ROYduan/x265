@@ -147,7 +147,7 @@ public:
         uint32_t rowIntraSatd;
         double   rowQp;
         double   rowQpScale;
-        double   sumQpRc;
+        double   sumQpRc;// 每一行在编码过程中不断累计所在行的CTU实际使用的的baseQP(baseQp 由RC 决定)
         double   sumQpAq;
     };
 
@@ -163,6 +163,7 @@ public:
     };
 
     PeriodicIR     m_pir;
+    // 编码前由rateControl给出，编码后更为新实际统计的
     double         m_avgQpRc;    /* avg QP as decided by rate-control CTU 级别 */
     double         m_avgQpAq;    /* avg QP as decided by AQ in addition to rate-control 4x4 级别*/
     double         m_rateFactor; /* calculated based on the Frame QP */

@@ -331,7 +331,7 @@ void FrameFilter::ParallelFilter::processSaoCTU(SAOParam *saoParam, int col)
     if (saoParam->bSaoFlag[1])
         m_sao.generateChromaOffsets(saoParam->ctuParam, m_row, col);
 
-    if (m_encData->m_slice->m_pps->bTransquantBypassEnabled)
+    if (m_encData->m_slice->m_pps->bTransquantBypassEnabled)//如果允许 frame/cu 级别的lossless 编码
     {
         const CUGeom* cuGeoms = m_frameFilter->m_frameEncoder->m_cuGeoms;
         const uint32_t* ctuGeomMap = m_frameFilter->m_frameEncoder->m_ctuGeomMap;
