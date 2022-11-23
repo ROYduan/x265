@@ -505,7 +505,7 @@ uint32_t Quant::transformNxN(const CUData& cu, const pixel* fenc, uint32_t fencS
         int add = (cu.m_slice->m_sliceType == I_SLICE ? 171 : 85) << (qbits - 9);// 量化后右移可能会带来低位上的损失，这里对右移可能带来的损失进行补偿，HEVC规定I_SLICE补偿1/3，其他类型SLICE补偿1/6
                                                                                  // 结合量化公式，I_SLICE中的add实际相当于： add >> qbits = (171 << (qbits-9))>>qbits = 171>>9 = 171/512 = 1/3
                                                                                  // 非I_SLICE中add实际相当于： add >> qbits = (85 << (qbits-9))>>qbits = 85>>9 = 85/512 = 1/6
-        int numCoeff = 1 << (log2TrSize * 2);// 总共有多少个coefficients
+        int numCoeff = 1 << (log2TrSize * 2);// 总共有多少个coefficients NxN
         // 使用量化表quantCoeff 对dct变换后的系数m_resiDctCoeff进行 量化，量化结果level写入coeff(带符号)，返回量化后的非零系数的个数
         uint32_t numSig = primitives.quant(m_resiDctCoeff, quantCoeff, deltaU, coeff, qbits, add, numCoeff);// 进行常规量化，参看C版本函数 quant_c，返回值为量化后非零系数的个数
 

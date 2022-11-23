@@ -125,7 +125,6 @@ struct Mode
     sse_t  distortion; // sum of partition SSE distortion
     uint32_t    totalBits;  // sum of partition bits (mv + coeff)
     uint32_t    mvBits;     // Mv bits + Ref + block type (or intra mode)
-    uint32_t    coeffBits;  // Texture bits (DCT Coeffs)
 
     void initCosts()
     {
@@ -140,7 +139,6 @@ struct Mode
         distortion = 0;
         totalBits = 0;
         mvBits = 0;
-        coeffBits = 0;
     }
 
     void addSubCosts(const Mode& subMode)
@@ -156,7 +154,6 @@ struct Mode
         distortion += subMode.distortion;
         totalBits += subMode.totalBits;
         mvBits += subMode.mvBits;
-        coeffBits += subMode.coeffBits;
     }
 };
 

@@ -675,7 +675,7 @@ static uint32_t quant_c(const int16_t* coef, const int32_t* quantCoeff, int32_t*
     S265_CHECK((numCoeff % 16) == 0, "numCoeff must be multiple of 16\n");
     int qBits8 = qBits - 8;
     uint32_t numSig = 0;
-
+    // scan  raster 扫描
     for (int blockpos = 0; blockpos < numCoeff; blockpos++)
     {
         int level = coef[blockpos];//dct后 的输入系数
@@ -768,19 +768,23 @@ static void denoiseDct_c(int16_t* dctCoef, uint32_t* resSum, const uint16_t* off
         dctCoef[i] = (int16_t)(level < 0 ? 0 : (level ^ sign) - sign);
     }
 }
+/*
+*coeff: 当前需要扫描的系数 raster 存放
+*scan:  扫描顺序表 scan[i]; i scan oder --> scan[i] raster oder
 
+*/
 static int scanPosLast_c(const uint16_t *scan, const coeff_t *coeff, uint16_t *coeffSign, uint16_t *coeffFlag, uint8_t *coeffNum, int numSig, const uint16_t* /*scanCG4x4*/, const int /*trSize*/)
 {
     memset(coeffNum, 0, MLS_GRP_NUM * sizeof(*coeffNum));
     memset(coeffFlag, 0, MLS_GRP_NUM * sizeof(*coeffFlag));
     memset(coeffSign, 0, MLS_GRP_NUM * sizeof(*coeffSign));
 
-    int scanPosLast = 0;// 从0开始scan
+    int scanPosLast = 0;// 从0开始按照scan规定的顺序扫描
     do
     {
         const uint32_t cgIdx = (uint32_t)scanPosLast >> MLS_CG_SIZE;// 系数索引到4x4cg的索引
 
-        const uint32_t posLast = scan[scanPosLast++];//对应到系数的位置
+        const uint32_t posLast = scan[scanPosLast++];//对应到系数的位置 scanoder 2 raster
 
         const int curCoeff = coeff[posLast];//取出当前系数
         const uint32_t isNZCoeff = (curCoeff != 0);// 是否为0
@@ -791,7 +795,7 @@ static int scanPosLast_c(const uint16_t *scan, const coeff_t *coeff, uint16_t *c
         //uint32_t blkIdx0 = ((posy >> MLS_CG_LOG2_SIZE) << codingParameters.log2TrSizeCG) + (posx >> MLS_CG_LOG2_SIZE);
         //const uint32_t blkIdx = ((posLast >> (2 * MLS_CG_LOG2_SIZE)) & ~maskPosXY) + ((posLast >> MLS_CG_LOG2_SIZE) & maskPosXY);
         //sigCoeffGroupFlag64 |= ((uint64_t)isNZCoeff << blkIdx);
-        numSig -= isNZCoeff;//如果不为0 则总数减一
+        numSig -= isNZCoeff;//如果不为0，表示扫描到了一个， 则整个TU的非零系数总数减一
 
         // TODO: optimize by instruction BTS
         coeffSign[cgIdx] += (uint16_t)(((uint32_t)curCoeff >> 31) << coeffNum[cgIdx]);//每个cg 最多16个系数，这里按照扫描的顺序记录那些非零系数的符号，每个非零系数占用一个bit ，零系数不记录符号

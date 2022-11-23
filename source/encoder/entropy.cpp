@@ -1823,12 +1823,14 @@ uint32_t costCoeffRemain_c0(uint16_t *absCoeff, int numNonZero)
 void Entropy::codeCoeffNxN(const CUData& cu, const coeff_t* coeff, uint32_t absPartIdx, uint32_t log2TrSize, TextType ttype)
 {
     uint32_t trSize = 1 << log2TrSize;
-    uint32_t tqBypass = cu.m_tqBypass[absPartIdx];
+    uint32_t tqBypass = cu.m_tqBypass[absPartIdx];// cu lossless coding flag
     // compute number of significant coefficients
+    // 整个TU 量化后的非零系数
     uint32_t numSig = primitives.cu[log2TrSize - 2].count_nonzero(coeff);
     S265_CHECK(numSig > 0, "cbf check fail\n");
     bool bHideFirstSign = cu.m_slice->m_pps->bSignHideEnabled & !tqBypass;
 
+    // 4x4 的tu 时 是否需要编码transformskip flag
     if (log2TrSize <= MAX_LOG2_TS_SIZE && !tqBypass && cu.m_slice->m_pps->bTransformSkipEnabled)
         codeTransformSkipFlags(cu.m_transformSkip[ttype][absPartIdx], ttype);
 
@@ -1838,9 +1840,9 @@ void Entropy::codeCoeffNxN(const CUData& cu, const coeff_t* coeff, uint32_t absP
     TUEntropyCodingParameters codingParameters;
     cu.getTUEntropyCodingParameters(codingParameters, absPartIdx, log2TrSize, bIsLuma);
 
-    uint8_t coeffNum[MLS_GRP_NUM];      // value range[0, 16]
-    uint16_t coeffSign[MLS_GRP_NUM];    // bit mask map for non-zero coeff sign
-    uint16_t coeffFlag[MLS_GRP_NUM];    // bit mask map for non-zero coeff
+    uint8_t coeffNum[MLS_GRP_NUM];      // value range[0, 16] // TU 最大为32x32 含有 8x8 个4x4（每个4x4对应 一个CG）占用一个byte 表示改cg内非零系数的个数
+    uint16_t coeffSign[MLS_GRP_NUM];    // bit mask map for non-zero coeff sign // 每个4x4 对应一个16bit 每个bit对应一个系数的符号
+    uint16_t coeffFlag[MLS_GRP_NUM];    // bit mask map for non-zero coeff// 每个4x4 对应一个16bit 每个bit对应一个系数是否为0
 
     //----- encode significance map -----
 

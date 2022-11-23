@@ -1281,7 +1281,6 @@ void Search::checkIntra(Mode& intraMode, const CUGeom& cuGeom, PartSize partSize
     m_entropyCoder.codeCoeff(cu, 0, bCodeDQP, tuDepthRange);
     m_entropyCoder.store(intraMode.contexts);
     intraMode.totalBits = m_entropyCoder.getNumberOfWrittenBits();
-    intraMode.coeffBits = intraMode.totalBits - intraMode.mvBits - skipFlagBits;
     const Yuv* fencYuv = intraMode.fencYuv;
     if (m_rdCost.m_psyRd)
         intraMode.psyEnergy = m_rdCost.psyCost(cuGeom.log2CUSize - 2, fencYuv->m_buf[0], fencYuv->m_size, intraMode.reconYuv.m_buf[0], intraMode.reconYuv.m_size);
@@ -1501,7 +1500,6 @@ void Search::encodeIntraInInter(Mode& intraMode, const CUGeom& cuGeom)
     m_entropyCoder.codeCoeff(cu, 0, bCodeDQP, tuDepthRange);
 
     intraMode.totalBits = m_entropyCoder.getNumberOfWrittenBits();
-    intraMode.coeffBits = intraMode.totalBits - intraMode.mvBits - skipFlagBits;
     const Yuv* fencYuv = intraMode.fencYuv;
     if (m_rdCost.m_psyRd)
         intraMode.psyEnergy = m_rdCost.psyCost(cuGeom.log2CUSize - 2, fencYuv->m_buf[0], fencYuv->m_size, reconYuv->m_buf[0], reconYuv->m_size);
@@ -1536,7 +1534,7 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
 
     // 检查是否需要check 跳过transform(变换)
     // 条件 首要要打开了这个 && 当前cu不能是跳过 变换 跳过量化（transquantbypass）的情况
-    // cu.m_partSize[0] != SIZE_2Nx2N 表明当前intraCU 的大小一定是 8x8 并且partition为 NxN,即:tusize 一定是4x4
+    // cu.m_partSize[0] != SIZE_2Nx2N 表明当前CU是 intra 且大小一定是 8x8 并且partition为 NxN,即:tusize 一定是4x4
     int checkTransformSkip = m_slice->m_pps->bTransformSkipEnabled && !cu.m_tqBypass[0] && cu.m_partSize[0] != SIZE_2Nx2N;
 
     // loop over partitions 1个或者4个，每次循环absPartIdx 增长1/4 部分cu大小
@@ -1665,7 +1663,7 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
                 cu.setLumaIntraDirSubParts(rdModeList[i], absPartIdx, depth + initTuDepth);
 
                 Cost icosts;
-                if (checkTransformSkip)
+                if (checkTransformSkip) // intra cu 8x8 且partsize 为 4x4 且允许使用transformskip
                     codeIntraLumaTSkip(intraMode, cuGeom, initTuDepth, absPartIdx, icosts);
                 else // 此处的false 参数表示 在intra mode 的 Rd 时,不允许tu的split
                     codeIntraLumaQT(intraMode, cuGeom, initTuDepth, absPartIdx, false, icosts, depthRange);
@@ -1680,9 +1678,9 @@ sse_t Search::estIntraPredQT(Mode &intraMode, const CUGeom& cuGeom, const uint32
         m_entropyCoder.load(m_rqt[depth].cur);
 
         Cost icosts;
-        if (checkTransformSkip)
+        if (checkTransformSkip) //intra cu 8x8 且partsize 为 4x4 且允许使用transformskip
             codeIntraLumaTSkip(intraMode, cuGeom, initTuDepth, absPartIdx, icosts);
-        else// 在决策出来的最佳的的intramode 下 计算distortion 时 允许tu的split
+        else// 在决策出来的最佳的的intramode 下 计算distortion时 允许tu的split
             codeIntraLumaQT(intraMode, cuGeom, initTuDepth, absPartIdx, true, icosts, depthRange);
         totalDistortion += icosts.distortion;
 
@@ -2669,7 +2667,6 @@ void Search::encodeResAndCalcRdSkipCU(Mode& interMode)
     int skipFlagBits = m_entropyCoder.getNumberOfWrittenBits();
     m_entropyCoder.codeMergeIndex(cu, 0);
     interMode.mvBits = m_entropyCoder.getNumberOfWrittenBits() - skipFlagBits;
-    interMode.coeffBits = 0;
     interMode.totalBits = interMode.mvBits + skipFlagBits;
     if (m_rdCost.m_psyRd)
         interMode.psyEnergy = m_rdCost.psyCost(part, fencYuv->m_buf[0], fencYuv->m_size, reconYuv->m_buf[0], reconYuv->m_size);
@@ -2777,13 +2774,12 @@ void Search::encodeResAndCalcRdInterCU(Mode& interMode, const CUGeom& cuGeom)
     if (m_slice->m_pps->bTransquantBypassEnabled)
         m_entropyCoder.codeCUTransquantBypassFlag(tqBypass);
 
-    uint32_t coeffBits, bits, mvBits;
+    uint32_t bits, mvBits;
     if (cu.m_mergeFlag[0] && cu.m_partSize[0] == SIZE_2Nx2N && !cu.getQtRootCbf(0))
     {
         cu.setPredModeSubParts(MODE_SKIP);
 
         /* Merge/Skip */
-        coeffBits = mvBits = 0;
         m_entropyCoder.codeSkipFlag(cu, 0);
         int skipFlagBits = m_entropyCoder.getNumberOfWrittenBits();
         m_entropyCoder.codeMergeIndex(cu, 0);
@@ -2802,8 +2798,6 @@ void Search::encodeResAndCalcRdInterCU(Mode& interMode, const CUGeom& cuGeom)
         bool bCodeDQP = m_slice->m_pps->bUseDQP;
         m_entropyCoder.codeCoeff(cu, 0, bCodeDQP, tuDepthRange);
         bits = m_entropyCoder.getNumberOfWrittenBits();
-
-        coeffBits = bits - mvBits - skipFlagBits;
     }
 
     m_entropyCoder.store(interMode.contexts);
@@ -2831,7 +2825,6 @@ void Search::encodeResAndCalcRdInterCU(Mode& interMode, const CUGeom& cuGeom)
     interMode.resEnergy = primitives.cu[sizeIdx].sse_pp(fencYuv->m_buf[0], fencYuv->m_size, predYuv->m_buf[0], predYuv->m_size);
     interMode.totalBits = bits;
     interMode.lumaDistortion = bestLumaDist;
-    interMode.coeffBits = coeffBits;
     interMode.mvBits = mvBits;
     cu.m_distortion[0] = interMode.distortion;
     updateModeCost(interMode);

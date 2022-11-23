@@ -41,7 +41,6 @@ class JobProvider; // 类的前置声明（无需包含头文件）, 随后仅�
 struct FrameStats
 {
     int         mvBits;    /* MV bits (MV+Ref+Block Type) */
-    int         coeffBits; /* Texture bits (DCT coefs) */
     int         miscBits;
 
     int         intra8x8Cnt;

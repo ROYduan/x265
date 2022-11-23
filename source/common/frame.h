@@ -54,7 +54,6 @@ struct RcStats
     double   cumulativePNorm;
     int      mvBits;
     int      miscBits;
-    int      coeffBits;
     int      poc;
     int      encodeOrder;
     int      sliceType;
