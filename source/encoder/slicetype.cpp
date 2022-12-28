@@ -45,6 +45,25 @@ using namespace S265_NS;
 
 namespace {
 
+/*推算公式：
+E =(Σx)/n
+n*S^2=Σ(x - E)^2 
+=Σ(x^2 -2 xE+E^2)
+=Σ(x^2) – 2EΣx+ nE^2
+= Σ(x^2) – 2((Σx)/n)*Σx+ ((Σx)*((Σx)/n)  
+=(Σ(x^2) - (Σx * Σx)/n )
+所以acEnergyVar 返回值 Σ(x^2) - (Σx * Σx)/n = n * s^2
+*/
+
+/** 函数功能    ：将元素和和平方和累加到当前帧中的m_lowres  返回当前块Σ(x^2) - (Σx * Σx)/n = n*Variance (n倍的方差)。
+/*  调用范围    ：只在acEnergyPlane函数中被调用
+* \参数 curFrame：当前帧
+* \参数 sum_ssd ：当前块的元素和以及平方和
+* \参数 shift   ：移位数目(如果当前16x16，则当前值为8，表示当前有n=2^8 = 256 个像素值)
+* \参数 plane   ：0,1,2 分别表示Y、U、V分量
+* \返回值       ：当前块的交流（AC）分量
+*/
+
 /* Compute variance to derive AC energy of each block */
 inline uint32_t acEnergyVar(Frame *curFrame, uint64_t sum_ssd, int shift, int plane)
 {
@@ -56,6 +75,13 @@ inline uint32_t acEnergyVar(Frame *curFrame, uint64_t sum_ssd, int shift, int pl
     return ssd - ((uint64_t)sum * sum >> shift);
 }
 
+/** 函数功能       ： acEnergyVar将元素和和平方和累加到当前帧中的m_lowres  返回当前块n*Variance。
+/*  调用范围       ： 只在LookaheadTLD::acEnergyCu函数中被调用
+* \参数 curFrame   ： 当前帧
+* \参数 src        ： 当前块在一帧视频中的地址
+* \参数 srcStride  ： 当前帧的步长
+* \参数 plane      ： 0,1,2 分别表示Y、U、V
+* \参数 colorFormat： 数据格式，1 为420格式
 /* Find the energy of each block in Y/Cb/Cr plane */
 inline uint32_t acEnergyPlane(Frame *curFrame, pixel* src, intptr_t srcStride, int plane, int colorFormat, uint32_t qgSize)
 {
@@ -252,25 +278,35 @@ uint32_t LookaheadTLD::edgeDensityCu(Frame* curFrame, uint32_t &avgAngle, uint32
     return var;
 }
 
+/** 函数功能       ： acEnergyVar将元素和和平方和累加到当前帧中的m_lowres  返回当前块YUV的AC能量。
+/*  调用范围       ： 只在LookaheadTLD::calcAdaptiveQuantFrame函数中被调用
+* \参数 curFrame   ： 当前帧（含有原始帧数据)
+* \参数 blockX     ： 当前16x16的左偏移量（单位像素）
+* \参数 blockY     ： 当前16x16的下偏移量（单位像素）
+* \参数 csp        ： 数据格式，1 为420格式
 /* Find the total AC energy of each block in all planes */
 uint32_t LookaheadTLD::acEnergyCu(Frame* curFrame, uint32_t blockX, uint32_t blockY, int csp, uint32_t qgSize)
 {
+    /*假设原始帧亮度16x16块的方差标记为 sY  像素个数nY = 16x16 =256  AC能量记为： acY = nY*sY
+      假设原始帧色度 8x8 块的方差标记为 sCr、sCb  像素个数nC = 8x8 =64 AC能量记为： acCb = nC*sCb acCr = nC*sCr
+      当前块的AC能量记为：ac =  acY + acCb + acCr
+    **/ 
     intptr_t stride = curFrame->m_fencPic->m_stride;
     intptr_t cStride = curFrame->m_fencPic->m_strideC;
-    intptr_t blockOffsetLuma = blockX + (blockY * stride);
+    intptr_t blockOffsetLuma = blockX + (blockY * stride);//当前亮度位置相对于原始帧左上角像素的偏移地址
     int hShift = CHROMA_H_SHIFT(csp);
     int vShift = CHROMA_V_SHIFT(csp);
-    intptr_t blockOffsetChroma = (blockX >> hShift) + ((blockY >> vShift) * cStride);
+    intptr_t blockOffsetChroma = (blockX >> hShift) + ((blockY >> vShift) * cStride);//当前色度位置相对于原始帧左上角像素的偏移地址
 
     uint32_t var;
 
-    var  = acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[0] + blockOffsetLuma, stride, 0, csp, qgSize);
+    var  = acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[0] + blockOffsetLuma, stride, 0, csp, qgSize);//返回当前亮度块16x16的 n*Variance 值
     if (csp != S265_CSP_I400 && curFrame->m_fencPic->m_picCsp != S265_CSP_I400)
     {
-        var += acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[1] + blockOffsetChroma, cStride, 1, csp, qgSize);
-        var += acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[2] + blockOffsetChroma, cStride, 2, csp, qgSize);
+        var += acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[1] + blockOffsetChroma, cStride, 1, csp, qgSize);//返回当前色度块8 x 8的 n*Variance 值
+        var += acEnergyPlane(curFrame, curFrame->m_fencPic->m_picOrg[2] + blockOffsetChroma, cStride, 2, csp, qgSize);//返回当前色度块8 x 8的 n*Variance 值
     }
-    s265_emms();
+    s265_emms();//清除MMX寄存器中的内容，即初始化（以避免和浮点数操作发生冲突）
     return var;
 }
 
@@ -441,6 +477,10 @@ void LookaheadTLD::xPreanalyze(Frame* curFrame)
     }
 }
 
+/** 函数功能       ： 初始化m_lowres中的qpCuTreeOffset等信息，获取整帧的像素和和AC能量。
+/*  调用范围       ： 只在PreLookaheadGroup::processTasks函数中被调用
+* \参数 curFrame   ： 当前帧（含有原始帧数据)
+* \参数 param      ： 编码器配置的参数 */
 void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
 {
     /* Actual adaptive quantization */
@@ -466,8 +506,8 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
     float* quantOffsets = curFrame->m_quantOffsets;
     for (int y = 0; y < 3; y++)
     {
-        curFrame->m_lowres.wp_ssd[y] = 0;// accumulate init
-        curFrame->m_lowres.wp_sum[y] = 0;
+        curFrame->m_lowres.wp_ssd[y] = 0;// accumulate init //初始化为0， 用于累加整帧像素的平方和
+        curFrame->m_lowres.wp_sum[y] = 0;//初始化为0， 用于累加整帧像素的和
     }
 
     if (1)
@@ -499,7 +539,7 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
             {
                 for (int blockY = 0; blockY < maxRow; blockY += loopIncr)
                     for (int blockX = 0; blockX < maxCol; blockX += loopIncr)
-                        acEnergyCu(curFrame, blockX, blockY, param->internalCsp, param->rc.qgSize);
+                        acEnergyCu(curFrame, blockX, blockY, param->internalCsp, param->rc.qgSize);//计算每个block的AC能量：n*Variance 值
             }
         }
         else
@@ -528,13 +568,13 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
 
                 if (param->rc.aqMode == S265_AQ_AUTO_VARIANCE || param->rc.aqMode == S265_AQ_AUTO_VARIANCE_BIASED || param->rc.aqMode == S265_AQ_EDGE)
                 {
-                    double bit_depth_correction = 1.f / (1 << (2 * (S265_DEPTH - 8)));
+                    double bit_depth_correction = 1.f / (1 << (2 * (S265_DEPTH - 8)));//值： 1/（2^（2*(S265_DEPTH-8)））
                     for (int blockY = 0; blockY < maxRow; blockY += loopIncr)
                     {
                         for (int blockX = 0; blockX < maxCol; blockX += loopIncr)
                         {
                             uint32_t energy, edgeDensity, avgAngle;
-                            energy = acEnergyCu(curFrame, blockX, blockY, param->internalCsp, param->rc.qgSize);
+                            energy = acEnergyCu(curFrame, blockX, blockY, param->internalCsp, param->rc.qgSize);//计算每个16x16的AC能量：energy =n*Variance 值
                             if (param->rc.aqMode == S265_AQ_EDGE)
                             {
                                 edgeDensity = edgeDensityCu(curFrame, avgAngle, blockX, blockY, param->rc.qgSize);
@@ -554,21 +594,21 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
                                 }
                             }
                             else
-                                qp_adj = pow(energy * bit_depth_correction + 1, 0.1);
-                            curFrame->m_lowres.qpCuTreeOffset[blockXY] = qp_adj;
+                                qp_adj = pow(energy * bit_depth_correction + 1, 0.1);//qp_adj = (energy*（1/（2^（2*(S265_DEPTH-8)））） + 1)^0.1
+                            curFrame->m_lowres.qpCuTreeOffset[blockXY] = qp_adj;//初始化m_lowres.qpCuTreeOffset
                             avg_adj += qp_adj;
                             avg_adj_pow2 += qp_adj * qp_adj;
                             blockXY++;
                         }
                     }
-                    avg_adj /= blockCount;
-                    avg_adj_pow2 /= blockCount;
-                    strength = param->rc.aqStrength * avg_adj;
-                    avg_adj = avg_adj - 0.5f * (avg_adj_pow2 - modeTwoConst) / avg_adj;
+                    avg_adj /= blockCount;//当前qp_adj的平均值 (Σx)/n
+                    avg_adj_pow2 /= blockCount;//当前为qp_adj的平方和均值(Σx^2)/n
+                    strength = param->rc.aqStrength * avg_adj;//修正当前的strength值 ，param->rc.aqStrength 为1.0 表示  strength = (Σx)/n
+                    avg_adj = avg_adj - 0.5f * (avg_adj_pow2 - modeTwoConst) / avg_adj;//修正当前qp_adj的平均值：(Σx)/n - 0.5 * ( (Σx^2)/n  - 11) / ((Σx)/n) (当前为8位位宽)
                     bias_strength = param->rc.aqStrength;
                 }
                 else
-                    strength = param->rc.aqStrength * 1.0397f;
+                    strength = param->rc.aqStrength * 1.0397f; //如果X265_AQ_VARIANCE strength = param->rc.aqStrength * 1.0397f;
 
                 blockXY = 0;
                 for (int blockY = 0; blockY < maxRow; blockY += loopIncr)
@@ -577,13 +617,13 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
                     {
                         if (param->rc.aqMode == S265_AQ_AUTO_VARIANCE_BIASED)
                         {
-                            qp_adj = curFrame->m_lowres.qpCuTreeOffset[blockXY];
-                            qp_adj = strength * (qp_adj - avg_adj) + bias_strength * (1.f - modeTwoConst / (qp_adj * qp_adj));
+                            qp_adj = curFrame->m_lowres.qpCuTreeOffset[blockXY];//获取前面的(energy*（1/（2^（2*(X265_DEPTH-8)））） + 1)^0.1
+                            qp_adj = strength * (qp_adj - avg_adj) + bias_strength * (1.f - modeTwoConst / (qp_adj * qp_adj));//更新当前的adj
                         }
                         else if (param->rc.aqMode == S265_AQ_AUTO_VARIANCE)
                         {
                             qp_adj = curFrame->m_lowres.qpCuTreeOffset[blockXY];
-                            qp_adj = strength * (qp_adj - avg_adj);
+                            qp_adj = strength * (qp_adj - avg_adj);//更新当前的adj
                         }
                         else if (param->rc.aqMode == S265_AQ_EDGE)
                         {
@@ -627,8 +667,43 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
                             qp_adj += quantOffsets[blockXY];
                         curFrame->m_lowres.qpAqOffset[blockXY] = qp_adj;
                         curFrame->m_lowres.qpCuTreeOffset[blockXY] = qp_adj;
-                        curFrame->m_lowres.invQscaleFactor[blockXY] = s265_exp2fix8(qp_adj);
+                        curFrame->m_lowres.invQscaleFactor[blockXY] = s265_exp2fix8(qp_adj);//获取量化权重系数,能量(方差)越大,量化权重系数越小
                         blockXY++;
+
+                /*假设原始帧亮度16x16块的方差标记为 sY  像素个数nY = 16x16 =256  AC能量记为： acY = nY*sY
+                  假设原始帧色度 8x8 块的方差标记为 sCr、sCb  像素个数nC = 8x8 =64 AC能量记为： acCb = nC*sCb acCr = nC*sCr
+                  当前块的AC能量记为：ac =  acY + acCb + acCr
+                  每个16x16块按照光栅扫描记为 ac(i) , 总共个数为n
+                  AC能量经过矫正后的值：Jac = (energy*（1/（2^（2*(X265_DEPTH-8)））） + 1)^0.1
+                  当前所有块的平均值为 JAveAc = (Σ(Jac)/n
+                  当前所有块的平方和均值为 JAveAc2 = (Σ((Jac)^2))/n
+                  当前自适应量化的强度记为：strength   
+                  当前的位宽为 depth
+                  如果：param->rc.aqMode = X265_AQ_NONE 
+                  qpAqOffset     [i] =  0 
+                  qpCuTreeOffset [i] =  0
+                  invQscaleFactor[i] =  256(即权重系数为1 因为真正的权重为 invQscaleFactor[i]>>8)
+                  如果：param->rc.aqMode = X265_AQ_VARIANCE
+                  strength = param->rc.aqStrength * 1.0397f;  
+                  qp_adj   = strength * （log2(Jac(i)) - (14.427 + 2*(depth-8)))）
+                  qpAqOffset     [i] = qp_adj
+                  qpCuTreeOffset [i] = qp_adj
+                  invQscaleFactor[i] = x265_exp2fix8(qp_adj)
+                  如果：param->rc.aqMode = X265_AQ_AUTO_VARIANCE
+                  strength = param->rc.aqStrength * JAveAc;
+                  bias_strength = param->rc.aqStrength;     
+                  qp_adj   = strength * (Jac - JAveAc); 
+                  qpAqOffset     [i] = qp_adj
+                  qpCuTreeOffset [i] = qp_adj
+                  invQscaleFactor[i] = x265_exp2fix8(qp_adj)
+                  如果：param->rc.aqMode = X265_AQ_AUTO_VARIANCE_BIASED
+                  strength = param->rc.aqStrength * JAveAc ;
+                  bias_strength = param->rc.aqStrength;     
+                  qp_adj   =   strength * (Jac - JAveAc) + bias_strength * (1.f - 11.f / (Jac * Jac));     
+                  qpAqOffset     [i] = qp_adj
+                  qpCuTreeOffset [i] = qp_adj
+                  invQscaleFactor[i] = x265_exp2fix8(qp_adj)
+               **/                      
                     }
                 }
             }
@@ -655,7 +730,7 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
     {
         int hShift = CHROMA_H_SHIFT(param->internalCsp);
         int vShift = CHROMA_V_SHIFT(param->internalCsp);
-        maxCol = ((maxCol + 8) >> 4) << 4;
+        maxCol = ((maxCol + 8) >> 4) << 4;//如果当前图像高度整除16后的余数小于8，省去，大于8则补全16
         maxRow = ((maxRow + 8) >> 4) << 4;
         int width[3]  = { maxCol, maxCol >> hShift, maxCol >> hShift };
         int height[3] = { maxRow, maxRow >> vShift, maxRow >> vShift };
@@ -663,9 +738,10 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
         for (int i = 0; i < 3; i++)
         {
             uint64_t sum, ssd;
-            sum = curFrame->m_lowres.wp_sum[i];
-            ssd = curFrame->m_lowres.wp_ssd[i];
+            sum = curFrame->m_lowres.wp_sum[i];//未下采样原始帧所有像素的和(Σx)
+            ssd = curFrame->m_lowres.wp_ssd[i];//未下采样原始帧所有像素的平方和Σ(x^2)
             curFrame->m_lowres.wp_ssd[i] = ssd - (sum * sum + (width[i] * height[i]) / 2) / (width[i] * height[i]);
+            //返回一整帧的AC能量（约等于 n倍的方差 n为图像像素个数(n=width[i] * height[i])) 加上n/2是为了四舍五入）
         }
     }
 
@@ -687,16 +763,21 @@ void LookaheadTLD::calcAdaptiveQuantFrame(Frame *curFrame, s265_param* param)
     }
 }
 
+/** 函数功能       ： 计算当前1/2下采样帧的intra SATD值以及最优intra模式
+/*  调用范围       ： 只在PreLookaheadGroup::processTasks函数中被调用
+* \参数 fenc       ： 当前帧（经过1/2下采样后的数据）
+*   返回值         ： null
+**/
 void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
 {
     ALIGN_VAR_32(pixel, prediction[S265_LOWRES_CU_SIZE * S265_LOWRES_CU_SIZE]);
     pixel fencIntra[S265_LOWRES_CU_SIZE * S265_LOWRES_CU_SIZE];
-    pixel neighbours[2][S265_LOWRES_CU_SIZE * 4 + 1];
-    pixel* samples = neighbours[0], *filtered = neighbours[1];
+    pixel neighbours[2][S265_LOWRES_CU_SIZE * 4 + 1];//存储当前周边行的数据 [0][]是参考周边数据，[1][]是经过intra滤波后的数据
+    pixel* samples = neighbours[0], *filtered = neighbours[1];//存储方式 0 left-above 1~8 ~ above 9~16 above-right 17~24 left 25~32 bottom-left
 
-    const int lookAheadLambda = (int)s265_lambda_tab[S265_LOOKAHEAD_QP];
-    const int intraPenalty = 5 * lookAheadLambda;
-    const int lowresPenalty = 4; /* fixed CU cost overhead */
+    const int lookAheadLambda = (int)s265_lambda_tab[S265_LOOKAHEAD_QP];//S265_LOOKAHEAD_QP 为 12 + 6 * (X265_DEPTH - 8))  ，当前的lamda为 2^(qp/6 - 2)并取整
+    const int intraPenalty = 5 * lookAheadLambda;                       //注意：当前QP并不一定是最优，可以继续修正，因为当前只是估算1/2 下采样视频的 intra编码代价
+    const int lowresPenalty = 4; /* fixed CU cost overhead */ //intra方向 bits估算：intraPenalty + lowresPenalty 注意：当前估算方式并一定最优，可以进一步优化
 
     const int cuSize  = S265_LOWRES_CU_SIZE;
     const int cuSize2 = cuSize << 1;
@@ -800,9 +881,14 @@ void LookaheadTLD::lowresIntraEstimate(Lowres& fenc, uint32_t qgSize)
     fenc.costEstAq[0][0] = costEstAq;
 }
 
+/** 函数功能             ：计算两帧（wp.bPresentFlag 为 ref是否加权）之间的SATD值
+/*  调用范围             ：只在LookaheadTLD::weightsAnalyse函数中被调用
+* \参数 fenc             ：当前帧
+* \参数 ref              ：前向帧
+* \返回                  ：两帧（wp.bPresentFlag 为 ref是否加权）之间的SATD值 */
 uint32_t LookaheadTLD::weightCostLuma(Lowres& fenc, Lowres& ref, WeightParam& wp)
 {
-    pixel *src = ref.fpelPlane[0];
+    pixel *src = ref.fpelPlane[0];// 使用相位0平面的像素
     intptr_t stride = fenc.lumaStride;
 
     if (wp.wtPresent)
@@ -853,24 +939,29 @@ bool LookaheadTLD::allocWeightedRef(Lowres& fenc)
     return true;
 }
 
+/** 函数功能             ：判断当前两帧是否进行加权 ，结果存储在weightedRef.isWeighted
+/*  调用范围             ：只在CostEstimateGroup::estimateFrameCost函数中被调用
+* \参数 fenc             ：当前帧
+* \参数 ref              ：前向帧
+* \返回                  ：NULL */
 void LookaheadTLD::weightsAnalyse(Lowres& fenc, Lowres& ref)
 {
-    static const float epsilon = 1.f / 128.f;
-    int deltaIndex = fenc.frameNum - ref.frameNum;
+    static const float epsilon = 1.f / 128.f; //ε= 1/128  阈值限定，如果加权系数小于ε，表示无须对齐进行加权分析
+    int deltaIndex = fenc.frameNum - ref.frameNum;//当前帧与前向帧的poc差值
 
-    WeightParam wp;
-    wp.wtPresent = 0;
+    WeightParam wp;//用于存储加权参量
+    wp.wtPresent = 0;//先判定不加权预测情况
 
     if (!wbuffer[0])
     {
-        if (!allocWeightedRef(fenc))
+        if (!allocWeightedRef(fenc))//申请存储空间并初始化weightedRef
             return;
     }
 
     ReferencePlanes& weightedRef = fenc.weightedRef[deltaIndex];
-    intptr_t padoffset = fenc.lowresPlane[0] - fenc.buffer[0];
+    intptr_t padoffset = fenc.lowresPlane[0] - fenc.buffer[0];// 取第一个相位0 起始像素到空间起始地址的偏移
     for (int i = 0; i < 4; i++)
-        weightedRef.lowresPlane[i] = wbuffer[i] + padoffset;
+        weightedRef.lowresPlane[i] = wbuffer[i] + padoffset;// 设置weightedRef 的各个相位平面 起始像素与起始地址的偏移
 
     weightedRef.fpelPlane[0] = weightedRef.lowresPlane[0];
     weightedRef.lumaStride = fenc.lumaStride;
@@ -881,34 +972,35 @@ void LookaheadTLD::weightsAnalyse(Lowres& fenc, Lowres& ref)
     /* epsilon is chosen to require at least a numerator of 127 (with denominator = 128) */
     float guessScale, fencMean, refMean;
     s265_emms();
-    if (fenc.wp_ssd[0] && ref.wp_ssd[0])
-        guessScale = sqrtf((float)fenc.wp_ssd[0] / ref.wp_ssd[0]);
+    if (fenc.wp_ssd[0] && ref.wp_ssd[0])//分别表示未下采样原始帧整帧的AC能量(n方差)
+        guessScale = sqrtf((float)fenc.wp_ssd[0] / ref.wp_ssd[0]);//预估一个因子√(AC(rec)/AC(ref))
     else
         guessScale = 1.0f;
-    fencMean = (float)fenc.wp_sum[0] / (fenc.lines * fenc.width) / (1 << (S265_DEPTH - 8));
-    refMean = (float)ref.wp_sum[0] / (fenc.lines * fenc.width) / (1 << (S265_DEPTH - 8));
+    fencMean = (float)fenc.wp_sum[0] / (fenc.lines * fenc.width) / (1 << (S265_DEPTH - 8));//计算其平均值，因其(含补全8x8块)边像素值，所以其平均值比正常偏大
+    refMean = (float)ref.wp_sum[0] / (fenc.lines * fenc.width) / (1 << (S265_DEPTH - 8));//计算其平均值，因其(含补全8x8块)边像素值，所以其平均值比正常偏大
 
     /* Early termination */
-    if (fabsf(refMean - fencMean) < 0.5f && fabsf(1.f - guessScale) < epsilon)
+    if (fabsf(refMean - fencMean) < 0.5f && fabsf(1.f - guessScale) < epsilon)//提前终止判断，如果其平均值差小于0.5 并且  1- √(AC(rec)/AC(ref)) < 1/128
         return;
 
-    int minoff = 0, minscale, mindenom;
+    int minoff = 0, minscale, mindenom;//minoff 记录最优的offset, minscale记录最优的w, mindenom记录最优w精度扩大位数;
     unsigned int minscore = 0, origscore = 1;
     int found = 0;
 
-    wp.setFromWeightAndOffset((int)(guessScale * 128 + 0.5f), 0, 7, true);
-    mindenom = wp.log2WeightDenom;
-    minscale = wp.inputWeight;
+    wp.setFromWeightAndOffset((int)(guessScale * 128 + 0.5f), 0, 7, true);//设置weight参数，分别为加权参数w， offset，扩大精度7位（乘以128)
+    mindenom = wp.log2WeightDenom;//初始化最优w精度扩大位数
+    minscale = wp.inputWeight;//初始化最优加权系数w
 
-    origscore = minscore = weightCostLuma(fenc, ref, wp);
+    origscore = minscore = weightCostLuma(fenc, ref, wp);//计算不加权两帧之间的SATD值 注意此时 wp.wtPresent = 0;
 
     if (!minscore)
         return;
 
     unsigned int s = 0;
     int curScale = minscale;
+    //计算加权帧的像素偏移量： 原始帧像素平均值 - 重构帧像素平均值*w +0.5f (w= curScale/1 << mindenom) = √(AC(rec)/AC(ref)))
     int curOffset = (int)(fencMean - refMean * curScale / (1 << mindenom) + 0.5f);
-    if (curOffset < -128 || curOffset > 127)
+    if (curOffset < -128 || curOffset > 127)//clip操作，offset 应该属于(-128,128)
     {
         /* Rescale considering the constraints on curOffset. We do it in this order
         * because scale has a much wider range than offset (because of denom), so
@@ -917,28 +1009,36 @@ void LookaheadTLD::weightsAnalyse(Lowres& fenc, Lowres& ref)
         curScale = (int)((1 << mindenom) * (fencMean - curOffset) / refMean + 0.5f);
         curScale = s265_clip3(0, 127, curScale);
     }
-    SET_WEIGHT(wp, true, curScale, mindenom, curOffset);
-    s = weightCostLuma(fenc, ref, wp);
-    COPY4_IF_LT(minscore, s, minscale, curScale, minoff, curOffset, found, 1);
+    SET_WEIGHT(wp, true, curScale, mindenom, curOffset);//设置WeightParam类数据 到 wp
+    s = weightCostLuma(fenc, ref, wp);//计算加权帧与fenc的SATD值
+    COPY4_IF_LT(minscore, s, minscale, curScale, minoff, curOffset, found, 1);//更新当前最优的选择，加权是否
 
     /* Use a smaller denominator if possible */
-    if (mindenom > 0 && !(minscale & 1))
+    //如下相当于:
+    //while (mindenom > 0 && !(minscale & 1)) //值保证不变，将左移位数减少
+    //{
+    //    mindenom--;
+    //    minscale >>= 1;
+    //}
+
+    if (mindenom > 0 && !(minscale & 1)) // //值保证不变，将扩大位数减少
     {
         unsigned long idx;
-        CTZ(idx, minscale);
-        int shift = S265_MIN((int)idx, mindenom);
-        mindenom -= shift;
-        minscale >>= shift;
+        CTZ(idx, minscale);// 找出minscale 中的lowerest bit 1 的位置，表明可以右移多少bit
+        int shift = S265_MIN((int)idx, mindenom);//
+        mindenom -= shift;// 精度位数减少
+        minscale >>= shift;//响应的scale 减少
     }
 
     if (!found || (minscale == 1 << mindenom && minoff == 0) || (float)minscore / origscore > 0.998f)
+        // 没有找到加权后的satd更优，或者加权参数相当于 1（不加权）或者 找到的minscore 与原本的origscore 足够接近
         return;
     else
     {
-        SET_WEIGHT(wp, true, minscale, mindenom, minoff);
+        SET_WEIGHT(wp, true, minscale, mindenom, minoff);//设置WeightParam类数据
 
         // set weighted delta cost
-        fenc.weightedCostDelta[deltaIndex] = minscore / origscore;
+        fenc.weightedCostDelta[deltaIndex] = minscore / origscore;//存储参考帧（也是下采样的原始帧）加权的SATD/不加权的SATD 的比值
 
         int offset = wp.inputOffset << (S265_DEPTH - 8);
         int scale = wp.inputWeight;
@@ -948,11 +1048,12 @@ void LookaheadTLD::weightsAnalyse(Lowres& fenc, Lowres& ref)
         intptr_t stride = ref.lumaStride;
         int widthHeight = (int)stride;
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)//ref帧加权参考帧像素4个相位平面获取
+            // 可以参见 weight_pp_c(
             primitives.weight_pp(ref.buffer[i], wbuffer[i], stride, widthHeight, paddedLines,
             scale, round << correction, denom + correction, offset);
 
-        weightedRef.isWeighted = true;
+        weightedRef.isWeighted = true;//将当前分析结果标记：加权
     }
 }
 
@@ -1385,15 +1486,21 @@ void Lookahead::getEstimatedPictureCost(Frame *curFrame)
     }
 }
 
+/** 函数功能             ： 初始化lowres并进行下采样、扩边、计算qpCuTreeOffset等信息，获取整帧的像素和和AC能量、计算当前1/2下采样帧的intra SATD值以及最优intra模式、并行处理
+/*  调用范围             ： 只在WorkerThread::threadMain()和sliceTypeDecide函数中被调用
+* \参数 workerThreadID   ： 当前运行的内核号
+* \返回                  ： null * */
 void PreLookaheadGroup::processTasks(int workerThreadID)
 {
     if (workerThreadID < 0)
         workerThreadID = m_lookahead.m_pool ? m_lookahead.m_pool->m_numWorkers : 0;
     // 当 workerthreadID 为 -1 时，表示在pool 模式下使用额外的lookaheadTLD进行preLookahead 分析
+    //如果workerThreadID<0 则将其置为最后一个id，因为申请的空间为核数+1，如四个核：0,1,2,3
+    //-1 则为虚拟的4，此时在本线程中继续执行，其它核号在相应线程中执行
     LookaheadTLD& tld = m_lookahead.m_tld[workerThreadID];
 
     m_lock.acquire();
-    while (m_jobAcquired < m_jobTotal)
+    while (m_jobAcquired < m_jobTotal) //m_jobTotal 表示有多少帧需要初始化，m_jobAcquired用于计数,这两个数据是线程之间共有的数据
     {
         Frame* preFrame = m_preframes[m_jobAcquired++];// 一帧一帧 /一个一个任务取出来
         ProfileLookaheadTime(m_lookahead.m_preLookaheadElapsedTime, m_lookahead.m_countPreLookahead);
@@ -3311,34 +3418,34 @@ void Lookahead::slicetypeAnalyse(Lowres **frames, bool bKeyframe)
 bool Lookahead::scenecut(Lowres **frames, int p0, int p1, bool bRealScenecut, int numFrames)
 {
     /* Only do analysis during a normal scenecut check. */
-    if (bRealScenecut && m_param->bframes)
+    if (bRealScenecut && m_param->bframes)//如果当前是真正的判断场景切换，在下面进行精细搜索
     {
-        int origmaxp1 = p0 + 1;
+        int origmaxp1 = p0 + 1;//计数需要搜索P1的最大位置
         /* Look ahead to avoid coding short flashes as scenecuts. */
-        origmaxp1 += m_param->bframes;
-        int maxp1 = S265_MIN(origmaxp1, numFrames);
-        bool fluctuate = false;
-        bool noScenecuts = false;
-        int64_t avgSatdCost = 0;
-        if (frames[p0]->costEst[p1 - p0][0] > -1)
+        origmaxp1 += m_param->bframes;//加上搜索B帧的的个数
+        int maxp1 = S265_MIN(origmaxp1, numFrames);//保证当前帧不能超过列表中原始帧个数
+        bool fluctuate = false;//标记第二轮搜索为场景切换
+        bool noScenecuts = false;//标记第一轮搜索之后是否有场景切换帧
+        int64_t avgSatdCost = 0;//累加第一轮搜索的framecost 然后求其平均
+        if (frames[p0]->costEst[p1 - p0][0] > -1)//如果已经有framecost值 获取前向帧的Pcost
             avgSatdCost = frames[p0]->costEst[p1 - p0][0];
-        int cnt = 1;
+        int cnt = 1;//用于计数 累加了多少帧的frame cost
         /* Where A and B are scenes: AAAAAABBBAAAAAA
          * If BBB is shorter than (maxp1-p0), it is detected as a flash
          * and not considered a scenecut. */
         for (int cp1 = p1; cp1 <= maxp1; cp1++)
         {
-            if (!scenecutInternal(frames, p0, cp1, false) && !m_param->bHistBasedSceneCut)
+            if (!scenecutInternal(frames, p0, cp1, false) && !m_param->bHistBasedSceneCut)//判断当前是否场景切换（是否需要将其帧类型设置为I帧） （如果不是进入）
             {
                 /* Any frame in between p0 and cur_p1 cannot be a real scenecut. */
                 for (int i = cp1; i > p0; i--)
                 {
-                    frames[i]->bScenecut = false;
+                    frames[i]->bScenecut = false;//如果当前结果不是场景切换帧，则将跟区域标记为false
                     noScenecuts = false;
                 }
             }
             else if ((m_param->bHistBasedSceneCut && frames[cp1]->m_bIsMaxThres) || scenecutInternal(frames, cp1 - 1, cp1, false))
-            {
+            {////判断当前搜索帧与前一帧是否也是场景切换 （前面已经判断出 cp1相对于p0是场景切换）
                 /* If current frame is a Scenecut from p0 frame as well as Scenecut from
                  * preceeding frame, mark it as a Scenecut */
                 frames[cp1]->bScenecut = true;
@@ -3348,7 +3455,7 @@ bool Lookahead::scenecut(Lowres **frames, int p0, int p1, bool bRealScenecut, in
             /* compute average satdcost of all the frames in the mini-gop to confirm 
              * whether there is any great fluctuation among them to rule out false positives */
             S265_CHECK(frames[cp1]->costEst[cp1 - p0][0]!= -1, "costEst is not done \n");
-            avgSatdCost += frames[cp1]->costEst[cp1 - p0][0];
+            avgSatdCost += frames[cp1]->costEst[cp1 - p0][0];//累加framecost
             cnt++;
         }
 
@@ -3356,31 +3463,31 @@ bool Lookahead::scenecut(Lowres **frames, int p0, int p1, bool bRealScenecut, in
          * This could denote the beginning or ending of scene transitions.
          * During a scene transition(fade in/fade outs), if fluctuate remains false,
          * then the scene had completed its transition or stabilized */
-        if (noScenecuts)
+        if (noScenecuts)//如果第一轮搜索 有场景切换帧
         {
-            fluctuate = false;
-            avgSatdCost /= cnt;
+            fluctuate = false;//初始化为false
+            avgSatdCost /= cnt;//第一轮的平均framecost
             for (int i = p1; i <= maxp1; i++)
             {
-                int64_t curCost  = frames[i]->costEst[i - p0][0];
-                int64_t prevCost = frames[i - 1]->costEst[i - 1 - p0][0];
+                int64_t curCost  = frames[i]->costEst[i - p0][0];//获取当前以P0为参考当前为i的framecost
+                int64_t prevCost = frames[i - 1]->costEst[i - 1 - p0][0];//获取前一帧以P0为参考的framecost
                 if (fabs((double)(curCost - avgSatdCost)) > 0.1 * avgSatdCost || 
-                    fabs((double)(curCost - prevCost)) > 0.1 * prevCost)
+                    fabs((double)(curCost - prevCost)) > 0.1 * prevCost)//当前framecost过大 判断为场景切换
                 {
-                    fluctuate = true;
-                    if (!m_isSceneTransition && frames[i]->bScenecut)
+                    fluctuate = true;//标记
+                    if (!m_isSceneTransition && frames[i]->bScenecut)//如果当前lookachead还没有场景切换帧 并且上轮搜索当前帧为场景切换帧
                     {
-                        m_isSceneTransition = true;
+                        m_isSceneTransition = true;//置为ture
                         /* just mark the first scenechange in the scene transition as a scenecut. */
-                        for (int j = i + 1; j <= maxp1; j++)
+                        for (int j = i + 1; j <= maxp1; j++)//标记其它帧为非场景切换帧
                             frames[j]->bScenecut = false;
                         break;
                     }
                 }
-                frames[i]->bScenecut = false;
+                frames[i]->bScenecut = false;//不是场景切换帧
             }
         }
-        if (!fluctuate && !noScenecuts)
+        if (!fluctuate && !noScenecuts)//如果第一轮和第二轮都没有场景切换帧
             m_isSceneTransition = false; /* Signal end of scene transitioning */
     }
 
@@ -3396,28 +3503,35 @@ bool Lookahead::scenecut(Lowres **frames, int p0, int p1, bool bRealScenecut, in
        analysis detected scenecuts which were later nulled due to scene transitioning, in which 
        case do not return a true scenecut for this frame */
 
-    if (!frames[p1]->bScenecut)
+    if (!frames[p1]->bScenecut)//如果已经计算过，直接返回false （注：因为初始化为true， false说明已经计算过）
         return false;
     /* Check only scene transitions if max threshold */
     if (m_param->bHistBasedSceneCut && frames[p1]->m_bIsMaxThres)
         return frames[p1]->bScenecut;
 
-    return scenecutInternal(frames, p0, p1, bRealScenecut);
+    return scenecutInternal(frames, p0, p1, bRealScenecut);//判断当前是否场景切换（是否需要将其帧类型设置为I帧）（进入此表示是场景切换：再做一次重复计算，主要为了打印log)
 }
 
+/** 函数功能             ： 判断当前是否场景切换（是否需要将其帧类型设置为I帧）
+/*  调用范围             ： 只在Lookahead::scenecut函数中被调用
+* \参数 frames           ： 当前搜索的frames列表
+* \参数 p0               ： 当前帧 注：p0 p1 不相邻 p1是p0后面某一帧
+* \参数 p1               ： 后一帧
+* \参数 bRealScenecut    ： 当前是否是真正的场景切换判断，而不是预分析
+* \返回                  ： 返回当前是否场景切换（是否需要将其帧类型设置为I帧） * */
 bool Lookahead::scenecutInternal(Lowres **frames, int p0, int p1, bool bRealScenecut)
 {
-    Lowres *frame = frames[p1];
+    Lowres *frame = frames[p1];//获取后向帧
 
-    CostEstimateGroup estGroup(*this, frames);
-    estGroup.singleCost(p0, p1, p1);
-    int64_t icost = frame->costEst[0][0];
-    int64_t pcost = frame->costEst[p1 - p0][0];
-    int gopSize = (frame->frameNum - m_lastKeyframe) % m_param->keyframeMax;
-    float threshMax = (float)(m_param->scenecutThreshold / 100.0);
+    CostEstimateGroup estGroup(*this, frames);//用于计算最优frame cost 
+    estGroup.singleCost(p0, p1, p1);//计算当前帧与前向参考帧之间的最优frame cost
+    int64_t icost = frame->costEst[0][0];//获取P1帧的I帧编码cos
+    int64_t pcost = frame->costEst[p1 - p0][0];//获取p1帧与前向参考帧之间的最优frame cost
+    int gopSize = (frame->frameNum - m_lastKeyframe) % m_param->keyframeMax;//当前的GOP 大小:当前帧到最近关键帧的距离
+    float threshMax = (float)(m_param->scenecutThreshold / 100.0);//场景切换阈值
     /* magic numbers pulled out of thin air */
-    float threshMin = (float)(threshMax * 0.25);
-    double bias = m_param->scenecutBias;
+    float threshMin = (float)(threshMax * 0.25);//场景切换阈值乘以0.25
+    double bias = m_param->scenecutBias;//没有初始化，可能在下面语句有bug; 值越大，越容易判断为场景切换
     if (m_param->bHistBasedSceneCut)
     {
         double minT = TEMPORAL_SCENECUT_THRESHOLD * (1 + m_param->edgeTransitionThreshold);
@@ -3432,7 +3546,7 @@ bool Lookahead::scenecutInternal(Lowres **frames, int p0, int p1, bool bRealScen
     }
     else if (bRealScenecut)
     {
-        if (m_param->keyframeMin == m_param->keyframeMax)
+        if (m_param->keyframeMin == m_param->keyframeMax)//获取bias
             threshMin = threshMax;
         if (gopSize <= m_param->keyframeMin / 4 || m_param->bIntraRefresh)
             bias = threshMin / 4;
@@ -3446,10 +3560,10 @@ bool Lookahead::scenecutInternal(Lowres **frames, int p0, int p1, bool bRealScen
                 / (m_param->keyframeMax - m_param->keyframeMin);
         }
     }
-    bool res = pcost >= (1.0 - bias) * icost;
+    bool res = pcost >= (1.0 - bias) * icost;//P帧的cost比I帧的cost要大，说明P帧不优，当前可能存在场景切换导致前后帧的相似性不大，将其res置为ture，表示当前需要场景切换
     if (res && bRealScenecut)
     {
-        int imb = frame->intraMbs[p1 - p0];
+        int imb = frame->intraMbs[p1 - p0];//当前需要场景切换，输出相应场景切换的信息，如i宏块个数，p宏块个数等
         int pmb = m_8x8Blocks - imb;
         s265_log(m_param, S265_LOG_DEBUG, "scene cut at %d Icost:%d Pcost:%d ratio:%.4f bias:%.4f gop:%d (imb:%d pmb:%d)\n",
                  frame->frameNum, icost, pcost, 1. - (double)pcost / icost, bias, gopSize, imb, pmb);

@@ -354,10 +354,10 @@ struct TUEntropyCodingParameters
     ScanType        scanType;
     uint32_t        firstSignificanceMapContext;
 };
-
-struct CUDataMemPool
+//用于CU的空间申请和释放
+struct CUDataMemPool//存在于FrameData类和ModeDepth中
 {
-    uint8_t* charMemBlock;
+    uint8_t* charMemBlock;//用存储模式等数据 (空间大小为：当前CU的4x4块个数*一帧CTU个数*21  或者 当前CU的4x4块个数*预测模式个数*21) 
     coeff_t* trCoeffMemBlock;
     MV*      mvMemBlock;
     sse_t*   distortionMemBlock;
