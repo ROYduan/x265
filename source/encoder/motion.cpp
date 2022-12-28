@@ -865,7 +865,7 @@ me_hex2:
 
 #else // if 0
       /* equivalent to the above, but eliminates duplicate candidates */
-        COST_MV_X3_DIR(-2, 0, -1, 2,  1, 2, costs);
+        COST_MV_X3_DIR(-2, 0, -1, 2,  1, 2, costs);// 左下方三个点
         bcost <<= 3;
         if ((bmv.y >= mvmin.y) & (bmv.y <= mvmax.y))
             COPY1_IF_LT(bcost, (costs[0] << 3) + 2);
@@ -875,7 +875,7 @@ me_hex2:
             COPY1_IF_LT(bcost, (costs[2] << 3) + 4);
         }
 
-        COST_MV_X3_DIR(2, 0,  1, -2, -1, -2, costs);
+        COST_MV_X3_DIR(2, 0,  1, -2, -1, -2, costs);//右上方三个点
         if ((bmv.y >= mvmin.y) & (bmv.y <= mvmax.y))
             COPY1_IF_LT(bcost, (costs[0] << 3) + 5);
         if ((bmv.y - 2 >= mvmin.y) & (bmv.y - 2 <= mvmax.y))

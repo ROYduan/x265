@@ -150,7 +150,7 @@ public:
         double   sumQpAq;
     };
 
-    RCStatCU*      m_cuStat;
+    RCStatCU*      m_cuStat;// 帧级别的cu信息统计
     RCStatRow*     m_rowStat;
     FrameStats     m_frameStats; // stats of current frame for multi-pass encodes
     /* data needed for periodic intra refresh */
