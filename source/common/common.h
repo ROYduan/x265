@@ -356,7 +356,7 @@ struct SaoCtuParam
 {
     SaoMergeMode mergeMode;
     int  typeIdx;
-    uint32_t bandPos;    // BO band position
+    uint32_t bandPos;    // BO band position //265 sao 中允许 4个连续的band 分别给定一个固定的offset
     int  offset[SAO_NUM_OFFSET];
 
     void reset()

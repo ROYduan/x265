@@ -48,7 +48,7 @@ static void processSaoCUE0(pixel * rec, int8_t * offsetEo, int width, int8_t* si
     int8_t signRight, signLeft0;
     int8_t edgeType;
 
-    for (y = 0; y < 2; y++)
+    for (y = 0; y < 2; y++)// 一次完成2行
     {
         signLeft0 = signLeft[y];
         for (x = 0; x < width; x++)

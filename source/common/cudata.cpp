@@ -988,24 +988,25 @@ uint32_t CUData::getCtxSplitFlag(uint32_t absPartIdx, uint32_t depth) const
 
     return ctx;
 }
-
+// intra 下 tu 深度控制
+// 注意只有在 intra 8x8 cu 下 当 partSize 为 SIZE_NxN 时，tu 被隐式分割成 4x4
 void CUData::getIntraTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartIdx) const
 {
-    uint32_t log2CUSize = m_log2CUSize[absPartIdx];
-    uint32_t splitFlag = m_partSize[absPartIdx] != SIZE_2Nx2N;
+    uint32_t log2CUSize = m_log2CUSize[absPartIdx];//当前cu size
+    uint32_t splitFlag = m_partSize[absPartIdx] != SIZE_2Nx2N; //只有在intra cu 为最小的cu时(通过8x8)时，才可以不等于SIZE_2Nx2N,此时splitFlag为1 tu 被隐式分割 ）
 
-    tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;// minTu size 2
-    tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;// MaxTu size default 5
+    tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;// minTu size 2 4x4
+    tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;// MaxTu size default 5 32x32
     // 通过TU深度控制参数 设置 minTu size为 为当前cusize在 PartSize 划分的情况下的最小tu size 
     // slower 下参数书为 3
     tuDepthRange[0] = s265_clip3(tuDepthRange[0], tuDepthRange[1], log2CUSize - (m_slice->m_sps->quadtreeTUMaxDepthIntra - 1 + splitFlag));
 }
-
+//inter 下  tu 深度控制
 void CUData::getInterTUQtDepthRange(uint32_t tuDepthRange[2], uint32_t absPartIdx) const
 {
-    uint32_t log2CUSize = m_log2CUSize[absPartIdx];
-    uint32_t quadtreeTUMaxDepth = m_slice->m_sps->quadtreeTUMaxDepthInter;
-    uint32_t splitFlag = quadtreeTUMaxDepth == 1 && m_partSize[absPartIdx] != SIZE_2Nx2N;
+    uint32_t log2CUSize = m_log2CUSize[absPartIdx];//当前cu size
+    uint32_t quadtreeTUMaxDepth = m_slice->m_sps->quadtreeTUMaxDepthInter;//参数控制的inter tu的最大深度
+    uint32_t splitFlag = quadtreeTUMaxDepth == 1 && m_partSize[absPartIdx] != SIZE_2Nx2N;// 对于inter cu 如果不允许tu划分 则只在SIZE_2Nx2N 下菜不允许,否则允许划分一次
 
     tuDepthRange[0] = m_slice->m_sps->quadtreeTULog2MinSize;
     tuDepthRange[1] = m_slice->m_sps->quadtreeTULog2MaxSize;

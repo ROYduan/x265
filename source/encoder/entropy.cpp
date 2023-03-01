@@ -923,29 +923,33 @@ void Entropy::finishCU(const CUData& ctu, uint32_t absPartIdx, uint32_t depth, b
 void Entropy::encodeTransform(const CUData& cu, uint32_t absPartIdx, uint32_t curDepth, uint32_t log2CurSize,
                               bool& bCodeDQP, const uint32_t depthRange[2])
 {
+    //curDepth 代表在当前递归的深度
     const bool subdiv = cu.m_tuDepth[absPartIdx] > curDepth;
 
     /* in each of these conditions, the subdiv flag is implied and not signaled,
      * so we have checks to make sure the implied value matches our intentions */
     if (cu.isIntra(absPartIdx) && cu.m_partSize[absPartIdx] != SIZE_2Nx2N && log2CurSize == MIN_LOG2_CU_SIZE)
-    {
+    {// 对于intra cu 只有为允许的最小cu（通过为8x8） 时，才会传递 part_mode （可能为 SIZE_2Nx2N or SIZE_NxN）否则intra cu固定为 SIZE_2Nx2N
+     // 对于 min intra cu 且 part_mode 为 size_NxN 时，tu depth 只能为 1（tu大小为 4x4）此时 subdiv 必须为1
         S265_CHECK(subdiv, "intra NxN requires TU depth below CU depth\n");
     }
     else if (cu.isInter(absPartIdx) && cu.m_partSize[absPartIdx] != SIZE_2Nx2N &&
              !curDepth && cu.m_slice->m_sps->quadtreeTUMaxDepthInter == 1)
-    {
+    {// 对于inter cu 如果中的tu,如果该inter cu 不为SIZE_2Nx2N，且当前tu 深度为0时，并且此时sps中最大允许的inter-TU深度划分为0时
+     // 隐式推断 subdiv 为 1，也就是为tu需要被划分
         S265_CHECK(subdiv, "inter TU must be smaller than CU when not 2Nx2N part size: log2CurSize %d, depthRange[0] %d\n", log2CurSize, depthRange[0]);
     }
     else if (log2CurSize > depthRange[1])
-    {
+    {// 否则当前cu 的size 大于 最大允许的tu size 需要推定 subdiv 为1 tu 必须继续分割
         S265_CHECK(subdiv, "TU is larger than the max allowed, it should have been split\n");
     }
     else if (log2CurSize == cu.m_slice->m_sps->quadtreeTULog2MinSize || log2CurSize == depthRange[0])
-    {
+    { // 否则当前的cu的size为sps中允许的最小的tu size 或者 在tu划分深度上达到了最大的深度时
+    // 应该推定 tu 不再划分，码流中也无需再传递该tu-split-flag
         S265_CHECK(!subdiv, "min sized TU cannot be subdivided\n");
     }
     else
-    {
+    {   // 否则，当前cu 的大小应该是大于允许的最深tu深度下的tu大小，需要编码一个flag 0or1
         S265_CHECK(log2CurSize > depthRange[0], "transform size failure\n");
         codeTransformSubdivFlag(subdiv, 5 - log2CurSize);
     }

@@ -188,6 +188,7 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
 
     if (m_param->bEnableSsim)
         m_ssimBuf = S265_MALLOC(int, 8 * (m_param->sourceWidth / 4 + 3));
+    //每个帧级的filter 有 numRows 个行及别的并行Filter
     //新建numRows 个filter工作 worker
     m_parallelFilter = new ParallelFilter[numRows];
 
@@ -197,7 +198,7 @@ void FrameFilter::init(Encoder *top, FrameEncoder *frame, int numRows, uint32_t 
         {
             for(int row = 0; row < numRows; row++)
             {
-                // 每个filter 起一个sao worker
+                // 每个行级filter 起一个sao worker
                 if (!m_parallelFilter[row].m_sao.create(m_param, (row == 0 ? 1 : 0)))
                     m_useSao = 0;
                 else //如果起失败了则从Root node 再次起
@@ -297,15 +298,16 @@ static void origCUSampleRestoration(const CUData* cu, const CUGeom& cuGeom, Fram
     if (cu->m_tqBypass[absPartIdx])
         restoreOrigLosslessYuv(cu, frame, absPartIdx);
 }
-//拷贝
+//拷贝 ctu的上边ctu的最后一行滤波的后的数据到行buffer
 void FrameFilter::ParallelFilter::copySaoAboveRef(const CUData *ctu, PicYuv* reconPic, uint32_t cuAddr, int col)
 {
     // Copy SAO Top Reference Pixels
     int ctuWidth  = ctu->m_encData->m_param->maxCUSize;
+    //如果是ctu 是slice 首行则拷贝该ctu的首行滤波后的数据，否则考贝该ctu的上边ctu的最后一行
     const pixel* recY = reconPic->getPlaneAddr(0, cuAddr) - (ctu->m_bFirstRowInSlice ? 0 : reconPic->m_stride);
 
     // Luma
-    memcpy(&m_sao.m_tmpU[0][col * ctuWidth], recY, ctuWidth * sizeof(pixel));
+    memcpy(&m_sao.m_tmpU[0][col * ctuWidth], recY, ctuWidth * sizeof(pixel));//
     S265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
 
     // Chroma
@@ -315,13 +317,13 @@ void FrameFilter::ParallelFilter::copySaoAboveRef(const CUData *ctu, PicYuv* rec
 
         const pixel* recU = reconPic->getPlaneAddr(1, cuAddr) - (ctu->m_bFirstRowInSlice ? 0 : reconPic->m_strideC);
         const pixel* recV = reconPic->getPlaneAddr(2, cuAddr) - (ctu->m_bFirstRowInSlice ? 0 : reconPic->m_strideC);
-        memcpy(&m_sao.m_tmpU[1][col * ctuWidth], recU, ctuWidth * sizeof(pixel));
-        memcpy(&m_sao.m_tmpU[2][col * ctuWidth], recV, ctuWidth * sizeof(pixel));
+        memcpy(&m_sao.m_tmpU[1][col * ctuWidth], recU, ctuWidth * sizeof(pixel));//拷贝ctu 的 abover 行 u数据到 行buffer
+        memcpy(&m_sao.m_tmpU[2][col * ctuWidth], recV, ctuWidth * sizeof(pixel));// 拷贝ctu 的 abover 行 v数据到行buffer
 
         S265_CHECK(col * ctuWidth + ctuWidth <= m_sao.m_numCuInWidth * ctuWidth, "m_tmpU buffer beyond bound write detected");
     }
 }
-
+// 实际有包含sao操作的步骤
 void FrameFilter::ParallelFilter::processSaoCTU(SAOParam *saoParam, int col)
 {
     // TODO: apply SAO on CU and copy back soon, is it necessary?
@@ -435,6 +437,7 @@ void FrameFilter::ParallelFilter::processPostCu(int col) const
 }
 
 // NOTE: Single Threading only
+// ParallelFilter 是类 FrameFilter 里面的子类
 void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
 {
     SAOParam* saoParam = m_encData->m_saoParam;
@@ -457,7 +460,7 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
     for (uint32_t col = (uint32_t)colStart; col < (uint32_t)colEnd; col++)
     {
         const uint32_t cuAddr = m_rowAddr + col;//行内col到frame内ctuaddr
-        const CUData* ctu = m_encData->getPicCTU(cuAddr);
+        const CUData* ctu = m_encData->getPicCTU(cuAddr);//cuAddr:垂直滤波ctu 地址
 
         if (m_frameFilter->m_param->bEnableLoopFilter)
         {
@@ -467,14 +470,14 @@ void FrameFilter::ParallelFilter::processTasks(int /*workerThreadId*/)
         // 如果 col 不是首列位置，则其左侧的ctu的上边届和内部水平边界可滤波
         if (col >= 1)
         {
-            const CUData* ctuPrev = m_encData->getPicCTU(cuAddr - 1);
+            const CUData* ctuPrev = m_encData->getPicCTU(cuAddr - 1);//左侧ctu 地址
             if (m_frameFilter->m_param->bEnableLoopFilter)
             {
                 deblockCTU(ctuPrev, cuGeoms[ctuGeomMap[cuAddr - 1]], Deblock::EDGE_HOR);// 左侧ctu的上面和内部水平边界滤波
 
                 // When SAO Disable, setting column counter here
                 if (!m_frameFilter->m_useSao & !ctuPrev->m_bFirstRowInSlice)
-                    m_prevRow->processPostCu(col - 1);// 无需sao时,该行的col-1位置ctu已经完成水平滤波（完成全部滤波）则其上一行在col-1位置ctu，已经可以输出
+                    m_prevRow->processPostCu(col - 1);// 无需sao时,该行的col-1位置ctu已经完成水平滤波（完成全部滤波）则其上一行在col-1位置ctu（底部水平边界完成滤波），已经可以输出
             }
 
             if (m_frameFilter->m_useSao)

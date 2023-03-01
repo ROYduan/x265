@@ -67,7 +67,7 @@ protected:
 
     /* allocated per CTU */
     PerPlane*   m_countPreDblk;
-    PerPlane*   m_offsetOrgPreDblk;
+    PerPlane*   m_offsetOrgPreDblk;//用于累计origal pixl 与 rec （deblock之前）的数据的差
 
     double*     m_depthSaoRate;
     int8_t      m_offsetBo[NUM_PLANE][MAX_NUM_SAO_CLASS];
@@ -79,10 +79,10 @@ protected:
     int         m_hChromaShift;
     int         m_vChromaShift;
 
-    pixel*      m_clipTable;
+    pixel*      m_clipTable;//通过查表的方式进行clip 操作
     pixel*      m_clipTableBase;
 
-    pixel*      m_tmpU[3];
+    pixel*      m_tmpU[3];// temp up pic_line buffer（左侧右侧都需要多一个位置）: 0/1/2:y/u/v 
     pixel*      m_tmpL1[3];
     pixel*      m_tmpL2[3];
     bool        m_created;

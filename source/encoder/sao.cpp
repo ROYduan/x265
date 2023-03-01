@@ -64,11 +64,11 @@ namespace S265_NS {
 
 const uint32_t SAO::s_eoTable[NUM_EDGETYPE] =
 {
-    1, // 0
-    2, // 1
-    0, // 2
-    3, // 3
-    4  // 4
+    1, // 0 valle
+    2, // 1 half_valle
+    0, // 2 falt
+    3, // 3 half_peak
+    4  // 4 peak
 };
 
 SAO::SAO()
@@ -102,8 +102,8 @@ bool SAO::create(s265_param* param, int initCommon)
     m_numCuInWidth =  (m_param->sourceWidth + m_param->maxCUSize - 1) / m_param->maxCUSize;
     m_numCuInHeight = (m_param->sourceHeight + m_param->maxCUSize - 1) / m_param->maxCUSize;
 
-    const pixel maxY = (1 << S265_DEPTH) - 1;
-    const pixel rangeExt = maxY >> 1;
+    const pixel maxY = (1 << S265_DEPTH) - 1; //255
+    const pixel rangeExt = maxY >> 1; //127
     int numCtu = m_numCuInWidth * m_numCuInHeight;
 
     for (int i = 0; i < (param->internalCsp != S265_CSP_I400 ? 3 : 1); i++)
@@ -114,7 +114,7 @@ bool SAO::create(s265_param* param, int initCommon)
         // SAO asm code will read 1 pixel before and after, so pad by 2
         // NOTE: m_param->sourceWidth+2 enough, to avoid condition check in copySaoAboveRef(), I alloc more up to 63 bytes in here
         CHECKED_MALLOC(m_tmpU[i], pixel, m_numCuInWidth * m_param->maxCUSize + 2 + 32);
-        m_tmpU[i] += 1;
+        m_tmpU[i] += 1;//指针右移
     }
 
     if (initCommon)
@@ -161,7 +161,7 @@ bool SAO::create(s265_param* param, int initCommon)
     m_created = true;
     return true;
 
-fail:
+fail:// 注意checked_Malloc 里面有可能返回fail
     return false;
 }
 
@@ -293,12 +293,12 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
     const uint32_t bAboveUnavail = (!tpely) | firstRowInSlice;
 
     // NOTE: Careful! the picHeight for Equal operator only, so I may safe to hack it
-    if (lastRowInSlice)
+    if (lastRowInSlice)// 最底部一行ctu 的高度可能不足一个maxctu 高度
     {
         picHeight = s265_min(picHeight, (tpely + ctuHeight));
     }
 
-    if (plane)
+    if (plane)// chroma
     {
         picWidth  >>= m_hChromaShift;
         picHeight >>= m_vChromaShift;
@@ -307,8 +307,8 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
         lpelx     >>= m_hChromaShift;
         tpely     >>= m_vChromaShift;
     }
-    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);//right pix
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);// bottom pix
     ctuWidth  = rpelx - lpelx;
     ctuHeight = bpely - tpely;
 
@@ -317,22 +317,22 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
 
     memset(_upBuff1 + MAX_CU_SIZE, 0, 2 * sizeof(int8_t)); /* avoid valgrind uninit warnings */
 
-    pixel* tmpL = m_tmpL1[plane];
-    pixel* tmpU = &(m_tmpU[plane][lpelx]);
+    pixel* tmpL = m_tmpL1[plane];//ctu 的左侧外部一列数据 buffer 好的deblock 后的数据
+    pixel* tmpU = &(m_tmpU[plane][lpelx]);// ctu 的上侧外部一行数据 buffer 好的deblock 后的数据
 
-    int8_t* offsetEo = m_offsetEo[plane];
+    int8_t* offsetEo = m_offsetEo[plane];//offset 数据
 
     switch (typeIdx)
     {
-    case SAO_EO_0: // dir: -
+    case SAO_EO_0: // dir: - 水平 EO 类型
     {
         pixel firstPxl = 0, lastPxl = 0, row1FirstPxl = 0, row1LastPxl = 0;
-        int startX = !lpelx;
-        int endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
-        if (ctuWidth & 15)
+        int startX = !lpelx;//如果左侧起始位置从0坐标开始，则sao 从第一列开始 //图片左边界一列不做
+        int endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;//图片右边界一列不做
+        if (ctuWidth & 15)//如果ctu宽度不是16的整数倍 则使用 c代码 一个一个进行offset 补偿
         {
-            for (int y = 0; y < ctuHeight; y++, rec += stride)
-            {
+            for (int y = 0; y < ctuHeight; y++, rec += stride)// 注意这里访问的rec 是当前ctu 的rec 已经deblock了
+            {// 这里 tmpl buffer 的数据是在deblock 后保存的左侧的数据 因为sao 使用的都是deblock 后的数据
                 int signLeft = signOf(rec[startX] - tmpL[y]);
                 for (int x = startX; x < endX; x++)
                 {
@@ -340,7 +340,7 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
                     int edgeType = signRight + signLeft + 2;
                     signLeft = -signRight;
 
-                    rec[x] = m_clipTable[rec[x] + offsetEo[edgeType]];
+                    rec[x] = m_clipTable[rec[x] + offsetEo[edgeType]];// offset 数据叠加后进行clip
                 }
             }
         }
@@ -351,27 +351,27 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
                 signLeft1[0] = signOf(rec[startX] - tmpL[y]);
                 signLeft1[1] = signOf(rec[stride + startX] - tmpL[y + 1]);
 
-                if (!lpelx)
+                if (!lpelx)//取出来保存
                 {
                     firstPxl = rec[0];
                     row1FirstPxl = rec[stride];
                 }
 
-                if (rpelx == picWidth)
+                if (rpelx == picWidth)//取出来保存
                 {
                     lastPxl = rec[ctuWidth - 1];
                     row1LastPxl = rec[stride + ctuWidth - 1];
                 }
-
+                // 一次完成两行
                 primitives.saoCuOrgE0(rec, offsetEo, ctuWidth, signLeft1, stride);
 
-                if (!lpelx)
+                if (!lpelx)//重新覆盖
                 {
                     rec[0] = firstPxl;
                     rec[stride] = row1FirstPxl;
                 }
 
-                if (rpelx == picWidth)
+                if (rpelx == picWidth)//重新覆盖
                 {
                     rec[ctuWidth - 1] = lastPxl;
                     rec[stride + ctuWidth - 1] = row1LastPxl;
@@ -387,7 +387,7 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
         if (startY)
             rec += stride;
 
-        if (ctuWidth & 15)
+        if (ctuWidth & 15)//当前ctu 为非16的倍数
         {
             for (int x = 0; x < ctuWidth; x++)
                 upBuff1[x] = signOf(rec[x] - tmpU[x]);
@@ -574,6 +574,7 @@ void SAO::applyPixelOffsets(int addr, int typeIdx, int plane)
 }
 
 /* Process SAO unit */
+// 实际包含了获取 各个 offset 以及进行 SAO 操作的步骤
 void SAO::generateLumaOffsets(SaoCtuParam* ctuParam, int idxY, int idxX)
 {
     PicYuv* reconPic = m_frame->m_reconPic;
@@ -584,11 +585,11 @@ void SAO::generateLumaOffsets(SaoCtuParam* ctuParam, int idxY, int idxX)
     int addr = idxY * m_numCuInWidth + idxX;
     pixel* rec = reconPic->getLumaAddr(addr);
 
-    if (idxX == 0)
+    if (idxX == 0)//只在首列ctu时，保存当前ctu的最左侧一列滤波后的数据到m_tmpL1
     {
         for (int i = 0; i < ctuHeight + 1; i++)
         {
-            m_tmpL1[0][i] = rec[0];
+            m_tmpL1[0][i] = rec[0];//首列data
             rec += stride;
         }
     }
@@ -596,41 +597,48 @@ void SAO::generateLumaOffsets(SaoCtuParam* ctuParam, int idxY, int idxX)
     bool mergeLeftFlag = (ctuParam[addr].mergeMode == SAO_MERGE_LEFT);
     int typeIdx = ctuParam[addr].typeIdx;
 
-    if (idxX != (m_numCuInWidth - 1))
+    if (idxX != (m_numCuInWidth - 1))//如果是非最右侧的ctu 保存当前ctu的最右侧一列滤波后的数据到m_tmpL2 到时候与 m_tmpL1 交换
     {
         rec = reconPic->getLumaAddr(addr);
         for (int i = 0; i < ctuHeight + 1; i++)
         {
-            m_tmpL2[0][i] = rec[ctuWidth - 1];
+            m_tmpL2[0][i] = rec[ctuWidth - 1];// ctu 最右列 data
             rec += stride;
         }
     }
 
-    if (typeIdx >= 0)
+    if (typeIdx >= 0)// 非 SAO_OFF
     {
-        if (!mergeLeftFlag)
+        if (!mergeLeftFlag) // 非merge
         {
             if (typeIdx == SAO_BO)
             {
-                memset(m_offsetBo[0], 0, sizeof(m_offsetBo[0]));
+                memset(m_offsetBo[0], 0, sizeof(m_offsetBo[0]));//luma bo_offsef 清零
 
-                for (int i = 0; i < SAO_NUM_OFFSET; i++)
+                for (int i = 0; i < SAO_NUM_OFFSET; i++)// 从 起始band 开始的连续4个band 每个band 记录对应的offset
                     m_offsetBo[0][((ctuParam[addr].bandPos + i) & (MAX_NUM_SAO_CLASS - 1))] = (int8_t)(ctuParam[addr].offset[i] << SAO_BIT_INC);
             }
             else // if (typeIdx == SAO_EO_0 || typeIdx == SAO_EO_1 || typeIdx == SAO_EO_2 || typeIdx == SAO_EO_3)
             {
                 int offset[NUM_EDGETYPE];
-                offset[0] = 0;
-                for (int i = 0; i < SAO_NUM_OFFSET; i++)
+                offset[0] = 0;// 0 表示(flat)平坦type 无需offset
+                for (int i = 0; i < SAO_NUM_OFFSET; i++)// 记录4个 edgetype 对应的 offset
                     offset[i + 1] = ctuParam[addr].offset[i] << SAO_BIT_INC;
 
                 for (int edgeType = 0; edgeType < NUM_EDGETYPE; edgeType++)
                     m_offsetEo[0][edgeType] = (int8_t)offset[s_eoTable[edgeType]];
+                // maybe the beblow is better
+                // m_offsetEo[0][0] = ctuParam[addr].offset[0] << SAO_BIT_INC;
+                // m_offsetEo[0][1] = ctuParam[addr].offset[1] << SAO_BIT_INC;
+                // m_offsetEo[0][2] = 0;
+                // m_offsetEo[0][3] = ctuParam[addr].offset[2] << SAO_BIT_INC;
+                // m_offsetEo[0][4] = ctuParam[addr].offset[3] << SAO_BIT_INC;
+            
             }
         }
         applyPixelOffsets(addr, typeIdx, 0);
     }
-    std::swap(m_tmpL1[0], m_tmpL2[0]);
+    std::swap(m_tmpL1[0], m_tmpL2[0]);// 直接进行指针地址交换
 }
 
 /* Process SAO unit (Chroma only) */
@@ -701,6 +709,13 @@ void SAO::generateChromaOffsets(SaoCtuParam* ctuParam[3], int idxY, int idxX)
 
                 for (int edgeType = 0; edgeType < NUM_EDGETYPE; edgeType++)
                     m_offsetEo[1][edgeType] = (int8_t)offset[s_eoTable[edgeType]];
+
+                // maybe the beblow is better
+                // m_offsetEo[1][0] = ctuParam[1][addr].offset[0] << SAO_BIT_INC;
+                // m_offsetEo[1][1] = ctuParam[1][addr].offset[1] << SAO_BIT_INC;
+                // m_offsetEo[1][2] = 0;
+                // m_offsetEo[1][3] = ctuParam[1][addr].offset[2] << SAO_BIT_INC;
+                // m_offsetEo[1][4] = ctuParam[1][addr].offset[3] << SAO_BIT_INC;
             }
         }
         applyPixelOffsets(addr, typeIdxCb, 1);
@@ -727,6 +742,12 @@ void SAO::generateChromaOffsets(SaoCtuParam* ctuParam[3], int idxY, int idxX)
 
                 for (int edgeType = 0; edgeType < NUM_EDGETYPE; edgeType++)
                     m_offsetEo[2][edgeType] = (int8_t)offset[s_eoTable[edgeType]];
+                // maybe the beblow is better
+                // m_offsetEo[2][0] = ctuParam[2][addr].offset[0] << SAO_BIT_INC;
+                // m_offsetEo[2][1] = ctuParam[2][addr].offset[1] << SAO_BIT_INC;
+                // m_offsetEo[2][2] = 0;
+                // m_offsetEo[2][3] = ctuParam[2][addr].offset[2] << SAO_BIT_INC;
+                // m_offsetEo[2][4] = ctuParam[2][addr].offset[3] << SAO_BIT_INC;
             }
         }
         applyPixelOffsets(addr, typeIdxCb, 2);
@@ -817,7 +838,7 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
     {
         if (m_param->bSaoNonDeblocked)
         {
-            skipB = 3;//如果允许在非dblock上 做SAO统计, 则skip掉 Bottom 3 pixl
+            skipB = 3;//如果允许在非dblock上 做SAO统计, 则skip掉 Bottom 3 pixl （右侧列与底部行部分 前面已经统计过了）
             skipR = 4;// 同理 skip掉right 4 pixl
         }
 
@@ -921,13 +942,13 @@ void SAO::calcSaoStatsCTU(int addr, int plane)
         }
     }
 }
-
+// 这里只统计右侧4/2列 + 底部 3/1行的 部分区域数据
 void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
 {
-    int addr = idxX + m_numCuInWidth * idxY;
+    int addr = idxX + m_numCuInWidth * idxY;// ctu 地址
 
     int x, y;
-    const CUData* cu = frame->m_encData->getPicCTU(addr);
+    const CUData* cu = frame->m_encData->getPicCTU(addr);// 获取ctu 数据
     const PicYuv* reconPic = m_frame->m_reconPic;
     const pixel* fenc;
     const pixel* rec;
@@ -936,7 +957,7 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
     uint32_t picHeight = m_param->sourceHeight;
     int ctuWidth  = m_param->maxCUSize;
     int ctuHeight = m_param->maxCUSize;
-    uint32_t lpelx = cu->m_cuPelX;
+    uint32_t lpelx = cu->m_cuPelX;// ctu 的pixl 坐标
     uint32_t tpely = cu->m_cuPelY;
     const uint32_t firstRowInSlice = cu->m_bFirstRowInSlice;
     const uint32_t lastRowInSlice = cu->m_bLastRowInSlice;
@@ -948,9 +969,9 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
         picHeight = s265_min(picHeight, (tpely + ctuHeight));
     }
 
-    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);
-    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight);
-    ctuWidth  = rpelx - lpelx;
+    uint32_t rpelx = s265_min(lpelx + ctuWidth,  picWidth);// right pel 坐标
+    uint32_t bpely = s265_min(tpely + ctuHeight, picHeight); // bottom pel 坐标
+    ctuWidth  = rpelx - lpelx;// 得倒实际的ctu 的宽度，高度
     ctuHeight = bpely - tpely;
 
     int startX;
@@ -961,20 +982,21 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
     int32_t* stats;
     int32_t* count;
 
-    int skipB, skipR;
+    int skipB, skipR;//skip bottom, skip right
 
+    // 用于保存一行ctu宽度 左右各多一个pel 数据的符号，这里用了两行 主要是为了 135度和45度时，两个buffer可以swap
     int32_t _upBuff1[MAX_CU_SIZE + 2], *upBuff1 = _upBuff1 + 1;
     int32_t _upBufft[MAX_CU_SIZE + 2], *upBufft = _upBufft + 1;
 
     const int boShift = S265_DEPTH - SAO_BO_BITS;
 
-    memset(m_countPreDblk[addr], 0, sizeof(PerPlane));
+    memset(m_countPreDblk[addr], 0, sizeof(PerPlane));// 初始化
     memset(m_offsetOrgPreDblk[addr], 0, sizeof(PerPlane));
 
-    int plane_offset = 0;
+    int plane_offset = 0;// luma: 0 chroma: 2
     for (int plane = 0; plane < (frame->m_param->internalCsp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400? NUM_PLANE : 1); plane++)
     {
-        if (plane == 1)
+        if (plane == 1)// 从第二平面开始 宽度/坐标都除以2
         {
             stride = reconPic->m_strideC;
             picWidth  >>= m_hChromaShift;
@@ -987,43 +1009,43 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
             bpely     >>= m_vChromaShift;
         }
 
-        const pixel* fenc0 = m_frame->m_fencPic->getPlaneAddr(plane, addr);
-        const pixel* rec0 = reconPic->getPlaneAddr(plane, addr);
+        const pixel* fenc0 = m_frame->m_fencPic->getPlaneAddr(plane, addr);// orignal pexl
+        const pixel* rec0 = reconPic->getPlaneAddr(plane, addr);// reconstruted before deblocked
         fenc = fenc0;
         rec  = rec0;
 
         // SAO_BO:
-        if(frame->m_param->saoBOFlag)
+        if (frame->m_param->saoBOFlag)
         {
-            skipB = 3 - plane_offset;
-            skipR = 4 - plane_offset;
+            skipB = 3 - plane_offset;//跳过底部的3/1 行
+            skipR = 4 - plane_offset;//跳过右侧 4/2 列
 
             stats = m_offsetOrgPreDblk[addr][plane][SAO_BO];
             count = m_countPreDblk[addr][plane][SAO_BO];
 
             startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
             startY = (bpely == picHeight) ? ctuHeight : ctuHeight - skipB;
-
+            // 这里只统计右侧4/2列 +v底部 3/1行的 部分区域数据
             for (y = 0; y < ctuHeight; y++)
             {
                 for (x = (y < startY ? startX : 0); x < ctuWidth; x++)
                 {
-                    int classIdx = rec[x] >> boShift;
-                    stats[classIdx] += (fenc[x] - rec[x]);
-                    count[classIdx]++;
+                    int classIdx = rec[x] >> boShift;// 统计该位置的滤波钱的pixl处于哪个Band
+                    stats[classIdx] += (fenc[x] - rec[x]);//差值累计统计到对应的band
+                    count[classIdx]++;//各个band的计数
                 }
 
                 fenc += stride;
                 rec += stride;
             }
         }
-
-        if(frame->m_param->saoEOFlag)
+        // EO
+        if (frame->m_param->saoEOFlag)
         {
-            // SAO_EO_0: // dir: -
+            // SAO_EO_0: // dir: - 水平方向统计 '-'
             {
-                skipB = 3 - plane_offset;
-                skipR = 5 - plane_offset;
+                skipB = 3 - plane_offset; //bootom: luma 3  chroma: 1
+                skipR = 5 - plane_offset; // right: luma 5  chroma 3
 
                 stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_0];
                 count = m_countPreDblk[addr][plane][SAO_EO_0];
@@ -1035,20 +1057,20 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                 startY = (bpely == picHeight) ? ctuHeight : ctuHeight - skipB;
                 firstX = !lpelx;
                 // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
-                endX   = ctuWidth - 1;  // not refer right CTU
+                endX   = ctuWidth - 1;  // not refer right CTU// 注意 水平方向EO,截至位置 需要减1
 
                 for (y = 0; y < ctuHeight; y++)
                 {
-                    x = (y < startY ? startX : firstX);
-                    int signLeft = signOf(rec[x] - rec[x - 1]);
+                    x = (y < startY ? startX : firstX);// 注意 只统计右侧部分和底部几行的区域 水平方向 要注意 左侧起始位置我右侧截止位置的坐标
+                    int signLeft = signOf(rec[x] - rec[x - 1]);//左侧符号
                     for (; x < endX; x++)
                     {
-                        int signRight = signOf(rec[x] - rec[x + 1]);
-                        int edgeType = signRight + signLeft + 2;
-                        signLeft = -signRight;
+                        int signRight = signOf(rec[x] - rec[x + 1]);//右侧符号
+                        int edgeType = signRight + signLeft + 2;// edgeType: 0:valley 1:half_valley 2:flat 3:half_peak 4:peak
+                        signLeft = -signRight;//下次左测复用当前右侧
 
-                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                        count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);//差值累计统计
+                        count[s_eoTable[edgeType]]++;//类别计数
                     }
 
                     fenc += stride;
@@ -1056,10 +1078,10 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                 }
             }
 
-            // SAO_EO_1: // dir: |
+            // SAO_EO_1: // dir: | // 垂直方向'|'
             {
-                skipB = 4 - plane_offset;
-                skipR = 4 - plane_offset;
+                skipB = 4 - plane_offset;//bottom：luma 4 row chroma 2row
+                skipR = 4 - plane_offset;//right：luma 4clo chroma 2clo
 
                 stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_1];
                 count = m_countPreDblk[addr][plane][SAO_EO_1];
@@ -1069,16 +1091,16 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
 
                 startX = (rpelx == picWidth) ? ctuWidth : ctuWidth - skipR;
                 startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-                firstY = bAboveAvail;
+                firstY = bAboveAvail;//如果 above 不可用(bAboveAvail==1),则跳过第一行
                 // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
-                endY   = ctuHeight - 1; // not refer below CTU
+                endY   = ctuHeight - 1; // not refer below CTU // 因为是垂直方向，最后一行不可以统计
                 if (firstY)
-                {
+                {//从第一行开始 跳过第0行
                     fenc += stride;
                     rec += stride;
                 }
 
-                for (x = startX; x < ctuWidth; x++)
+                for (x = startX; x < ctuWidth; x++)//先把第一行的上面符号算出来并保存
                     upBuff1[x] = signOf(rec[x] - rec[x - stride]);
 
                 for (y = firstY; y < endY; y++)
@@ -1086,14 +1108,14 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                     for (x = (y < startY - 1 ? startX : 0); x < ctuWidth; x++)
                     {
                         int signDown = signOf(rec[x] - rec[x + stride]);
-                        int edgeType = signDown + upBuff1[x] + 2;
-                        upBuff1[x] = -signDown;
+                        int edgeType = signDown + upBuff1[x] + 2;// edgeType: 0:valley 1:half_valley 2:flat 3:half_peak 4:peak
+                        upBuff1[x] = -signDown;// 将下面的符号更新到upBuff1 供下一行使用
 
                         if (x < startX && y < startY)
                             continue;
 
-                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                        count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);//差值累计统计
+                        count[s_eoTable[edgeType]]++;//类别计数
                     }
 
                     fenc += stride;
@@ -1101,10 +1123,10 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                 }
             }
 
-            // SAO_EO_2: // dir: 135
+            // SAO_EO_2: // dir: 135  135度方向'\'
             {
-                skipB = 4 - plane_offset;
-                skipR = 5 - plane_offset;
+                skipB = 4 - plane_offset;//bottom：luma 4 row chroma 2row
+                skipR = 5 - plane_offset;//right：luma 5 clo chroma 3clo
 
                 stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_2];
                 count = m_countPreDblk[addr][plane][SAO_EO_2];
@@ -1112,51 +1134,51 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                 fenc = fenc0;
                 rec  = rec0;
 
-                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
-                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-                firstX = !lpelx;
-                firstY = bAboveAvail;
+                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;//x 起始坐标
+                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;// y 起始坐标
+                firstX = !lpelx;// 如果左侧pixl 位置为0开始，做统计从1 开始
+                firstY = bAboveAvail;//如果上测 不可用，跳过一行
                 // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
                 // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
                 endX   = ctuWidth - 1;  // not refer right CTU
                 endY   = ctuHeight - 1; // not refer below CTU
-                if (firstY)
+                if (firstY)//跳过一行开始
                 {
                     fenc += stride;
                     rec += stride;
                 }
 
-                for (x = startX; x < endX; x++)
+                for (x = startX; x < endX; x++)// 首先计算左上边一行的符号
                     upBuff1[x] = signOf(rec[x] - rec[x - stride - 1]);
 
                 for (y = firstY; y < endY; y++)
                 {
-                    x = (y < startY - 1 ? startX : firstX);
+                    x = (y < startY - 1 ? startX : firstX);// 上边右侧列部分从 startX,开始，下边底部行从firstX 开始
                     upBufft[x] = signOf(rec[x + stride] - rec[x - 1]);
                     for (; x < endX; x++)
                     {
                         int signDown = signOf(rec[x] - rec[x + stride + 1]);
-                        int edgeType = signDown + upBuff1[x] + 2;
-                        upBufft[x + 1] = -signDown;
+                        int edgeType = signDown + upBuff1[x] + 2;// edgeType: 0:valley 1:half_valley 2:flat 3:half_peak 4:peak
+                        upBufft[x + 1] = -signDown;//将右下的符号反转后存入x+1 位置的upBufft中
 
                         if (x < startX && y < startY)
                             continue;
 
-                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                        count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);//差值累计统计
+                        count[s_eoTable[edgeType]]++;//类别计数统计
                     }
 
-                    std::swap(upBuff1, upBufft);
+                    std::swap(upBuff1, upBufft);//复用的是数据房贷了upBufft 中，这里让upBuff1 指向复用的数据
 
                     rec += stride;
                     fenc += stride;
                 }
             }
 
-            // SAO_EO_3: // dir: 45
+            // SAO_EO_3: // dir: 45 ‘/’
             {
-                skipB = 4 - plane_offset;
-                skipR = 5 - plane_offset;
+                skipB = 4 - plane_offset;//bottom: luma 4 row chroma 2row
+                skipR = 5 - plane_offset;//right: luma 5 row chroma 3row
 
                 stats = m_offsetOrgPreDblk[addr][plane][SAO_EO_3];
                 count = m_countPreDblk[addr][plane][SAO_EO_3];
@@ -1164,10 +1186,10 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                 fenc = fenc0;
                 rec  = rec0;
 
-                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;
-                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;
-                firstX = !lpelx;
-                firstY = bAboveAvail;
+                startX = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth - skipR;//右侧列部分的起始x坐标
+                startY = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight - skipB;//底部行部分的起始y坐标
+                firstX = !lpelx;//底部行部分的起始x
+                firstY = bAboveAvail;//如果当前ctu 上边不可用，则从第二行开始
                 // endX   = (rpelx == picWidth) ? ctuWidth - 1 : ctuWidth;
                 // endY   = (bpely == picHeight) ? ctuHeight - 1 : ctuHeight;
                 endX   = ctuWidth - 1;  // not refer right CTU
@@ -1178,25 +1200,25 @@ void SAO::calcSaoStatsCu_BeforeDblk(Frame* frame, int idxX, int idxY)
                     rec += stride;
                 }
 
-                for (x = startX - 1; x < endX; x++)
+                for (x = startX - 1; x < endX; x++)// 首先计算右上边一行的符号
                     upBuff1[x] = signOf(rec[x] - rec[x - stride + 1]);
 
                 for (y = firstY; y < endY; y++)
                 {
-                    for (x = (y < startY - 1 ? startX : firstX); x < endX; x++)
+                    for (x = (y < startY - 1 ? startX : firstX); x < endX; x++)// 上边右侧列部分从 startX,开始，下边底部行从firstX 开始
                     {
                         int signDown = signOf(rec[x] - rec[x + stride - 1]);
-                        int edgeType = signDown + upBuff1[x] + 2;
-                        upBuff1[x - 1] = -signDown;
+                        int edgeType = signDown + upBuff1[x] + 2;// edgeType: 0:valley 1:half_valley 2:flat 3:half_peak 4:peak
+                        upBuff1[x - 1] = -signDown;//将当次x处左下的符号反转后存入x-1 位置的upBufft中
 
                         if (x < startX && y < startY)
                             continue;
 
-                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);
-                        count[s_eoTable[edgeType]]++;
+                        stats[s_eoTable[edgeType]] += (fenc[x] - rec[x]);//差值累计统计
+                        count[s_eoTable[edgeType]]++;//类别计数统计
                     }
 
-                    upBuff1[endX - 1] = signOf(rec[endX - 1 + stride] - rec[endX]);
+                    upBuff1[endX - 1] = signOf(rec[endX - 1 + stride] - rec[endX]);//最后一个需要额外计算更新
 
                     rec += stride;
                     fenc += stride;
@@ -1248,9 +1270,9 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
     lambda[0] = (int64_t)floor(256.0 * s265_lambda2_tab[qp]);
     lambda[1] = (int64_t)floor(256.0 * s265_lambda2_tab[qpCb]); // Use Cb QP for SAO chroma
 
-    const bool allowMerge[2] = {(idxX != 0), (rowBaseAddr != 0)}; // left, up
+    const bool allowMerge[2] = {(idxX != 0), (rowBaseAddr != 0)}; // 是否允许 sao 使用left, up 的parameter 参数
 
-    const int addrMerge[2] = {(idxX ? addr - 1 : -1), (rowBaseAddr ? addr - m_numCuInWidth : -1)};// left, up
+    const int addrMerge[2] = {(idxX ? addr - 1 : -1), (rowBaseAddr ? addr - m_numCuInWidth : -1)};// 如果使用merge，这里记录left, up 的ctu 地址
 
     bool chroma = m_param->internalCsp != S265_CSP_I400 && m_frame->m_fencPic->m_picCsp != S265_CSP_I400;
     int planes = chroma ? 3 : 1;
@@ -1260,7 +1282,8 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
 
     // TODO: Confirm the address space is continuous
     if (m_param->bSaoNonDeblocked)
-    {
+    {   //如果允许了使用deblock 之前的 ctu右侧列部分与ctu底部行区域的像素来统计sao，则表明在之前这部分的统计已经完成，结果放在了m_offsetOrgPreDblk  m_countPreDblk
+        //这里将结果copy到 m_count 和 m_offsetOrg
         memcpy(m_count, m_countPreDblk[addr], sizeof(m_count));
         memcpy(m_offsetOrg, m_offsetOrgPreDblk[addr], sizeof(m_offsetOrg));
     }
@@ -1291,16 +1314,16 @@ void SAO::rdoSaoUnitCu(SAOParam* saoParam, int rowBaseAddr, int idxX, int addr)
             continue;
 
         SaoCtuParam* mergeSrcParam = &(saoParam->ctuParam[0][addrMerge[mergeIdx]]);
-        bAboveLeftAvail = bAboveLeftAvail && (mergeSrcParam->typeIdx == -1);// 只要left/above 有一个是saooff
+        bAboveLeftAvail = bAboveLeftAvail && (mergeSrcParam->typeIdx == -1);// 只要luma ctu 的 left/above 有一个是saooff above left 就不可用
     }
     // Don't apply sao if ctu is skipped or ajacent ctus are sao off
-    // 对于B帧中只要cut 是skip 或者其 left/above 的ctu 是sao_off的,则 关闭sao
+    // 对于B帧中只要ctu 是skip 或者其 left/above 的ctu 是sao_off的,则 关闭sao
     bool bSaoOff = (slice->m_sliceType == B_SLICE) && (cu->isSkipped(0) || bAboveLeftAvail);
 
     // Estimate distortion and cost of new SAO params
     if (saoParam->bSaoFlag[0])// y components 如果允许sao 默认打开
     {
-        if (!m_param->bLimitSAO || !bSaoOff)
+        if (!m_param->bLimitSAO || !bSaoOff)// 如果没有限制sao 或者没有表明需要关闭sao
         {
             calcSaoStatsCTU(addr, 0);//统计y分量的信息
             saoStatsInitialOffset(addr, 0);

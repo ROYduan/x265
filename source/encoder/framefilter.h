@@ -72,7 +72,7 @@ public:
         FrameFilter*        m_frameFilter;
         FrameData*          m_encData;
         ParallelFilter*     m_prevRow;
-        SAO                 m_sao;
+        SAO                 m_sao;// 在new ParallelFilter 时 会自动执行sao的构造函数
         ThreadSafeInteger   m_lastCol;         /*下一个ctu垂直滤波的起始地址(其前一个ctu的水平滤波还未完成)*/ /* The column that next to process */
         ThreadSafeInteger   m_allowedCol;       /* The column that processed from Encode pipeline */
         ThreadSafeInteger   m_lastDeblocked;   /* The column that finished all of Deblock stages  */

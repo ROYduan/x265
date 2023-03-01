@@ -112,7 +112,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
     bool ok = !!m_numRows;
 
     m_sliceBaseRow = S265_MALLOC(uint32_t, m_param->maxSlices + 1);//加多了一个1
-    m_bAllRowsStop = S265_MALLOC(bool, m_param->maxSlices);// 每个slice 都需要有个标志为，来表示是否其所有的行需要stop
+    m_bAllRowsStop = S265_MALLOC(bool, m_param->maxSlices);// 每个slice 都需要有个标志位，来表示是否其所有的行需要stop
     m_vbvResetTriggerRow = S265_MALLOC(int, m_param->maxSlices);
     ok &= !!m_sliceBaseRow;
     // 多slice 编码时，均分cut row 行
@@ -168,7 +168,7 @@ bool FrameEncoder::init(Encoder *top, int numRows, int numCols)
         s265_log(m_param, S265_LOG_ERROR, "unable to initialize wavefront queue\n");
         m_pool = NULL;
     }
-    //帧级filter 任务的初始化
+    //每个frame_Encoder 有一个帧级filter 任务的初始化
     m_frameFilter.init(top, this, numRows, numCols);
 
     if (m_param->noiseReductionIntra || m_param->noiseReductionInter)
@@ -809,14 +809,14 @@ void FrameEncoder::compressFrame()
                     m_row0WaitTime = s265_mdate();
                 else if (i == m_numRows - 1)
                     m_allRowsAvailableTime = s265_mdate();
-                // 非wpp下,由线程自己直接调用执行一行编码任务
-                processRowEncoder(i, m_tld[m_localTldIdx]);
+                // 非wpp下,由线程自己直接调用执行一行编码 encoding 任务
+                processRowEncoder(i, [m_localTldIdx]);
             }
 
             // filter
             if (i >= m_filterRowDelay)
                 // 同样，非wpp下,由线程自己直接调用执行一个ctu行的filter任务
-                m_frameFilter.processRow(i - m_filterRowDelay);
+                m_frameFilter.processRow(i - m_filterRowDelay);// 非wpp 下从这里进入进行滤波
         }
     }
 #if ENABLE_LIBVMAF
@@ -1210,7 +1210,7 @@ void FrameEncoder::processRow(int row, int threadId)
         processRowEncoder(realRow, m_tld[threadId]);
     else//否则 表示:filter任务
     {
-        m_frameFilter.processRow(realRow);// deblock +sao
+        m_frameFilter.processRow(realRow);// wpp 下的 deblock +sao 从这里进入
 
         // NOTE: Active next row
         if (realRow != m_sliceBaseRow[m_rows[realRow].sliceId + 1] - 1)// 非slice的最后一天行ctu 做完了filter时
@@ -1235,7 +1235,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         if (!curRow.active) //
             /* VBV restart is in progress, exit out */
             return;
-        if (curRow.busy)// 改行表示已经有其他的线程正在处理，出错
+        if (curRow.busy)// 该行表示已经有其他的线程正在处理，出错
         {
             /* On multi-socket Windows servers, we have seen problems with
              * ATOMIC_CAS which resulted in multiple worker threads processing
@@ -1774,7 +1774,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
         {
             /* stop threading on current row and restart it */
             m_frameFilter.m_parallelFilter[row - 1].m_allowedCol.set(numCols);//设置上一行位置的截止deblcok位置为其末尾
-            m_frameFilter.m_parallelFilter[row - 1].processTasks(-1);//处理上一行位置的filter任务
+            m_frameFilter.m_parallelFilter[row - 1].processTasks(-1);//使用当前线程也去处理上一行位置的filter任务
         }
     }
 
@@ -1788,7 +1788,7 @@ void FrameEncoder::processRowEncoder(int intRow, ThreadLocalData& tld)
 
             /* NOTE: Activate filter if first row (row 0) */
             if (rowInSlice == m_filterRowDelay)// 第一次由 此处提交任务，后面的任务提交由work完成一次filter 任务提交下一行的filter 任务
-                enqueueRowFilter(m_row_to_idx[row - m_filterRowDelay]);
+                enqueueRowFilter(m_row_to_idx[row - m_filterRowDelay]); //wpp 下 由 WaveFront::findJob 去执行滤波
             tryWakeOne();// -->WaveFront::findJob 唤醒一个线程 去找对应的jobprovider 取出一个任务执行 此处（执行 FrameEncoder 的processRow 里面的 filter 任务)
         }
 
